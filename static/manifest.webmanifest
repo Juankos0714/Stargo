@@ -1,0 +1,28 @@
+{
+	"name": "StarGo — Domicilios en Armenia",
+	"short_name": "StarGo",
+	"description": "Domicilios en Armenia: tarifas al instante y seguimiento de pedidos en vivo.",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#0064FF",
+	"theme_color": "#001621",
+	"icons": [
+		{
+			"src": "/icons/icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png"
+		},
+		{
+			"src": "/icons/icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png"
+		},
+		{
+			"src": "/icons/icon-maskable-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	]
+}
