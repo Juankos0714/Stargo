@@ -17,7 +17,7 @@ cron) y cómo **probar que las alertas llegan** (el entregable de la parte).
                      ┌───────────────────────────────┴──────────────────┐
                      ▼                                                  ▼
         ┌───────────────────────┐                        ┌───────────────────────────┐
-        │  Supabase             │                        │  Cron de Vercel (5 min)   │
+        │  Supabase             │                        │  Cron de Vercel (diario)  │
         │  errores_app          │◄── /api/errores        │  /api/cron/alertas        │
         │  alertas (bitácora)   │◄── RPC registrar_alerta│   ├─ pendientes vencidos   │
         │  historial_tarifas    │◄── trigger de auditoría│   ├─ tasa 5xx / rate limit │
@@ -83,17 +83,22 @@ en 5 minutos, acción = email/Slack/PagerDuty.
 `vercel.json` declara el cron:
 
 ```json
-{ "crons": [{ "path": "/api/cron/alertas", "schedule": "*/5 * * * *" }] }
+{ "crons": [{ "path": "/api/cron/alertas", "schedule": "0 0 * * *" }] }
 ```
 
 - Vercel invoca el cron con `Authorization: Bearer <CRON_SECRET>` — define
   `CRON_SECRET` en las env vars del proyecto. El endpoint también acepta
   `x-cron-secret` o `?secret=` (útil para probar con curl).
 - Sin `CRON_SECRET` el endpoint responde 503 (cron desactivado, la app sigue bien).
-- ⚠️ **Plan de Vercel**: los crons con intervalo < 1 día (`*/5 * * * *`) requieren
-  el plan **Pro**. En el plan Hobby Vercel solo permite un cron diario — en ese
-  caso cambia la frecuencia en `vercel.json` a `0 * * * *` (cada hora) o
-  `0 0 * * *` (diaria) según cuánta latencia de detección aceptes.
+- ⚠️ **Plan de Vercel**: la app usa `0 0 * * *` (una vez al día), la única
+  frecuencia permitida en el plan **Hobby**: ahí los crons solo corren **una vez
+  al día** y sin precisión horaria (un cron a `0 1 * * *` se dispara entre la
+  1:00 y la 1:59). Para detección de fallos cada pocos minutos (p. ej. `*/5 * * * *`,
+  o incluso `0 * * * *` cada hora) se necesita el plan **Pro** — las expresiones
+  que corren más de una vez al día **fallan el deploy en Hobby**. Si cambias la
+  frecuencia, actualiza también la línea "Cron de Vercel" del diagrama y recuerda
+  que el horario del cron es **UTC** (`0 0 * * *` = 19:00 de Bogotá). Referencia:
+  [Vercel Cron — Usage & Pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing).
 - Umbrales configurables: `ALERTAS_PENDIENTE_MINUTOS` (30), `ALERTAS_UMBRAL_5XX` (5),
   `ALERTAS_UMBRAL_RATE_LIMIT` (1), `ALERTAS_COOLDOWN_MIN` (60), `ALERTAS_ENTORNO` (local).
 

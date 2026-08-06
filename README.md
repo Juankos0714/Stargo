@@ -68,7 +68,7 @@ SvelteKit 5 (runes) + Supabase (Auth, Postgres/RLS, Realtime).
   en cada PR y feature flags server-side (`src/lib/server/flags.ts`).
 - **Monitoreo y alertas (Parte 9)**: Sentry (error tracking de frontend y backend, activo solo con
   `PUBLIC_SENTRY_DSN`), registro centralizado de errores (`errores_app` + `POST /api/errores`),
-  cron de alertas (`GET /api/cron/alertas` vía Vercel cron cada 5 min) que vigila pedidos sin
+  cron de alertas (`GET /api/cron/alertas` vía Vercel cron diario `0 0 * * *`, compatible con el plan Hobby) que vigila pedidos sin
   asignar, tasa de 5xx, rate limits y caída de Supabase, notificando por webhook
   (Slack/Discord/Telegram) + Sentry + bitácora `alertas`; dashboard `/admin/metricas` en tiempo
   real (pedidos activos, tiempos promedio de asignación/entrega, errores por minuto) y auditoría
@@ -416,8 +416,8 @@ Guía completa (Sentry, webhook, alertas en el dashboard) en [`docs/MONITOREO.md
 - **Dashboard `/admin/metricas`**: pedidos activos, tiempo promedio de asignación y de entrega
   (últimas 24 h), errores por minuto, últimas alertas y **auditoría de tarifas** (`historial_tarifas`,
   sección 14: quién y cuándo cambió la matriz). Se refresca cada 30 s y con Realtime.
-- **Cron de alertas**: `GET /api/cron/alertas` protegido por `CRON_SECRET` (Vercel lo invoca cada
-  5 min según [`vercel.json`](vercel.json) con `Authorization: Bearer`; también acepta
+- **Cron de alertas**: `GET /api/cron/alertas` protegido por `CRON_SECRET` (Vercel lo invoca a diario
+  con `0 0 * * *` según [`vercel.json`](vercel.json) con `Authorization: Bearer`; también acepta
   `x-cron-secret` o `?secret=`). Vigila: pedidos pendientes sin asignar por más de
   `ALERTAS_PENDIENTE_MINUTOS`, tasa de 5xx ≥ `ALERTAS_UMBRAL_5XX`, rate limits y caída de Supabase.
   Cada alerta va al webhook (`ALERTAS_WEBHOOK_URL`, formato `{text}` Slack/Discord/Telegram), a
