@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Logo from '$lib/components/Logo.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 
 	let cargando = $state(true);
 	let esAdmin = $state(false);
@@ -73,9 +74,7 @@
 					class="group inline-flex items-center gap-2 rounded-[10px] bg-primary px-6 py-3.5 font-semibold text-white shadow-lg transition hover:bg-primary-dark"
 				>
 					Hacer un pedido
-					<svg class="size-4 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M5 12h14M13 6l6 6-6 6" />
-					</svg>
+					<Icon name="arrow-right" class="size-4 transition-transform group-hover:translate-x-0.5" />
 				</a>
 				<a href="/consultar-estado" class="rounded-xl border border-white/15 px-6 py-3.5 font-medium text-slate-200 transition hover:bg-white/10">
 					Consultar estado
@@ -84,35 +83,54 @@
 			</div>
 		</section>
 
-		<section class="grid gap-5 pb-24 sm:grid-cols-3">
+		<section class="grid gap-5 pb-20 sm:grid-cols-3">
 			<div class="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur transition hover:border-primary/50 hover:bg-white/10">
 				<div class="mb-4 flex size-11 items-center justify-center rounded-xl bg-primary/20 text-[#8BB4FF]">
-					<svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<circle cx="12" cy="12" r="10" />
-						<path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20" />
-					</svg>
+					<Icon name="bolt" class="size-5" />
 				</div>
-				<h3 class="font-semibold text-white">Barrios</h3>
-				<p class="mt-1.5 text-sm text-slate-400">Cada barrio está asociado a una zona tarifaria de la ciudad.</p>
+				<h3 class="font-semibold text-white">Tarifa al instante</h3>
+				<p class="mt-1.5 text-sm text-slate-400">El precio de tu domicilio se calcula automáticamente al elegir origen y destino.</p>
 			</div>
 			<div class="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur transition hover:border-primary/50 hover:bg-white/10">
 				<div class="mb-4 flex size-11 items-center justify-center rounded-xl bg-primary/20 text-[#8BB4FF]">
-					<svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<rect x="3" y="3" width="18" height="18" rx="2" />
-						<path d="M3 9h18M3 15h18M9 3v18" />
-					</svg>
+					<Icon name="truck-fast" class="size-5" />
 				</div>
-				<h3 class="font-semibold text-white">Matriz de tarifas</h3>
-				<p class="mt-1.5 text-sm text-slate-400">Precios origen → destino por zona, con resolución simétrica automática.</p>
+				<h3 class="font-semibold text-white">Pedidos en minutos</h3>
+				<p class="mt-1.5 text-sm text-slate-400">Confirma tu pedido y recibe al instante el código de seguimiento.</p>
 			</div>
 			<div class="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur transition hover:border-primary/50 hover:bg-white/10">
 				<div class="mb-4 flex size-11 items-center justify-center rounded-xl bg-primary/20 text-[#8BB4FF]">
-					<svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8M2 7h20l-2-4H4l-2 4zM12 17v4" />
-					</svg>
+					<Icon name="magnifying-glass-location" class="size-5" />
 				</div>
-				<h3 class="font-semibold text-white">Solo admin</h3>
-				<p class="mt-1.5 text-sm text-slate-400">El panel de administración está protegido con Supabase Auth y verificación de admin.</p>
+				<h3 class="font-semibold text-white">Seguimiento en vivo</h3>
+				<p class="mt-1.5 text-sm text-slate-400">Consulta el estado de tu entrega cuando quieras, desde cualquier dispositivo.</p>
+			</div>
+		</section>
+
+		<section class="pb-24">
+			<h2 class="text-center text-sm font-bold tracking-widest text-slate-400 uppercase">¿Cómo funciona?</h2>
+			<div class="mt-8 grid gap-5 sm:grid-cols-3">
+				<div class="rounded-2xl border border-white/10 bg-white/5 p-6 text-center backdrop-blur">
+					<div class="mx-auto flex size-11 items-center justify-center rounded-full bg-primary/20 text-[#8BB4FF]">
+						<Icon name="cart-shopping" class="size-5" />
+					</div>
+					<p class="mt-4 text-sm font-bold text-white">1 · Elige origen y destino</p>
+					<p class="mt-1 text-xs text-slate-400">Cuéntanos dónde recoger y a dónde llevar tu pedido.</p>
+				</div>
+				<div class="rounded-2xl border border-white/10 bg-white/5 p-6 text-center backdrop-blur">
+					<div class="mx-auto flex size-11 items-center justify-center rounded-full bg-primary/20 text-[#8BB4FF]">
+						<Icon name="ticket" class="size-5" />
+					</div>
+					<p class="mt-4 text-sm font-bold text-white">2 · Recibe tu código</p>
+					<p class="mt-1 text-xs text-slate-400">Al confirmar obtienes un código único para seguir tu pedido.</p>
+				</div>
+				<div class="rounded-2xl border border-white/10 bg-white/5 p-6 text-center backdrop-blur">
+					<div class="mx-auto flex size-11 items-center justify-center rounded-full bg-primary/20 text-[#8BB4FF]">
+						<Icon name="map-location-dot" class="size-5" />
+					</div>
+					<p class="mt-4 text-sm font-bold text-white">3 · Sigue tu entrega</p>
+					<p class="mt-1 text-xs text-slate-400">Mira en vivo cada paso hasta que llegue a tu puerta.</p>
+				</div>
 			</div>
 		</section>
 	</main>

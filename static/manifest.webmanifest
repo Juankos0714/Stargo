@@ -1,12 +1,17 @@
 {
+	"id": "/",
 	"name": "StarGo — Domicilios en Armenia",
 	"short_name": "StarGo",
-	"description": "Domicilios en Armenia: tarifas al instante y seguimiento de pedidos en vivo.",
+	"description": "Domicilios en Armenia: tarifas al instante, pedidos y seguimiento en vivo.",
+	"lang": "es",
+	"dir": "ltr",
 	"start_url": "/",
 	"scope": "/",
 	"display": "standalone",
+	"display_override": ["standalone", "minimal-ui"],
 	"background_color": "#0064FF",
 	"theme_color": "#001621",
+	"categories": ["food", "shopping", "travel"],
 	"icons": [
 		{
 			"src": "/icons/icon-192.png",
@@ -23,6 +28,26 @@
 			"sizes": "512x512",
 			"type": "image/png",
 			"purpose": "maskable"
+		},
+		{
+			"src": "/icons/icon-1024.png",
+			"sizes": "1024x1024",
+			"type": "image/png",
+			"purpose": "any maskable"
+		}
+	],
+	"shortcuts": [
+		{
+			"name": "Hacer un pedido",
+			"short_name": "Pedido",
+			"description": "Crea un domicilio con tarifa calculada al instante.",
+			"url": "/nuevo-pedido"
+		},
+		{
+			"name": "Consultar estado",
+			"short_name": "Seguimiento",
+			"description": "Consulta el estado de tu pedido con su código.",
+			"url": "/consultar-estado"
 		}
 	]
 }

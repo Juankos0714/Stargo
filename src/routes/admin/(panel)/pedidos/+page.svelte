@@ -3,9 +3,9 @@
 	import { hidratarSesionRealtime } from '$lib/supabase-browser';
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
+	import BadgeEstado from '$lib/components/BadgeEstado.svelte';
 	import {
 		ESTADOS_PEDIDO,
-		colorEstado,
 		etiquetaEstado,
 		formatearPeso,
 		type Domiciliario,
@@ -30,6 +30,20 @@
 	let guardando = $state<Record<string, boolean>>({});
 	let asignacion = $state<Record<string, string>>({});
 	let estadoRealtime = $state<RealtimeEstado>('conectando');
+
+	// Cancelación con motivo (Fase 7)
+	const MOTIVOS = [
+		'El cliente ya no necesita el servicio',
+		'Tiempo de espera demasiado largo',
+		'Dirección incorrecta o inaccesible',
+		'El domiciliario no puede realizar el servicio',
+		'Problema con el pago',
+		'Otro'
+	];
+	let cancelando = $state<PedidoFila | null>(null);
+	let motivo = $state('');
+	let detalle = $state('');
+	let cancelandoPedido = $state(false);
 
 	const tabs: { valor: EstadoPedido | 'todos'; label: string }[] = [
 		{ valor: 'pendiente', label: 'Pendientes' },
@@ -102,18 +116,35 @@
 		await cargar();
 	}
 
-	async function cancelar(p: PedidoFila) {
-		if (!window.confirm(`¿Cancelar el pedido ${p.numero}? Esta acción no se puede deshacer.`)) return;
+	function abrirCancelacion(p: PedidoFila) {
+		motivo = '';
+		detalle = '';
+		cancelando = p;
+	}
+
+	async function confirmarCancelacion() {
+		if (!cancelando) return;
+		const p = cancelando;
+		const motivoFinal =
+			motivo === 'Otro'
+				? `Otro${detalle.trim() ? ` · ${detalle.trim()}` : ''}`
+				: motivo.trim();
 		guardando[p.id] = true;
 		guardando = { ...guardando };
 		mensaje = null;
-		const r = await api.post(`/api/pedidos/${p.id}/estado`, { estado: 'cancelado' });
+		const r = await api.post(`/api/pedidos/${p.id}/estado`, {
+			estado: 'cancelado',
+			motivo: motivoFinal || null
+		});
 		guardando[p.id] = false;
 		guardando = { ...guardando };
 		if (r.error) {
 			mensaje = { tipo: 'err', texto: r.error };
+			cancelandoPedido = false;
 			return;
 		}
+		cancelando = null;
+		cancelandoPedido = false;
 		mensaje = { tipo: 'ok', texto: `Pedido ${p.numero} cancelado.` };
 		await cargar();
 	}
@@ -212,6 +243,7 @@
 				</thead>
 				<tbody>
 					{#each visibles as p (p.id)}
+						{@const recs = p.recargos ?? []}
 						<tr class="border-b border-slate-100 align-top transition hover:bg-slate-50/60">
 							<td class="px-4 py-3">
 								<p class="font-mono text-sm font-bold text-slate-900">{p.numero}</p>
@@ -239,7 +271,14 @@
 								</p>
 								<p class="text-xs text-slate-500">{p.direccion_origen} → {p.direccion_destino}</p>
 							</td>
-							<td class="px-4 py-3 font-bold whitespace-nowrap text-slate-900">{formatearPeso(p.tarifa_base)}</td>
+							<td class="px-4 py-3 font-bold whitespace-nowrap text-slate-900">
+								{formatearPeso(p.total ?? p.tarifa_base)}
+								{#if recs.length > 0}
+									<span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500" title={recs.map((r) => r.nombre).join(' · ')}>
+										+{recs.length} recargo{recs.length > 1 ? 's' : ''}
+									</span>
+								{/if}
+							</td>
 							<td class="px-4 py-3">
 								{#if p.domiciliario_nombre}
 									<span class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-800">
@@ -253,9 +292,7 @@
 								{/if}
 							</td>
 							<td class="px-4 py-3">
-								<span class="inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold {colorEstado(p.estado)}">
-									{etiquetaEstado(p.estado)}
-								</span>
+							<BadgeEstado estado={p.estado} />
 							</td>
 							<td class="px-4 py-3 text-right">
 								{#if p.estado === 'pendiente'}
@@ -286,7 +323,7 @@
 								{:else if p.estado !== 'entregado' && p.estado !== 'cancelado'}
 									<button
 										type="button"
-										onclick={() => cancelar(p)}
+										onclick={() => abrirCancelacion(p)}
 										disabled={guardando[p.id]}
 										class="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
 									>
@@ -303,3 +340,65 @@
 		</div>
 	{/if}
 </div>
+
+{#if cancelando}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+			<h2 class="text-lg font-bold text-slate-900">Cancelar pedido {cancelando.numero}</h2>
+			<p class="mt-1 text-sm text-slate-500">Esta acción no se puede deshacer. El motivo queda registrado en el historial.</p>
+			<div class="mt-5 space-y-4">
+				<div>
+					<label for="motivo-cancel" class="mb-1.5 block text-sm font-semibold text-slate-700">Motivo</label>
+					<select
+						id="motivo-cancel"
+						bind:value={motivo}
+						class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-primary focus:outline-none"
+					>
+						<option value="">Selecciona un motivo…</option>
+						{#each MOTIVOS as m (m)}
+							<option value={m}>{m}</option>
+						{/each}
+					</select>
+				</div>
+				<div>
+					<label for="motivo-detalle" class="mb-1.5 block text-sm font-semibold text-slate-700">
+						Detalle <span class="font-normal text-slate-400">(opcional)</span>
+					</label>
+					<textarea
+						id="motivo-detalle"
+						bind:value={detalle}
+						rows="2"
+						maxlength="300"
+						placeholder="Complementa el motivo si lo necesitas…"
+						class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:outline-none"
+					></textarea>
+				</div>
+			</div>
+			<div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+				<button
+					type="button"
+					onclick={() => (cancelando = null)}
+					disabled={cancelandoPedido}
+					class="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+				>
+					Volver
+				</button>
+				<button
+					type="button"
+					onclick={() => {
+						cancelandoPedido = true;
+						confirmarCancelacion();
+					}}
+					disabled={cancelandoPedido || !motivo.trim()}
+					class="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
+				>
+					{cancelandoPedido ? 'Cancelando…' : 'Confirmar cancelación'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}

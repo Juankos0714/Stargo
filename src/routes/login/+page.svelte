@@ -45,7 +45,7 @@
 		<div class="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
 			<h1 class="text-lg font-bold text-white">Acceso a los paneles</h1>
 			<p class="mt-1 text-sm text-slate-400">
-				Ingresa con tu cuenta de Supabase. El sistema detecta tu rol (administrador o domiciliario).
+				Ingresa con tu correo y contraseña. El sistema detecta tu rol y te lleva a tu panel.
 			</p>
 
 			<form class="mt-6 space-y-4" onsubmit={entrar}>
@@ -96,12 +96,7 @@
 		<div class="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 text-xs leading-relaxed text-slate-400">
 			<p class="mb-1 font-semibold text-slate-300">¿Primera vez?</p>
 			<p>
-				<span class="text-[#8BB4FF]">Administrador:</span> crea tu usuario en Supabase (Authentication → Users → Add user),
-				ejecuta <code class="text-[#8BB4FF]">supabase/agregar_admin.sql</code> con tu email y entra aquí.
-			</p>
-			<p class="mt-2">
-				<span class="text-[#8BB4FF]">Domiciliario:</span> crea tu cuenta en Supabase con el mismo email y pide al administrador
-				que te registre desde el panel (Admin → Domiciliarios).
+				Si aún no tienes acceso, pide a tu administrador que cree tu cuenta. Cada usuario entra con su correo y contraseña.
 			</p>
 		</div>
 	</div>

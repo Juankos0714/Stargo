@@ -2,6 +2,7 @@
 	import SearchSelect, { type SearchItem } from '$lib/components/SearchSelect.svelte';
 	import { api } from '$lib/api';
 	import Logo from '$lib/components/Logo.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import { formatearPeso, type Barrio, type Zona } from '$lib/types';
 
 	let barrios = $state<Barrio[]>([]);
@@ -134,9 +135,7 @@
 						aria-label="Intercambiar origen y destino"
 						class="mx-auto flex size-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-primary hover:text-primary-dark active:scale-95"
 					>
-						<svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="m17 2 4 4-4 4M21 6H3M7 22l-4-4 4-4M3 18h18" />
-						</svg>
+						<Icon name="arrows-left-right" class="size-4.5" />
 					</button>
 
 					<div>
@@ -158,10 +157,7 @@
 				<div class="mt-7 min-h-36 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-6">
 					{#if !calculado}
 						<p class="flex items-center gap-2 text-sm text-slate-400">
-							<svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<circle cx="12" cy="12" r="10" />
-								<path d="M12 16v-4M12 8h.01" />
-							</svg>
+							<Icon name="circle-info" class="size-4.5" />
 							Selecciona ambos barrios para calcular la tarifa automáticamente.
 						</p>
 					{:else if disponible}
@@ -176,10 +172,7 @@
 						</div>
 					{:else}
 						<div class="flex flex-col items-center gap-1.5 text-center">
-							<span class="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-								<svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01" />
-								</svg>
+							<span class="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">									<Icon name="triangle-exclamation" class="size-3.5" />
 								{#if motivo === 'zona_no_disponible'}
 									Zona no disponible
 								{:else if motivo === 'sin_tarifa'}

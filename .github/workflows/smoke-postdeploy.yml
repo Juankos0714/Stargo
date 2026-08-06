@@ -1,0 +1,49 @@
+name: Smoke post-deploy
+
+# Parte 8 — Detecta en segundos si un deploy rompió algo en producción real.
+#
+# Se dispara:
+#   - manualmente (workflow_dispatch), o
+#   - cuando Vercel reporta un deployment exitoso a producción
+#     (repository_dispatch con event_type deploy-complete, que se envía desde
+#     un webhook de Vercel: Settings → Webhooks → agregar → event_type
+#     "deploy-complete" y este workflow como destino).
+#
+# Sin los secretos SMOKE_* configurados, el job se omite sin fallar
+# (el script scripts/smoke-test.mjs hace lo mismo si faltan credenciales).
+#
+# ⚠️ Requiere usuarios de PRUEBA dedicados en producción (nunca reales):
+#   SMOKE_ADMIN_EMAIL / SMOKE_ADMIN_PASSWORD / SMOKE_DOM_EMAIL /
+#   SMOKE_DOM_PASSWORD. El smoke test crea un pedido de prueba y lo cancela.
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [deploy-complete]
+
+jobs:
+  smoke:
+    name: Smoke test en producción
+    runs-on: ubuntu-latest
+    if: ${{ secrets.SMOKE_URL != '' && secrets.SMOKE_ADMIN_EMAIL != '' && secrets.SMOKE_DOM_EMAIL != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun y Node
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+          node-version: 22
+
+      - name: Instalar dependencias (bun.lock)
+        run: bun install --frozen-lockfile
+
+      - name: Smoke test
+        run: bun run test:smoke
+        timeout-minutes: 5
+        env:
+          SMOKE_URL: ${{ secrets.SMOKE_URL }}
+          SMOKE_ADMIN_EMAIL: ${{ secrets.SMOKE_ADMIN_EMAIL }}
+          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD }}
+          SMOKE_DOM_EMAIL: ${{ secrets.SMOKE_DOM_EMAIL }}
+          SMOKE_DOM_PASSWORD: ${{ secrets.SMOKE_DOM_PASSWORD }}

@@ -11,10 +11,12 @@ node_modules
 /dist
 
 # Env (nunca commitear credenciales ni config local)
+# .env.test puede contener la service_role key de un proyecto de staging;
+# se ignora (solo se commitea la plantilla .env.test.example).
 .env
 .env.*
 !.env.example
-!.env.test
+!.env.test.example
 
 # Logs
 *.log
@@ -27,6 +29,10 @@ pnpm-debug.log*
 coverage/
 test-results/
 playwright-report/
+# Estado temporal de la suite E2E (se siembra en cada corrida)
+tests/e2e/.state.json
+# Estado local del checklist go/no-go (Parte 10): fechas de verificaciones manuales
+.go-no-go-estado.json
 
 # TypeScript
 *.tsbuildinfo
@@ -43,3 +49,6 @@ vite.config.ts.timestamp-*
 # Python
 __pycache__/
 *.py[cod]
+
+# Sentry Config File
+.env.sentry-build-plugin

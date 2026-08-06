@@ -1,0 +1,53 @@
+name: E2E contra preview de Vercel
+
+# Parte 8 — Deploy previews de Vercel: cada PR genera una URL de preview.
+# Este workflow corre la suite E2E crítica (subset reducido) contra esa URL
+# antes de mergear, no solo contra local/CI.
+#
+# Se dispara automáticamente cuando Vercel publica un preview (evento
+# deployment_status con environment=Preview y state=success).
+#
+# Requisitos:
+#   - Un Supabase de PRUEBAS (staging) accesible desde el preview. El preview
+#     de Vercel usa las variables PUBLIC_* de ese proyecto, así que los datos
+#     de prueba se crean contra staging (nunca producción).
+#   - Secretos: E2E_STAGING_URL, E2E_STAGING_ANON_KEY, E2E_STAGING_SERVICE_KEY,
+#     TEST_USERS_PASSWORD.
+#
+# Sin los secretos, el job se omite sin fallar.
+on:
+  deployment_status:
+
+jobs:
+  e2e-critico:
+    name: E2E crítico contra preview
+    runs-on: ubuntu-latest
+    if: ${{ github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'Preview' && secrets.E2E_STAGING_URL != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun y Node
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+          node-version: 22
+
+      - name: Instalar dependencias (bun.lock)
+        run: bun install --frozen-lockfile
+
+      - name: Instalar browsers de Playwright
+        run: bunx playwright install --with-deps chromium
+
+      - name: Suite E2E crítica contra el preview
+        # TEST_BASE_URL apunta al preview; el runner no compila ni levanta nada.
+        # E2E_PROJECTS limita a chromium-desktop para el subset de PR.
+        run: bun run test:e2e
+        timeout-minutes: 20
+        env:
+          TEST_BASE_URL: ${{ github.event.deployment_status.target_url }}
+          E2E_PROJECTS: chromium-desktop
+          SUPABASE_URL: ${{ secrets.E2E_STAGING_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.E2E_STAGING_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_STAGING_SERVICE_KEY }}
+          TEST_USERS_PASSWORD: ${{ secrets.TEST_USERS_PASSWORD }}

@@ -14,7 +14,9 @@ import { getSesion, rolesDe, type SesionInfo } from '$lib/server/auth';
 export const GET: RequestHandler = async (event) => {
 	const sesion = await getSesion(event);
 	if (!sesion) {
-		return json({ error: 'Sesión inválida o expirada' }, { status: 401 });
+		// 200 con data:null para visitantes anónimos: evita errores 401 en la
+		// consola del navegador. Todos los consumidores ya contemplan data nulo.
+		return json({ data: null });
 	}
 	const roles = await rolesDe(sesion);
 	if (!roles.esAdmin && !roles.esDomiciliario) {

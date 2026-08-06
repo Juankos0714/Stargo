@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { api } from '$lib/api';
+	import Icon from '$lib/components/Icon.svelte';
+	import BadgeEstado from '$lib/components/BadgeEstado.svelte';
 	import { hidratarSesionRealtime } from '$lib/supabase-browser';
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
@@ -8,7 +10,6 @@
 		ESTADOS_ACTIVOS_DOMICILIARIO,
 		ESTADOS_FINALES,
 		accionDomiciliario,
-		colorEstado,
 		etiquetaEstado,
 		formatearPeso,
 		type HistorialEstado,
@@ -183,12 +184,7 @@
 {:else if pestana === 'activos' && activos.length === 0}
 	<div class="rounded-2xl border-2 border-dashed border-slate-200 bg-white/60 p-14 text-center">
 		<div class="mx-auto flex size-14 items-center justify-center rounded-full bg-primary-light text-[#8BB4FF]">
-			<svg class="size-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M5 11 4 4h4l3 7" />
-				<path d="M5 11h14l1 3H6" />
-				<circle cx="6" cy="17" r="1.5" />
-				<circle cx="17" cy="17" r="1.5" />
-			</svg>
+			<Icon name="truck" class="size-7" />
 		</div>
 		<p class="mt-4 font-semibold text-slate-700">No tienes entregas en curso</p>
 		<p class="mt-1 text-sm text-slate-400">Cuando el administrador te asigne un pedido, aparecerá aquí automáticamente.</p>
@@ -203,9 +199,7 @@
 						<p class="text-[10px] font-semibold tracking-wide text-slate-400 uppercase">Pedido</p>
 						<p class="font-mono text-xl font-black tracking-widest text-slate-900">{p.numero}</p>
 					</div>
-					<span class="ml-auto inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold {colorEstado(p.estado)}">
-						{etiquetaEstado(p.estado)}
-					</span>
+					<BadgeEstado estado={p.estado} size="md" class="ml-auto" />
 					<div class="w-full sm:w-auto sm:text-right">
 						<p class="text-[10px] font-semibold tracking-wide text-slate-400 uppercase">Tarifa</p>
 						<p class="text-lg font-extrabold text-primary-dark">{formatearPeso(p.tarifa_base)}</p>
@@ -254,10 +248,7 @@
 						rel="noopener noreferrer"
 						class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-[#8BB4FF] hover:text-primary-dark"
 					>
-						<svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-							<circle cx="12" cy="10" r="3" />
-						</svg>
+						<Icon name="location-dot" class="size-3.5" />
 						Abrir navegación
 					</a>
 					<details class="ml-auto">
@@ -290,9 +281,7 @@
 				<p class="text-sm text-slate-500">
 					{p.barrio_origen_nombre ?? '—'} → {p.barrio_destino_nombre ?? '—'}
 				</p>
-				<span class="inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold {colorEstado(p.estado)}">
-					{etiquetaEstado(p.estado)}
-				</span>
+				<BadgeEstado estado={p.estado} />
 				<span class="ml-auto font-bold text-slate-900">{formatearPeso(p.tarifa_base)}</span>
 				<span class="text-xs text-slate-400">{formatearFecha(p.created_at)}</span>
 			</div>

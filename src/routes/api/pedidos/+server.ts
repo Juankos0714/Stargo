@@ -13,6 +13,15 @@ export const POST: RequestHandler = async ({ request }) => {
 	const barrioDestino = String(body?.barrio_destino ?? '').trim();
 	const direccionDestino = String(body?.direccion_destino ?? '').trim();
 	const observaciones = String(body?.observaciones ?? '').trim() || null;
+	// Recargos elegidos por el cliente (códigos). El total real lo recalcula la BD.
+	const recargos = Array.isArray(body?.recargos)
+		? (body.recargos as unknown[])
+				.map((c) => String(c).trim())
+				.filter((c) => c.length > 0 && c.length <= 40)
+		: [];
+	if (recargos.length > 15) {
+		return json({ error: 'Demasiados recargos (máx. 15).' }, { status: 400 });
+	}
 
 	if (!barrioOrigen || !barrioDestino) {
 		return json({ error: 'Faltan el barrio de origen o destino.' }, { status: 400 });
@@ -32,7 +41,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		p_direccion_origen: direccionOrigen,
 		p_barrio_destino_id: barrioDestino,
 		p_direccion_destino: direccionDestino,
-		p_observaciones: observaciones
+		p_observaciones: observaciones,
+		p_recargos: recargos.length > 0 ? recargos : null
 	});
 
 	if (err) {

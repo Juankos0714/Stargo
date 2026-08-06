@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './layout.css';
+	import IndicadorOffline from '$lib/components/IndicadorOffline.svelte';
 
 	let { children } = $props();
 
@@ -23,4 +24,5 @@
 	<meta name="twitter:title" content="StarGo — Domicilios en Armenia" />
 	<meta name="twitter:image" content={ogImage} />
 </svelte:head>
+<IndicadorOffline />
 {@render children()}

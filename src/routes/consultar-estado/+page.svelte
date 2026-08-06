@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Logo from '$lib/components/Logo.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
+	import BadgeEstado from '$lib/components/BadgeEstado.svelte';
+	import HistorialTimeline from '$lib/components/HistorialTimeline.svelte';
 	import {
-		colorEstado,
-		etiquetaEstado,
 		formatearPeso,
-		type PedidoConsultado,
-		type EstadoPedido
+		type PedidoConsultado
 	} from '$lib/types';
+	import { validarMotivoCancelacion } from '$lib/logic/validacion';
 	import { page } from '$app/state';
 
 	let numero = $state('');
@@ -20,13 +21,42 @@
 	let estadoRealtime = $state<RealtimeEstado>('conectando');
 	let canalActivo = $state<(() => void) | null>(null);
 
-	function formatearFecha(iso: string): string {
-		return new Date(iso).toLocaleString('es-CO', {
-			day: '2-digit',
-			month: 'short',
-			hour: '2-digit',
-			minute: '2-digit'
+	// Cancelación del pedido (Fase 7): solo mientras esté pendiente.
+	const MOTIVOS = [
+		'Ya no necesito el servicio',
+		'Tiempo de espera demasiado largo',
+		'Cambié de planes',
+		'Dirección incorrecta',
+		'Otro'
+	];
+	let cancelando = $state(false);
+	let motivo = $state('');
+	let detalle = $state('');
+	let cancelandoError = $state<string | null>(null);
+
+	async function cancelarPedido() {
+		if (!resultado) return;
+		const motivoFinal = motivo === 'Otro'
+			? `Otro${detalle.trim() ? ` · ${detalle.trim()}` : ''}`
+			: motivo.trim();
+		const errMotivo = validarMotivoCancelacion(motivoFinal);
+		if (errMotivo) {
+			cancelandoError = errMotivo;
+			return;
+		}
+		cancelandoError = null;
+		const r = await api.post('/api/pedidos/cancelar', {
+			numero: resultado.pedido.numero,
+			motivo: motivoFinal || null
 		});
+		if (r.error) {
+			cancelandoError = r.error;
+			return;
+		}
+		cancelando = false;
+		motivo = '';
+		detalle = '';
+		consultar(resultado.pedido.numero);
 	}
 
 	const consultarDebounced = debounce((codigo: string) => consultar(codigo, true), 300);
@@ -154,9 +184,7 @@
 							<p class="text-xs font-semibold tracking-wide text-slate-400 uppercase">Pedido</p>
 							<p class="font-mono text-2xl font-black tracking-widest text-slate-900">{resultado.pedido.numero}</p>
 						</div>
-						<span class="inline-flex rounded-full border px-3 py-1 text-sm font-semibold {colorEstado(resultado.pedido.estado as EstadoPedido)}">
-							{etiquetaEstado(resultado.pedido.estado as EstadoPedido)}
-						</span>
+						<BadgeEstado estado={resultado.pedido.estado} size="lg" testid="estado-pedido" />
 					</div>
 
 					<div class="mt-6 grid gap-4 sm:grid-cols-2">
@@ -178,29 +206,101 @@
 						</p>
 					{/if}
 
-					<div class="mt-6 flex items-center justify-between rounded-xl border border-primary/30 bg-primary-light/60 px-4 py-3">
-						<span class="text-sm font-semibold text-slate-600">Tarifa</span>
-						<span class="text-xl font-extrabold text-primary-dark">{formatearPeso(resultado.pedido.tarifa_base)}</span>
+					<div class="mt-6 rounded-xl border border-primary/30 bg-primary-light/60 px-4 py-3">
+						{#if (resultado.pedido.recargos?.length ?? 0) > 0}
+							<div class="space-y-1 text-sm">
+								<p class="flex justify-between">
+									<span class="text-slate-600">Tarifa base</span>
+									<span class="font-semibold text-slate-900">{formatearPeso(resultado.pedido.tarifa_base)}</span>
+								</p>
+								{#each resultado.pedido.recargos ?? [] as r (r.codigo)}
+									<p class="flex justify-between">
+										<span class="text-slate-600">{r.nombre}</span>
+										<span class="font-semibold text-slate-800">{formatearPeso(r.valor)}</span>
+									</p>
+								{/each}
+								<p class="flex justify-between border-t border-primary/20 pt-1">
+									<span class="font-semibold text-slate-600">Total</span>
+									<span class="text-xl font-extrabold text-primary-dark">
+										{formatearPeso(resultado.pedido.total ?? resultado.pedido.tarifa_base)}
+									</span>
+								</p>
+							</div>
+						{:else}
+							<div class="flex items-center justify-between">
+								<span class="text-sm font-semibold text-slate-600">Tarifa</span>
+								<span class="text-xl font-extrabold text-primary-dark">{formatearPeso(resultado.pedido.tarifa_base)}</span>
+							</div>
+						{/if}
 					</div>
 
-					<h2 class="mt-7 text-sm font-bold tracking-wide text-slate-500 uppercase">Historial del pedido</h2>
-					<ol class="mt-4 space-y-0">
-						{#each resultado.historial as hito, i (hito.id ?? i)}
-							<li class="relative flex gap-4 pb-6 last:pb-0">
-								{#if i < resultado.historial.length - 1}
-									<span class="absolute top-5 left-[9px] h-full w-0.5 bg-slate-200"></span>
+					{#if resultado.pedido.estado === 'cancelado' && resultado.pedido.motivo_cancelacion}
+						<p class="mt-4 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+							<Icon name="ban" class="mt-0.5 size-4 shrink-0" />
+							<span><span class="font-semibold">Motivo de cancelación:</span> {resultado.pedido.motivo_cancelacion}</span>
+						</p>
+					{/if}
+
+					{#if resultado.pedido.estado === 'pendiente'}
+						{#if !cancelando}
+							<button
+								type="button"
+								onclick={() => (cancelando = true)}
+								class="mt-4 w-full rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+							>
+								Cancelar pedido
+							</button>
+						{:else}
+							<div class="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+								<p class="text-sm font-semibold text-red-700">¿Cancelar este pedido?</p>
+								<p class="mt-0.5 text-xs text-red-600">
+									Solo puedes cancelarlo mientras siga pendiente, antes de que se asigne un domiciliario.
+								</p>
+								<select
+									bind:value={motivo}
+									class="mt-3 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-red-400 focus:outline-none"
+								>
+									<option value="">Selecciona un motivo…</option>
+									{#each MOTIVOS as m (m)}
+										<option value={m}>{m}</option>
+									{/each}
+								</select>
+								<textarea
+									bind:value={detalle}
+									rows="2"
+									maxlength="300"
+									placeholder="Detalle (opcional)"
+									class="mt-2 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-red-400 focus:outline-none"
+								></textarea>
+								{#if cancelandoError}
+									<p class="mt-2 text-xs font-medium text-red-700">{cancelandoError}</p>
 								{/if}
-								<span class="mt-1 size-5 shrink-0 rounded-full border-2 border-primary bg-white"></span>
-								<div>
-									<p class="text-sm font-semibold text-slate-900">{etiquetaEstado(hito.estado as EstadoPedido)}</p>
-									{#if hito.notas}
-										<p class="text-xs text-slate-500">{hito.notas}</p>
-									{/if}
-									<p class="mt-0.5 text-xs text-slate-400">{formatearFecha(hito.created_at)}</p>
+								<div class="mt-3 flex gap-2">
+									<button
+										type="button"
+										onclick={cancelarPedido}
+										disabled={!motivo.trim()}
+										class="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
+									>
+										Confirmar cancelación
+									</button>
+									<button
+										type="button"
+										onclick={() => {
+											cancelando = false;
+											cancelandoError = null;
+										}}
+										class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+									>
+										Volver
+									</button>
 								</div>
-							</li>
-						{/each}
-					</ol>
+							</div>
+						{/if}
+					{/if}
+
+					<h2 class="mt-7 text-sm font-bold tracking-wide text-slate-500 uppercase">Historial del pedido</h2>
+					<HistorialTimeline historial={resultado.historial} />
 				</div>
 			{:else}
 				<p class="py-16 text-center text-sm text-slate-400">

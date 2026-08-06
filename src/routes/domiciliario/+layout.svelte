@@ -4,6 +4,7 @@
 	import { api } from '$lib/api';
 	import { supabaseBrowser } from '$lib/supabase-browser';
 	import Logo from '$lib/components/Logo.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 
 	let { children } = $props();
 
@@ -33,12 +34,7 @@
 				href="/domiciliario"
 				class="flex items-center gap-3 rounded-lg bg-primary/15 px-3 py-2.5 text-sm font-medium text-[#8BB4FF]"
 			>
-				<svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M5 11 4 4h4l3 7" />
-					<path d="M5 11h14l1 3H6" />
-					<circle cx="6" cy="17" r="1.5" />
-					<circle cx="17" cy="17" r="1.5" />
-				</svg>
+				<Icon name="truck" class="size-4.5" />
 				Mis entregas
 			</a>
 		</nav>
@@ -58,9 +54,7 @@
 				onclick={salir}
 				class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"
 			>
-				<svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-				</svg>
+				<Icon name="right-from-bracket" class="size-4.5" />
 				Cerrar sesión
 			</button>
 		</div>

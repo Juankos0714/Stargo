@@ -1,28 +1,22 @@
-import { getSupabaseAnon } from './supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { calcularTarifaPura, ZONA_ROJA, type TarifaMatriz } from '$lib/logic/tarifa';
 
-export type MotivoTarifa = 'ok' | 'barrio_no_encontrado' | 'zona_no_disponible' | 'sin_tarifa';
-
-export interface ResultadoTarifa {
-	valor: number | null;
-	meta: {
-		disponible: boolean;
-		motivo: MotivoTarifa;
-		barrio_origen?: string | null;
-		barrio_destino?: string | null;
-		zona_origen?: string | null;
-		zona_destino?: string | null;
-	};
-}
-
-const ZONA_ROJA = 'zona_roja';
+export type { MotivoTarifa, ResultadoTarifa } from '$lib/logic/tarifa';
 
 /**
- * Dado barrio origen y destino (id UUID o nombre), resuelve sus zonas y
- * busca el precio en la matriz de tarifas, con fallback simétrico.
+ * Dado barrio origen y destino (id UUID o nombre), resuelve sus zonas contra
+ * la BD y delega la decisión del precio (matriz + fallback simétrico + zona
+ * roja/sin sector) en la lógica pura calcularTarifaPura().
  * Espejo de la función SQL public.calcular_tarifa().
  */
-export async function calcularTarifa(barrioOrigen: string, barrioDestino: string): Promise<ResultadoTarifa> {
-	const supabase = getSupabaseAnon();
+export async function calcularTarifa(
+	barrioOrigen: string,
+	barrioDestino: string,
+	db?: SupabaseClient
+): Promise<ReturnType<typeof calcularTarifaPura>> {
+	// Cliente real perezoso: se obtiene con import dinámico para que los tests
+	// puedan inyectar un cliente simulado sin cargar $env/static/public.
+	const supabase = db ?? (await import('./supabase')).getSupabaseAnon();
 
 	// Resolver barrio → zona. Acepta el id (UUID) o el nombre (case-insensitive).
 	const resolver = async (term: string) => {
@@ -48,55 +42,33 @@ export async function calcularTarifa(barrioOrigen: string, barrioDestino: string
 	const origen = await resolver(barrioOrigen);
 	const destino = await resolver(barrioDestino);
 
-	if (!origen || !destino) {
-		return {
-			valor: null,
-			meta: {
-				disponible: false,
-				motivo: 'barrio_no_encontrado',
-				barrio_origen: origen?.nombre ?? null,
-				barrio_destino: destino?.nombre ?? null
-			}
+	// Solo consulta la matriz si ambos barrios tienen sector y ninguno está en
+	// la zona roja (la decisión final igualmente la toma la lógica pura).
+	let filas: TarifaMatriz[] = [];
+	if (
+		origen?.zona_id &&
+		destino?.zona_id &&
+		origen.zona_id !== ZONA_ROJA &&
+		destino.zona_id !== ZONA_ROJA
+	) {
+		const buscar = async (o: string, d: string): Promise<TarifaMatriz | null> => {
+			const { data } = await supabase
+				.from('tarifas')
+				.select('zona_origen_id, zona_destino_id, valor')
+				.eq('zona_origen_id', o)
+				.eq('zona_destino_id', d)
+				.limit(1);
+			return (data ?? [])[0] ?? null;
 		};
-	}
-
-	if (origen.zona_id === ZONA_ROJA || destino.zona_id === ZONA_ROJA) {
-		return {
-			valor: null,
-			meta: {
-				disponible: false,
-				motivo: 'zona_no_disponible',
-				barrio_origen: origen.nombre,
-				barrio_destino: destino.nombre,
-				zona_origen: origen.zona_id,
-				zona_destino: destino.zona_id
-			}
-		};
-	}
-
-	// Matriz simétrica: buscar directa y, si no existe, sentido inverso.
-	const buscar = async (o: string, d: string): Promise<number | null> => {
-		const { data } = await supabase
-			.from('tarifas')
-			.select('valor')
-			.eq('zona_origen_id', o)
-			.eq('zona_destino_id', d)
-			.limit(1);
-		return (data ?? [])[0]?.valor ?? null;
-	};
-
-	let valor = await buscar(origen.zona_id, destino.zona_id);
-	if (valor == null) valor = await buscar(destino.zona_id, origen.zona_id);
-
-	return {
-		valor,
-		meta: {
-			disponible: valor != null,
-			motivo: valor == null ? 'sin_tarifa' : 'ok',
-			barrio_origen: origen.nombre,
-			barrio_destino: destino.nombre,
-			zona_origen: origen.zona_id,
-			zona_destino: destino.zona_id
+		// Matriz simétrica: buscar directa y, si no existe, sentido inverso.
+		const directa = await buscar(origen.zona_id, destino.zona_id);
+		if (directa) {
+			filas.push(directa);
+		} else {
+			const inversa = await buscar(destino.zona_id, origen.zona_id);
+			if (inversa) filas.push(inversa);
 		}
-	};
+	}
+
+	return calcularTarifaPura(origen, destino, filas);
 }

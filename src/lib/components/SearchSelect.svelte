@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
+
 	export interface SearchItem {
 		id: string;
 		label: string;
@@ -92,13 +94,7 @@
 
 <div class="relative" bind:this={root}>
 	<div class="relative">
-		<svg
-			class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
-			viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-		>
-			<circle cx="11" cy="11" r="8" />
-			<path d="m21 21-4.3-4.3" />
-		</svg>
+		<Icon name="magnifying-glass" class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
 		<input
 			{id}
 			type="text"
@@ -124,9 +120,7 @@
 				onclick={limpiar}
 				class="absolute top-1/2 right-2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
 			>
-				<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-					<path d="M18 6 6 18M6 6l12 12" />
-				</svg>
+				<Icon name="xmark" class="size-4" />
 			</button>
 		{/if}
 	</div>

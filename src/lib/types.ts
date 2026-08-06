@@ -23,6 +23,39 @@ export interface Tarifa {
 	updated_at?: string;
 }
 
+// ---------- Recargos (Fase 7) ----------
+
+export type TipoRecargo = 'compra' | 'tiempo_espera' | 'paradas' | 'peso' | 'pago' | 'otro';
+
+export interface Recargo {
+	codigo: string;
+	nombre: string;
+	tipo: TipoRecargo | string;
+	valor: number;
+	activo: boolean;
+	descripcion: string | null;
+}
+
+/** Recargo aplicado a un pedido (snapshot guardado en la BD). */
+export interface RecargoAplicado {
+	codigo: string;
+	nombre: string;
+	valor: number;
+}
+
+export const TIPOS_RECARGO: { valor: TipoRecargo; label: string; color: string }[] = [
+	{ valor: 'compra', label: 'Compra', color: 'bg-sky-50 text-sky-700 border-sky-200' },
+	{ valor: 'tiempo_espera', label: 'Tiempo de espera', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+	{ valor: 'paradas', label: 'Paradas', color: 'bg-violet-50 text-violet-700 border-violet-200' },
+	{ valor: 'peso', label: 'Peso', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+	{ valor: 'pago', label: 'Pago (transf./banco/corresponsal)', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+	{ valor: 'otro', label: 'Otro', color: 'bg-slate-100 text-slate-600 border-slate-200' }
+];
+
+export function etiquetaTipoRecargo(tipo: string): string {
+	return TIPOS_RECARGO.find((t) => t.valor === tipo)?.label ?? tipo;
+}
+
 export type EstadoPedido =
 	| 'pendiente'
 	| 'asignado'
@@ -51,6 +84,12 @@ export interface Pedido {
 	direccion_destino: string;
 	observaciones: string | null;
 	tarifa_base: number;
+	/** Snapshot de recargos aplicados (Fase 7). */
+	recargos: RecargoAplicado[] | null;
+	recargo_total: number;
+	/** tarifa_base + recargo_total (null en pedidos previos a la Fase 7). */
+	total: number | null;
+	motivo_cancelacion: string | null;
 	zona_origen_id: string | null;
 	zona_destino_id: string | null;
 	estado: EstadoPedido;
@@ -70,6 +109,61 @@ export interface HistorialEstado {
 export interface PedidoConsultado {
 	pedido: Pedido & { barrio_origen_nombre?: string | null; barrio_destino_nombre?: string | null };
 	historial: HistorialEstado[];
+}
+
+// ---------- Reportes (Fase 6) ----------
+
+/** Resumen agregado de pedidos para un rango de fechas. */
+export interface ReporteResumen {
+	total: number;
+	por_estado: Record<EstadoPedido, number>;
+	/** asignado + aceptado + recogido + en_camino */
+	en_proceso: number;
+	entregados: number;
+	cancelados: number;
+	/** Suma de tarifa_base de los pedidos entregados. */
+	ingresos: number;
+	/** ingresos / entregados (0 si no hay entregados). */
+	ticket_promedio: number;
+	domiciliarios_activos: number;
+	/** Activos con al menos un pedido en curso hoy (sin importar el rango). */
+	domiciliarios_ocupados: number;
+	domiciliarios_disponibles: number;
+}
+
+/** Serie diaria para la gráfica (fechas en hora de Bogotá, UTC-5). */
+export interface ReporteSerie {
+	fecha: string;
+	total: number;
+	entregados: number;
+	cancelados: number;
+	ingresos: number;
+}
+
+/** Pedidos agrupados por domiciliario dentro del rango. */
+export interface ReporteDomiciliario {
+	id: string | null;
+	nombre: string;
+	total: number;
+	entregados: number;
+	cancelados: number;
+	ingresos: number;
+}
+
+/** Fila de pedido enriquecida para reportes y CSV. */
+export interface ReportePedidoFila extends Pedido {
+	barrio_origen_nombre: string | null;
+	barrio_destino_nombre: string | null;
+	domiciliario_nombre: string | null;
+}
+
+/** Respuesta completa de /api/reportes. */
+export interface Reporte {
+	rango: { desde: string | null; hasta: string | null };
+	resumen: ReporteResumen;
+	series: ReporteSerie[];
+	por_domiciliario: ReporteDomiciliario[];
+	pedidos: ReportePedidoFila[];
 }
 
 /** Estados de pedido: etiqueta, colores de badge y transiciones del flujo completo. */
@@ -173,15 +267,6 @@ export const ORDEN_ZONAS = [
 	'zona_roja'
 ] as const;
 
-export function formatearPeso(valor: number | null | undefined): string {
-	if (valor == null || Number.isNaN(valor)) return '—';
-	return new Intl.NumberFormat('es-CO', {
-		style: 'currency',
-		currency: 'COP',
-		maximumFractionDigits: 0
-	}).format(valor);
-}
-
 /** Ordena zonas según ORDEN_ZONAS y luego alfabéticamente. */
 export function ordenarZonas(zonas: Zona[]): Zona[] {
 	return [...zonas].sort((a, b) => {
@@ -193,3 +278,9 @@ export function ordenarZonas(zonas: Zona[]): Zona[] {
 		return a.nombre.localeCompare(b.nombre, 'es');
 	});
 }
+
+// ---------- Lógica de negocio pura (Parte 1) ----------
+// Las funciones puras viven en $lib/logic y se testean con Vitest (cobertura
+// ≥90%). Se re-exportan aquí para no romper los imports históricos desde
+// '$lib/types'.
+export { formatearPeso } from './logic/formato';

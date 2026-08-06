@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { api } from '$lib/api';
+	import Icon from '$lib/components/Icon.svelte';
 	import { ordenarZonas, type Barrio, type Zona } from '$lib/types';
 
 	let barrios = $state<Barrio[]>([]);
@@ -199,10 +200,7 @@
 <!-- Filtros -->
 <div class="mb-4 flex flex-wrap items-center gap-3">
 	<div class="relative min-w-52 flex-1 sm:max-w-xs">
-		<svg class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-			<circle cx="11" cy="11" r="8" />
-			<path d="m21 21-4.3-4.3" />
-		</svg>
+		<Icon name="magnifying-glass" class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
 		<input
 			bind:value={busqueda}
 			placeholder="Buscar barrio…"

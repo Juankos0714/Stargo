@@ -1,0 +1,222 @@
+name: CI
+
+# Corre en cada push (cualquier rama) y en pull requests.
+on:
+  push:
+  pull_request:
+
+# Sin permisos de escritura: este workflow solo lee el repo.
+permissions:
+  contents: read
+
+# Si llega un push nuevo a la misma rama, cancela el run anterior.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Verificación rápida: typecheck + tests. No requiere secretos.
+  test-and-check:
+    name: Typecheck y tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # engine-strict=true en .npmrc: usamos la misma versión de Bun que en
+      # desarrollo para que el chequeo de engines.node (>=22.18.0) pase igual.
+      - name: Instalar Bun y Node
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+          node-version: 22
+
+      - name: Instalar dependencias (bun.lock)
+        run: bun install --frozen-lockfile
+
+      # svelte-kit sync necesita las variables PUBLIC_* para tipar $env/static/public.
+      # En CI no hay .env real (gitignored): se genera uno desde el ejemplo.
+      - name: Preparar .env para el typecheck
+        run: cp .env.example .env
+
+      - name: Typecheck (svelte-check)
+        run: bun run check
+
+      # Vitest con reporte de cobertura: el gate falla si la cobertura de
+      # src/lib/logic baja del 90% (Parte 1 — lógica de negocio).
+      - name: Tests unitarios (Vitest + cobertura ≥90% en src/lib/logic)
+        run: bun run test:coverage
+
+      # Componentes de UI (Parte 4): jsdom + @testing-library/svelte. No
+      # requiere Supabase (la red y Realtime se mockean en los tests).
+      - name: Tests de componentes (Vitest + jsdom)
+        run: bun run test:ui
+
+  # RLS (Parte 2): levanta Supabase LOCAL en el runner (Docker), aplica las
+  # migraciones de supabase/migrations/ y corre la suite tests/rls contra él.
+  # Este es el gate que exige la Parte 2: ningún cambio de políticas RLS se
+  # mergea sin que la suite pase. Requiere Docker (disponible en los runners).
+  # Si prefieres no correrla en cada push, borra este job (quedaría como
+  # comando manual: supabase start && bun run test:rls).
+  rls-tests:
+    name: RLS (Supabase local)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun y Node
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+          node-version: 22
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Instalar dependencias (bun.lock)
+        run: bun install --frozen-lockfile
+
+      # supabase start aplica las migraciones de supabase/migrations/ (Fase 2 →
+      # pedidos → domiciliarios/realtime → recargos → auditoría RLS) y levanta
+      # Postgres + PostgREST + Auth + Realtime en los puertos por defecto.
+      - name: Levantar Supabase local
+        run: supabase start
+        timeout-minutes: 10
+
+      # Los keys de abajo son los valores POR DEFECTO de Supabase local (demo,
+      # públicos y fijos); solo sirven contra la instancia que acaba de levantar.
+      - name: Suite de RLS
+        run: bun run test:rls
+        env:
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJZDJvoHWSr5C4XDq9wRfKBdBrwD_0Q
+          TEST_USERS_PASSWORD: stargo-test-2026
+
+      - name: Apagar Supabase local
+        if: always()
+        run: supabase stop
+
+  # Integración (Parte 3): levanta Supabase local, compila la app con las
+  # variables públicas apuntando a esa instancia, levanta `vite preview` y
+  # corre tests/integration contra el flujo real (request → Supabase →
+  # response, con cookies y SSR). El runner de la suite se encarga de
+  # compilar/levantar/apagar el preview; aquí solo se le pasan las credenciales.
+  integration-tests:
+    name: Integración (SvelteKit ↔ Supabase local)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun y Node
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+          node-version: 22
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Instalar dependencias (bun.lock)
+        run: bun install --frozen-lockfile
+
+      - name: Levantar Supabase local
+        run: supabase start
+        timeout-minutes: 10
+
+      # Keys por defecto de Supabase local (públicos y fijos). El runner
+      # compila con PUBLIC_SUPABASE_URL/PUBLIC_SUPABASE_ANON_KEY = estos.
+      - name: Suite de integración (build + preview + HTTP real)
+        run: bun run test:integration
+        timeout-minutes: 15
+        env:
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJZDJvoHWSr5C4XDq9wRfKBdBrwD_0Q
+          TEST_USERS_PASSWORD: stargo-test-2026
+
+      - name: Apagar Supabase local
+        if: always()
+        run: supabase stop
+
+  # E2E (Partes 5 y 6): navegador real (Chromium + WebKit, desktop + móvil)
+  # contra la app compilada y Supabase LOCAL. El runner compila, levanta el
+  # preview y corre Playwright; los datos se siembran y limpian automáticamente
+  # (global-setup/teardown). Es el gate más lento: se reserva a flujos críticos.
+  e2e-tests:
+    name: E2E (Playwright + Supabase local)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun y Node
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+          node-version: 22
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Instalar dependencias (bun.lock)
+        run: bun install --frozen-lockfile
+
+      - name: Instalar browsers de Playwright (Chromium + WebKit)
+        run: bunx playwright install --with-deps chromium webkit
+
+      - name: Levantar Supabase local
+        run: supabase start
+        timeout-minutes: 10
+
+      - name: Suite E2E (build + preview + Playwright)
+        run: bun run test:e2e
+        timeout-minutes: 45
+        env:
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJZDJvoHWSr5C4XDq9wRfKBdBrwD_0Q
+          TEST_USERS_PASSWORD: stargo-test-2026
+
+      - name: Apagar Supabase local
+        if: always()
+        run: supabase stop
+
+  # Build de producción (lo que ejecuta Vercel). Necesita las variables
+  # públicas de Supabase, así que solo corre cuando están configuradas como
+  # secretos del repo; hasta entonces queda "skipped" y no bloquea los push.
+  build:
+    name: Build de producción
+    runs-on: ubuntu-latest
+    if: ${{ secrets.PUBLIC_SUPABASE_URL != '' && secrets.PUBLIC_SUPABASE_ANON_KEY != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun y Node
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+          node-version: 22
+
+      - name: Instalar dependencias (bun.lock)
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+        env:
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+
+      # Parte 7: presupuesto de bundle. Falla el CI si los assets del cliente
+      # crecen sin control (JS/CSS/chunk mayor, ver scripts/bundle-budget.mjs).
+      - name: Presupuesto de bundle
+        run: bun run bundle:budget

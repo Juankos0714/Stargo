@@ -1,0 +1,113 @@
+name: Release Gate (Parte 10)
+
+# Checklist go/no-go completo antes de un release importante a producción.
+# Se dispara MANUALMENTE (workflow_dispatch) — no corre en cada push.
+# Ejecuta todas las suites en CI (contra Supabase local), corre el runner
+# go/no-go y sube el reporte como artefacto para adjuntarlo al release.
+#
+# Los items manuales (realtime, carga, smoke, alertas, backup, rollback) se
+# evalúan por fecha en el estado del runner; si faltan, el veredicto es NO-GO
+# y el artefacto lista exactamente qué falta antes de lanzar.
+
+on:
+  workflow_dispatch:
+    inputs:
+      incluir_e2e:
+        description: "Incluir la suite E2E completa (más lenta, requiere instalar browsers)"
+        type: boolean
+        default: true
+      nota_release:
+        description: "Nota opcional (p. ej. '1.0.0 — release de tarifas y recargos')"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  go-no-go:
+    name: Go/No-Go completo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun y Node
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+          node-version: 22
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Instalar dependencias (bun.lock)
+        run: bun install --frozen-lockfile
+
+      - name: Preparar .env para el typecheck
+        run: cp .env.example .env
+
+      # El runner go/no-go ejecuta typecheck, unitarios + cobertura ≥90%,
+      # bundle y las suites con credenciales presentes (RLS, integración,
+      # E2E con --e2e). Los manuales los evalúa por fecha registrada.
+      - name: Levantar Supabase local
+        run: supabase start
+        timeout-minutes: 10
+
+      - name: Instalar browsers de Playwright (si se incluye E2E)
+        if: ${{ inputs.incluir_e2e }}
+        run: bunx playwright install --with-deps chromium webkit
+
+      # El gate de bundle del runner (bundle:budget) necesita el build
+      # previo; se compila contra la instancia local (igual que el job
+      # integration-tests de ci.yml).
+      - name: Build de producción (para el presupuesto de bundle)
+        run: bun run build
+        env:
+          PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+
+      - name: Runner go/no-go
+        id: gongo
+        run: |
+          FLAGS="--reporte release-gate-${{ github.run_id }}.json --json"
+          if [ "${{ inputs.incluir_e2e }}" = "true" ]; then FLAGS="$FLAGS --e2e"; fi
+          set +e
+          bun run go-no-go $FLAGS
+          EXIT_CODE=$?
+          set -e
+          echo "EXIT_CODE=$EXIT_CODE" >> "$GITHUB_ENV"
+        env:
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJZDJvoHWSr5C4XDq9wRfKBdBrwD_0Q
+          TEST_USERS_PASSWORD: stargo-test-2026
+        timeout-minutes: 50
+
+      - name: Subir reporte como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-${{ github.run_id }}.json
+          path: release-gate-${{ github.run_id }}.json
+          if-no-files-found: error
+
+      - name: Veredicto final
+        # Corre siempre (aunque el runner o el artefacto fallen): el runner ya
+        # imprime GO/NO-GO y guarda el reporte; este paso hace fallar el job
+        # si el veredicto fue NO-GO (EXIT_CODE != 0).
+        if: always()
+        run: |
+          echo "Exit del runner: $EXIT_CODE"
+          cat release-gate-${{ github.run_id }}.json | head -n 30
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::NO-GO — revisa el reporte. No lances el release hasta que todos los puntos pasen."
+            exit 1
+          fi
+          echo "GO — checklist completo en verde."
+
+      - name: Apagar Supabase local
+        if: always()
+        run: supabase stop

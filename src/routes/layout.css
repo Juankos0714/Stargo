@@ -46,4 +46,13 @@
 		outline: 2px solid #0064ff;
 		outline-offset: 2px;
 	}
+
+	/* Iconos Font Awesome (SVG): el tamaño lo controlan las utilidades size-* de Tailwind.
+	   Sin height fijo propio: si las utilidades no lo fijan, el atributo width/height del
+	   SVG (1em) y la relación de aspecto del viewBox determinan el tamaño por defecto. */
+	svg.svg-inline--fa {
+		height: 1em;
+		overflow: visible;
+		box-sizing: content-box;
+	}
 }

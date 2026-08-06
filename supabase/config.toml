@@ -1,0 +1,51 @@
+# Supabase local (CLI + Docker) — usado por la suite de RLS (Parte 2).
+# Configuración mínima equivalente a la que genera `supabase init`.
+# Ver: https://supabase.com/docs/guides/local-development
+
+# El id del proyecto se usa en el nombre de los contenedores Docker.
+project_id = "stargo"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1"
+
+[inbucket]
+enabled = true
+port = 54324
+smtp_port = 54325
+pop3_port = 54326
+admin_email = "admin@email.com"
+sender_name = "Admin"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:54321"
+additional_redirect_urls = ["http://127.0.0.1:5173"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[storage]
+enabled = false
+
+[realtime]
+enabled = true
+
+# Los keys por defecto (anon/service_role) de Supabase local son públicos y
+# fijos; se documentan en .env.test.example para la suite de RLS.
