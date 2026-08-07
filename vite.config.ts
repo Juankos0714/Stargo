@@ -11,20 +11,26 @@ const csp: NonNullable<KitConfig['csp']> = {
 	mode: 'auto' as const,
 	directives: {
 		'default-src': ['self'],
-		'script-src': ['self'],
+		'script-src': ['self', 'https://vercel.live'],
 		// 'unsafe-inline' en style-src: necesario por atributos style=""
 		// que SvelteKit y algunas vistas usan (p. ej. el degradado del home).
-		'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com'],
-		'font-src': ['self', 'https://fonts.gstatic.com', 'data:'],
-		'img-src': ['self', 'data:'],
+		'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com', 'https://vercel.live'],
+		'font-src': ['self', 'https://fonts.gstatic.com', 'data:', 'https://vercel.live', 'https://assets.vercel.com'],
+		'img-src': ['self', 'data:', 'https://vercel.live', 'https://vercel.com', 'blob:'],
 		// REST + Realtime (WebSocket) de Supabase desde el navegador.
 		// Ingest de Sentry (solo se usa si PUBLIC_SENTRY_DSN está configurado).
+		// Vercel Live Feedback (widget de feedback en previews): API + realtime.
 		'connect-src': [
 			'self',
 			'https://*.supabase.co',
 			'wss://*.supabase.co',
-			'https://*.ingest.sentry.io'
+			'https://*.ingest.sentry.io',
+			'https://vercel.live',
+			'wss://ws-us3.pusher.com'
 		],
+		// El diálogo del widget de feedback de Vercel se renderiza en un iframe
+		// de vercel.live (ver https://vercel.com/docs/vercel-toolbar).
+		'frame-src': ['https://vercel.live'],
 		'base-uri': ['self'],
 		'form-action': ['self'],
 		'frame-ancestors': ['none'],

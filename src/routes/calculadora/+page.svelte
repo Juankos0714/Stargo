@@ -49,10 +49,12 @@
 		calculando = true;
 		error = null;
 		calculado = false;
-		const r = await api.post<{ valor: number | null; meta: Record<string, unknown> }>(
-			'/api/calcular_tarifa',
-			{ barrio_origen: origen, barrio_destino: destino }
-		);
+		// El endpoint responde { data: <número>, meta: {...} }: `data` es la tarifa
+		// y `meta` trae disponible/motivo/barrios/zonas.
+		const r = await api.post<number>('/api/calcular_tarifa', {
+			barrio_origen: origen,
+			barrio_destino: destino
+		});
 		// Ignorar respuestas obsoletas si el usuario cambió los barrios.
 		if (id !== calcId) return;
 		calculando = false;
@@ -61,7 +63,7 @@
 			resultado = null;
 			return;
 		}
-		resultado = { valor: r.data?.valor ?? null, meta: r.data?.meta ?? {} };
+		resultado = { valor: r.data, meta: r.meta ?? {} };
 		calculado = true;
 	}
 

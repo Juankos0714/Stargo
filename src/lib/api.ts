@@ -1,5 +1,9 @@
 export interface ApiResult<T> {
 	data: T | null;
+	/** Metadatos del endpoint cuando el body es { data, meta } (p. ej.
+	 * /api/calcular_tarifa devuelve data = número de tarifa y meta = {disponible,
+	 * motivo, barrios, zonas…}). */
+	meta?: Record<string, unknown>;
 	error: string | null;
 }
 
@@ -13,7 +17,11 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<ApiResu
 		if (!res.ok) {
 			return { data: null, error: body?.error ?? body?.message ?? `Error ${res.status}` };
 		}
-		return { data: (body?.data ?? null) as T | null, error: null };
+		return {
+			data: (body?.data ?? null) as T | null,
+			meta: body?.meta as Record<string, unknown> | undefined,
+			error: null
+		};
 	} catch (e) {
 		return { data: null, error: e instanceof Error ? e.message : 'Error de red' };
 	}

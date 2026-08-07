@@ -24,8 +24,10 @@ const RECARGOS = [
 const getMock = vi.mocked(api.get);
 const postMock = vi.mocked(api.post);
 
+// El endpoint real responde { data: <número>, meta: {...} } (api.ts ya lo
+// desempaqueta en `data` + `meta` por separado).
 function tarifaOk() {
-	return { data: { valor: 6000, meta: { disponible: true, motivo: 'ok', zona_origen: 'zona-1', zona_destino: 'zona-2' } }, error: null };
+	return { data: 6000, meta: { disponible: true, motivo: 'ok', zona_origen: 'zona-1', zona_destino: 'zona-2' }, error: null };
 }	beforeEach(() => {
 		vi.clearAllMocks();
 		getMock.mockImplementation((path: string) => {
@@ -102,7 +104,8 @@ describe('Formulario de creación de pedido', () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa'
 				? Promise.resolve({
-						data: { valor: null, meta: { disponible: false, motivo: 'sin_tarifa' } },
+						data: null,
+						meta: { disponible: false, motivo: 'sin_tarifa' },
 						error: null
 					})
 				: Promise.resolve({ data: null, error: null })
