@@ -68,12 +68,10 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Endpoints de pedidos (SvelteKit ↔ Su
 
 	beforeAll(async () => {
 		cat = await sembrarCatalogo();
-		[admin, domA, domB, cliente] = await Promise.all([
-			crearAdmin(),
-			crearDomiciliario(),
-			crearDomiciliario(),
-			crearCliente()
-		]);
+		admin = await crearAdmin();
+		domA = await crearDomiciliario();
+		domB = await crearDomiciliario();
+		cliente = await crearCliente();
 		sesionAdmin = await loginEnApp(admin.email, PASSWORD_TEST);
 		sesionDomA = await loginEnApp(domA.email, PASSWORD_TEST);
 		// El cliente no puede hacer login por la app (no tiene rol): se usa su
@@ -441,7 +439,8 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Endpoints de pedidos (SvelteKit ↔ Su
 
 			const rCliente = await peticion<{ message: string }>('/api/pedidos', { jar: sesionCliente.jar });
 			expect(rCliente.status).toBe(403);
-			expect(rCliente.data?.message).toMatch(/No tienes un rol registrado/);
+			// El GET /api/pedidos responde { error: ... } (json), no { message }.
+			expect(mensaje(rCliente)).toMatch(/No tienes un rol registrado/);
 
 			const rAnon = await peticion('/api/pedidos');
 			expect(rAnon.status).toBe(401);

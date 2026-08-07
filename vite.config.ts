@@ -58,6 +58,15 @@ export default defineConfig(({ mode }) => ({
 			// Despliegue en Vercel (serverless + HTTPS).
 			adapter: adapter(),
 
+			// `src/instrumentation.server.ts` (Sentry del servidor) exige este flag
+			// desde SvelteKit 2.x: sin él, la carga de la config falla y SvelteKit
+			// cae a la config por defecto SIN adapter (build de Vercel roto).
+			experimental: {
+				instrumentation: {
+					server: true
+				}
+			},
+
 			// CSP solo en producción (en dev Vite inyecta scripts/estilos inline).
 			...(mode === 'production' ? { csp } : {})
 		})

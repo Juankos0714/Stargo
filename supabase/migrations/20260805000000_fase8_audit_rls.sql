@@ -105,6 +105,17 @@ REVOKE ALL ON public.pedidos, public.historial_estados,
 REVOKE INSERT, UPDATE, DELETE ON public.pedidos, public.historial_estados,
     public.domiciliarios, public.admins FROM authenticated;
 
+-- EXCEPCIÓN (escritura directa donde NO existe RPC): el endpoint
+-- DELETE /api/pedidos borra por SQL y el panel admin activa/elimina
+-- domiciliarios (PUT/DELETE /api/domiciliarios) también por SQL. Se habilitan
+-- esos grants para authenticated y las políticas RLS (pedidos_admin_delete y
+-- domiciliarios_admin_all, ambas es_admin()) restringen quién puede hacerlo.
+-- El resto de escrituras siguen pasando por RPCs SECURITY DEFINER
+-- (crear_pedido, transicionar_pedido, asignar_domiciliario,
+-- registrar_domiciliario, etc.).
+GRANT DELETE ON public.pedidos TO authenticated;
+GRANT UPDATE, DELETE ON public.domiciliarios TO authenticated;
+
 -- La tabla admins no se lee desde SQL directo (es_admin() es SECURITY DEFINER);
 -- se deja SOLO la lectura propia (política admins_propio_select) si ya existe.
 REVOKE INSERT, UPDATE, DELETE ON public.admins FROM anon, authenticated;

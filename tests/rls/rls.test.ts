@@ -26,8 +26,10 @@ import {
  * Matriz RLS esperada (ver supabase/audit_rls.sql):
  *   zonas/barrios/tarifas/recargos : SELECT público; escritura solo admin.
  *   pedido_eventos                 : SELECT público.
- *   pedidos                        : admin todo; domiciliario solo sus asignados.
- *   historial_estados              : admin todo; domiciliario solo el suyo.
+ *   pedidos                        : SELECT admin todo; domiciliario solo sus asignados;
+ *                                    UPDATE/INSERT SOLO vía RPCs; DELETE por SQL solo admin
+ *                                    (política pedidos_admin_delete, Fase 8).
+ *   historial_estados              : SELECT admin todo; domiciliario solo el suyo.
  *   domiciliarios                  : admin todo; domiciliario solo su fila.
  *   admins                         : cada usuario solo su propia fila.
  * El anon NO tiene grants sobre las tablas privadas.
@@ -48,12 +50,10 @@ describe.skipIf(!RLS_DISPONIBLE)('RLS — matriz de acceso por tabla y rol', () 
 		servicio = clienteService();
 		anon = clienteAnon();
 		cat = await sembrarCatalogo();
-		[admin, domA, domB, cliente] = await Promise.all([
-			crearAdmin(),
-			crearDomiciliario(),
-			crearDomiciliario(),
-			crearCliente()
-		]);
+		admin = await crearAdmin();
+		domA = await crearDomiciliario();
+		domB = await crearDomiciliario();
+		cliente = await crearCliente();
 		pDeA = await sembrarPedido({
 			barrioOrigenId: cat.barrioA,
 			barrioDestinoId: cat.barrioB,
@@ -311,17 +311,22 @@ describe.skipIf(!RLS_DISPONIBLE)('RLS — matriz de acceso por tabla y rol', () 
 			esperaPermitido(await eliminacion(cAdmin, 'zonas', 'id', zonaTmp), 'admin DELETE zonas');
 		});
 
-		test('admin puede transicionar el estado de un pedido por SQL y borrarlo', async () => {
+		test('admin: UPDATE directo negado (RPCs), DELETE por SQL permitido (RLS admin)', async () => {
 			const cAdmin = clienteComo(admin.token);
 			const pTmp = await sembrarPedido({
 				barrioOrigenId: cat.barrioA,
 				barrioDestinoId: cat.barrioB,
 				estado: 'pendiente'
 			});
-			esperaPermitido(
+			// Fase 8: las transiciones de estado van por RPCs (transicionar_pedido);
+			// el UPDATE directo está revocado para todos los roles.
+			esperaDenegado(
 				await actualizacion(cAdmin, 'pedidos', 'id', pTmp.id, { estado: 'cancelado' }),
 				'admin UPDATE pedido.estado'
 			);
+			// Excepción del hardening: DELETE por SQL queda habilitado para
+			// authenticated y la política pedidos_admin_delete (es_admin())
+			// restringe el borrado a administradores.
 			esperaPermitido(await eliminacion(cAdmin, 'pedidos', 'id', pTmp.id), 'admin DELETE pedido');
 		});
 	});

@@ -41,12 +41,10 @@ describe.skipIf(!RLS_DISPONIBLE)('RPCs (base real)', () => {
 		servicio = clienteService();
 		anon = clienteAnon();
 		cat = await sembrarCatalogo();
-		[admin, domA, domB, cliente] = await Promise.all([
-			crearAdmin(),
-			crearDomiciliario(),
-			crearDomiciliario(),
-			crearCliente()
-		]);
+		admin = await crearAdmin();
+		domA = await crearDomiciliario();
+		domB = await crearDomiciliario();
+		cliente = await crearCliente();
 
 		// Par C→D con tarifa SOLO en sentido inverso (D→C = 7500) y par C→E sin tarifa.
 		zonaC = `zona_${PREFIJO}_c`;

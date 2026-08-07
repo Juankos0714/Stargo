@@ -137,9 +137,13 @@ export async function crearAdmin(): Promise<UsuarioRol> {
 	return { token: await iniciarSesion(email), email, userId: id };
 }
 
+/** Contador local: un mismo beforeAll crea VARIOS domiciliarios y el email
+ * debe ser único (auth.users no permite duplicados). */
+let contadorDomiciliario = 0;
+
 /** Usuario en public.domiciliarios (rol domiciliario, activo por defecto). */
 export async function crearDomiciliario(activo = true): Promise<UsuarioRol & { domiciliarioId: string }> {
-	const { id, email } = await crearUsuario('dom');
+	const { id, email } = await crearUsuario(`dom${++contadorDomiciliario}`);
 	const { data, error } = await clienteService()
 		.from('domiciliarios')
 		.insert({ user_id: id, nombre: `Domiciliario ${PREFIJO}`, email, activo })
@@ -358,8 +362,23 @@ async function intentar(fn: () => PromiseLike<unknown>): Promise<void> {
 
 export async function limpiarTodo(): Promise<void> {
 	const s = clienteService();
-	// Pedidos (borra en cascada historial_estados y pedido_eventos).
-	await intentar(() => s.from('pedidos').delete().like('numero', `T${PREFIJO}%`));
+	// Pedidos de esta corrida (borra en cascada historial_estados y
+	// pedido_eventos). Se borran por los barrios que referencian, ANTES que
+	// los barrios (FK ON DELETE RESTRICT): así se cubren tanto los sembrados
+	// con numero `T<prefijo>` (guardado en MAYÚSCULAS: el LIKE por prefijo
+	// minúscula nunca los matchea) como los creados vía RPC (código sin
+	// prefijo, p. ej. '68C3E9').
+	await intentar(async () => {
+		const { data: barrios } = await s.from('barrios').select('id').like('nombre', `%${PREFIJO}%`);
+		const ids = (barrios ?? []).map((b) => b.id as string);
+		if (ids.length > 0) {
+			await s.from('pedidos').delete().in('barrio_origen_id', ids);
+		}
+	});
+	// Red de seguridad: pedidos sembrados con numero `T<prefijo>...` (guardado
+	// en MAYÚSCULAS, por eso el prefijo en mayúsculas) por si el barrio ya no
+	// existiera o el id no estuviera disponible.
+	await intentar(() => s.from('pedidos').delete().like('numero', `T${PREFIJO.toUpperCase()}%`));
 	// Catálogo (barrios por nombre, tarifas/zonas/recargos por prefijo).
 	await intentar(() => s.from('barrios').delete().like('nombre', `%${PREFIJO}%`));
 	await intentar(() => s.from('tarifas').delete().like('zona_origen_id', `zona_${PREFIJO}%`));

@@ -143,10 +143,10 @@ DECLARE
     v_valor        INTEGER;
 BEGIN
     SELECT zona_id INTO v_zona_origen
-    FROM public.barrios WHERE id = p_barrio_origen;
+    FROM public.barrios WHERE id::text = p_barrio_origen;
 
     SELECT zona_id INTO v_zona_destino
-    FROM public.barrios WHERE id = p_barrio_destino;
+    FROM public.barrios WHERE id::text = p_barrio_destino;
 
     IF v_zona_origen IS NULL OR v_zona_destino IS NULL THEN
         RETURN NULL;
