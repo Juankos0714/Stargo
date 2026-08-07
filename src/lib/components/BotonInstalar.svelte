@@ -20,28 +20,20 @@
 	 *   disparan; en móvil, si el evento no llega al poco de cargar, se ofrece
 	 *   la guía del menú del navegador como respaldo.
 	 * - No se muestra si la app ya está instalada o corre en modo standalone.
+	 *
+	 * IMPORTANTE (SSR): este componente se renderiza en el servidor, donde NO
+	 * existe `window` (ni `navigator` en entornos antiguos). Toda la detección
+	 * de dispositivo/instalación vive en $effects, que solo corren en el
+	 * cliente tras la hidratación: así el HTML del servidor y el primer render
+	 * del cliente son idénticos (sin botón) y no hay mismatch de hidratación
+	 * ni 500 por acceder a `window` en Node.
 	 */
 
-	// iOS Safari no dispara beforeinstallprompt: detecta iPhone/iPad/iPod
-	// (incluye el iPad con iPadOS que reporta platform "MacIntel").
-	const esIOS =
-		/iPad|iPhone|iPod/.test(navigator.userAgent) ||
-		(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-	// Móvil/tableta: pantalla táctil (pointer: coarse) o user-agent móvil.
-	const esMovil =
-		(typeof window.matchMedia === 'function' &&
-			window.matchMedia('(pointer: coarse)').matches) ||
-		/android|iphone|ipad|ipod/i.test(navigator.userAgent);
-
-	const standalone =
-		(typeof window.matchMedia === 'function' &&
-			window.matchMedia('(display-mode: standalone)').matches) ||
-		// Safari iOS expone navigator.standalone (true cuando corre como app).
-		(navigator as Navigator & { standalone?: boolean }).standalone === true;
-
-	let evento = $state<BeforeInstallPromptEvent | null>(obtenerEventoInstalacion());
-	let instalada = $state(estaInstalada() || standalone);
+	let evento = $state<BeforeInstallPromptEvent | null>(null);
+	let instalada = $state(false);
+	// Detección de dispositivo: solo disponible en el cliente (post-hidratación).
+	let esIOS = $state(false);
+	let esMovil = $state(false);
 	let guia = $state(false);
 	let dialogoEl = $state<HTMLDivElement | null>(null);
 	// Respaldo para móviles sin beforeinstallprompt (Firefox Android, Samsung
@@ -56,9 +48,39 @@
 		instalada = estaInstalada();
 		const unsub = suscribirseInstalacion((evt) => {
 			evento = evt;
-			if (evt) guiaRespaldo = false;
+			instalada = estaInstalada();
+			if (evt) {
+				// Llegó el evento nativo: se deja la guía a un lado para ofrecer
+				// el diálogo real de instalación.
+				guiaRespaldo = false;
+				guia = false;
+			}
 		});
 		return unsub;
+	});
+
+	$effect(() => {
+		// Detección de dispositivo e instalación (solo cliente).
+		const ua = navigator.userAgent;
+		// iOS Safari no dispara beforeinstallprompt: detecta iPhone/iPad/iPod
+		// (incluye el iPad con iPadOS que reporta platform "MacIntel").
+		esIOS =
+			/iPad|iPhone|iPod/.test(ua) ||
+			(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+		// Móvil/tableta: pantalla táctil (pointer: coarse) o user-agent móvil.
+		esMovil =
+			(typeof window.matchMedia === 'function' &&
+				window.matchMedia('(pointer: coarse)').matches) ||
+			/android|iphone|ipad|ipod/i.test(ua);
+		// Si la app ya corre en modo standalone (instalada desde el inicio),
+		// no se ofrece el botón.
+		if (
+			(typeof window.matchMedia === 'function' &&
+				window.matchMedia('(display-mode: standalone)').matches) ||
+			(navigator as Navigator & { standalone?: boolean }).standalone === true
+		) {
+			instalada = true;
+		}
 	});
 
 	$effect(() => {

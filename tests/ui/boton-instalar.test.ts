@@ -65,9 +65,12 @@ function eventoInstalacion() {
 const botonInstalar = () => screen.getByRole('button', { name: /instalar app/i });
 
 describe('BotonInstalar — instalación PWA', () => {
-	test('no se muestra si la app ya está instalada (standalone)', () => {
+	test('no se muestra si la app ya está instalada (standalone)', async () => {
 		simularMatchMedia({ '(display-mode: standalone)': true, '(pointer: coarse)': false });
 		const { container } = render(BotonInstalar);
+		// La detección de standalone ocurre en un $effect: tras montar, se marca
+		// como instalada y nunca aparece el botón.
+		await act(async () => {});
 		expect(container.textContent).not.toContain('Instalar app');
 	});
 
@@ -131,8 +134,10 @@ describe('BotonInstalar — instalación PWA', () => {
 		});
 		try {
 			render(BotonInstalar);
-			const boton = botonInstalar();
-			await user.click(boton);
+			// La detección de iOS ocurre en un $effect (solo cliente), así que el
+			// botón aparece justo después de montar.
+			await vi.waitFor(() => expect(botonInstalar()).toBeInTheDocument());
+			await user.click(botonInstalar());
 			await act(async () => {});
 			expect(screen.getByRole('dialog')).toBeInTheDocument();
 			expect(screen.getByText(/compartir/i)).toBeInTheDocument();
@@ -146,6 +151,8 @@ describe('BotonInstalar — instalación PWA', () => {
 		vi.useFakeTimers();
 		movil();
 		render(BotonInstalar);
+		// Los $effect de detección corren al montar; luego avanza el timer.
+		await act(async () => {});
 		expect(screen.queryByRole('button', { name: /instalar app/i })).not.toBeInTheDocument();
 
 		vi.advanceTimersByTime(2500);
@@ -163,6 +170,7 @@ describe('BotonInstalar — instalación PWA', () => {
 		vi.useFakeTimers();
 		movil();
 		render(BotonInstalar);
+		await act(async () => {});
 		window.dispatchEvent(new Event('beforeinstallprompt'));
 		await act(async () => {});
 		vi.advanceTimersByTime(2500);
@@ -171,4 +179,10 @@ describe('BotonInstalar — instalación PWA', () => {
 		// añade una guía extra.
 		expect(botonInstalar()).toBeInTheDocument();
 	});
+
+	// NOTA: no se añade aquí un test de render SSR (svelte/server) porque los
+	// componentes compilados en modo cliente no son renderizables por el runtime
+	// de servidor en este config (effect_orphan). La regresión del 500 queda
+	// cubierta por los tests e2e, que cargan páginas bajo el layout compartido
+	// contra un servidor real.
 });
