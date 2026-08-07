@@ -1,8 +1,22 @@
 <script lang="ts">
 	import './layout.css';
 	import IndicadorOffline from '$lib/components/IndicadorOffline.svelte';
+	import BotonInstalar from '$lib/components/BotonInstalar.svelte';
+	import { base as basePath } from '$app/paths';
 
 	let { children } = $props();
+
+	// Registro del service worker (requisito PWA para que aparezca la opción
+	// de instalar/descargar en móviles). SvelteKit NO lo registra solo, y el
+	// archivo solo se compila en builds de producción.
+	$effect(() => {
+		if (!import.meta.env.PROD) return;
+		if (!('serviceWorker' in navigator)) return;
+		navigator.serviceWorker.register(`${basePath}/service-worker.js`).catch((err) => {
+			// No bloquea la app; solo ayuda a diagnosticar si no aparece el prompt de instalación.
+			console.warn('[PWA] Service worker no registrado:', err);
+		});
+	});
 
 	// OG/Twitter necesitan URL absoluta: usa PUBLIC_APP_URL si está definida
 	// (definirla en el deploy), con fallback relativo en desarrollo.
@@ -25,4 +39,5 @@
 	<meta name="twitter:image" content={ogImage} />
 </svelte:head>
 <IndicadorOffline />
+<BotonInstalar />
 {@render children()}

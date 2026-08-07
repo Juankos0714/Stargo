@@ -1,4 +1,10 @@
 {
+	"headers": [
+		{
+			"source": "/manifest.webmanifest",
+			"headers": [{ "key": "Content-Type", "value": "application/manifest+json" }]
+		}
+	],
 	"crons": [
 		{
 			"path": "/api/cron/alertas",
