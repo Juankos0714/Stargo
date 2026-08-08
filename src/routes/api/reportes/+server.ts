@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSupabaseAnon, getSupabaseAsUser } from '$lib/server/supabase';
 import { requireAdmin } from '$lib/server/auth';
-import { obtenerReporte } from '$lib/server/reportes';
+import { obtenerReporte, validarRango } from '$lib/server/reportes';
 import type { Reporte } from '$lib/types';
 
 /**
@@ -20,11 +20,17 @@ export const GET: RequestHandler = async (event) => {
 	const desde = url.searchParams.get('desde');
 	const hasta = url.searchParams.get('hasta');
 
+	// Solo el rango malformado es un error de cliente (400); los fallos de la
+	// consulta (p. ej. una migración pendiente) son del servidor y se reportan
+	// con 500 para que no se confundan con un rango inválido.
+	if (!validarRango(desde, hasta)) {
+		return json({ error: 'Rango de fechas inválido.' }, { status: 400 });
+	}
 	try {
 		const reporte: Reporte = await obtenerReporte(db, getSupabaseAnon(), desde, hasta);
 		return json({ data: reporte });
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : 'Error al generar el reporte.';
-		return json({ error: msg }, { status: 400 });
+		return json({ error: msg }, { status: 500 });
 	}
 };

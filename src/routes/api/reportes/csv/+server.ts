@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { getSupabaseAnon, getSupabaseAsUser } from '$lib/server/supabase';
 import { requireAdmin } from '$lib/server/auth';
-import { obtenerPedidosReporte, pedidosACsv } from '$lib/server/reportes';
+import { obtenerPedidosReporte, pedidosACsv, validarRango } from '$lib/server/reportes';
 
 /**
  * GET /api/reportes/csv?desde=YYYY-MM-DD&hasta=YYYY-MM-DD — solo admin.
@@ -18,11 +18,19 @@ export const GET: RequestHandler = async (event) => {
 	const desde = url.searchParams.get('desde');
 	const hasta = url.searchParams.get('hasta');
 
+	// Mismo criterio que GET /api/reportes: el rango malformado es 400 y los
+	// fallos internos (p. ej. una migración pendiente) son 500.
+	if (!validarRango(desde, hasta)) {
+		return new Response('Rango de fechas inválido.', { status: 400 });
+	}
+
 	let resultado: Awaited<ReturnType<typeof obtenerPedidosReporte>>;
 	try {
 		resultado = await obtenerPedidosReporte(db, getSupabaseAnon(), desde, hasta);
 	} catch (e) {
-		return new Response(e instanceof Error ? e.message : 'Rango inválido.', { status: 400 });
+		return new Response(e instanceof Error ? e.message : 'Error al generar el reporte.', {
+			status: 500
+		});
 	}
 
 	const csv = `\uFEFF${pedidosACsv(resultado.pedidos)}`;
