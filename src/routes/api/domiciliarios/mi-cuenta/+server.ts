@@ -22,11 +22,12 @@ export const GET: RequestHandler = async (event) => {
 		return json({ error: 'Domiciliario inactivo.' }, { status: 403 });
 	}
 
-	const { niveles, bloqueado, resumen } = await obtenerCuentaDomiciliario(db, domiciliarioId);
+	const { niveles, bloqueado, resumen, hoy } = await obtenerCuentaDomiciliario(db, domiciliarioId);
 	const cuenta: CuentaDomiciliario = {
 		niveles,
 		bloqueado,
-		...resumen
+		...resumen,
+		hoy
 	};
 	return json({ data: cuenta });
 };

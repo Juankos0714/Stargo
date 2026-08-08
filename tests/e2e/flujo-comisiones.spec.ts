@@ -136,12 +136,18 @@ test('comisiones: configurar en admin → entregar → deuda → abono', async (
 		).toBeVisible({ timeout: 15_000 });
 
 		// ---- 5. Ve la comisión generada y la deuda pendiente (cuenta dedicada: exacto). ----
+		// Fase 13: comisión por DÍA. La entrega de hoy suma $6.000 → nivel 1 →
+		// comisión del día $1.500 (valor del nivel 1 configurado arriba).
 		const generado = domiPage.locator('div.rounded-2xl', { hasText: 'Generado en comisiones' });
 		await expect(generado.getByText(/1\.500/)).toBeVisible({ timeout: 15_000 });
 		const deuda = domiPage.locator('div.rounded-2xl', { hasText: 'Deuda pendiente' });
 		await expect(deuda.getByText(/1\.500/)).toBeVisible();
-		// La tabla de niveles resalta el nivel del último pedido (total $6.000 → nivel 1).
-		await expect(domiPage.getByText('tu último pedido: nivel 1')).toBeVisible();
+		// La tarjeta de HOY muestra el nivel alcanzado y la comisión del día.
+		const hoy = domiPage.locator('div.rounded-2xl', { hasText: /Hoy/ });
+		await expect(hoy.getByText('nivel 1')).toBeVisible();
+		await expect(hoy.getByText(/comisión \$\s*1\.500/)).toBeVisible();
+		// La tabla de niveles resalta el nivel del día (total del día $6.000 → nivel 1).
+		await expect(domiPage.getByText('hoy: nivel 1')).toBeVisible();
 
 		// ---- 6. El admin registra un abono de $1.000. ----
 		await adminPage.goto('/admin/domiciliarios');

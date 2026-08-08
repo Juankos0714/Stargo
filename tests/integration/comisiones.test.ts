@@ -55,6 +55,7 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 		total_comision: number;
 		total_pagos: number;
 		deuda: number;
+		hoy: { fecha: string; total: number; nivel: number | null; comision: number };
 	}
 
 	async function nivelesAdmin(): Promise<{ id: string; nivel: number; hasta: number; valor: number }[]> {
@@ -178,13 +179,19 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 		expect(porId.get(caro.id)).toBe(2200);
 	});
 
-	test('el domiciliario ve los niveles y su deuda en Mi cuenta', async () => {
+	test('el domiciliario ve los niveles, su deuda DIARIA y el resumen de hoy', async () => {
 		const cuenta = await cuentaDomA();
 		expect(cuenta.niveles.length).toBe(4);
 		expect(cuenta.niveles.find((n) => n.nivel === 2)?.valor).toBe(2200);
-		expect(cuenta.total_comision).toBe(1300 + 2200);
+		// Fase 13: comisión por DÍA. Ambos pedidos se entregaron hoy (mismo
+		// día en Bogotá): total 6.000 + 15.000 = 21.000 → nivel 3 →
+		// comisión del día = 1.300 + 2.200 + 1.300 = 4.800.
+		expect(cuenta.hoy.total).toBe(21000);
+		expect(cuenta.hoy.nivel).toBe(3);
+		expect(cuenta.hoy.comision).toBe(4800);
+		expect(cuenta.total_comision).toBe(4800);
 		expect(cuenta.total_pagos).toBe(0);
-		expect(cuenta.deuda).toBe(1300 + 2200);
+		expect(cuenta.deuda).toBe(4800);
 		expect(cuenta.bloqueado).toBe(false);
 	});
 
@@ -199,7 +206,7 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 
 		const cuenta = await cuentaDomA();
 		expect(cuenta.total_pagos).toBe(ABONO);
-		expect(cuenta.deuda).toBe(1300 + 2200 - ABONO);
+		expect(cuenta.deuda).toBe(4800 - ABONO);
 
 		const listado = await peticion<{ data: { valor: number }[] }>(
 			`/api/pagos?domiciliario_id=${domA.domiciliarioId}`,
@@ -254,7 +261,9 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 			});
 			expect(t.status, `→ ${siguiente}: ${t.data?.error}`).toBe(200);
 		}
-		expect((await cuentaDomA()).total_comision).toBe(1300 + 2200 + 1300);
+		// El tercer pedido (6.000) se entrega el MISMO día: total del día
+		// 21.000 + 6.000 = 27.000 → sigue en nivel 3 → comisión del día 4.800.
+		expect((await cuentaDomA()).total_comision).toBe(4800);
 	});
 
 	test('solo el admin desbloquea y el domiciliario vuelve a recibir pedidos', async () => {

@@ -118,10 +118,10 @@ export interface PagoDomiciliario {
 
 /** Resumen de cuenta del domiciliario (su deuda y pagos). */
 export interface CuentaDomiciliario {
-	/** Niveles vigentes de comisión (ordenados), para saber cuánto pagar por pedido. */
+	/** Niveles vigentes de comisión (ordenados), para saber cuánto pagar por día. */
 	niveles: ComisionNivel[];
 	bloqueado: boolean;
-	/** Σ comisiones de pedidos entregados. */
+	/** Σ comisiones DIARIAS generadas (Fase 13: comisión por día según el total acumulado). */
 	total_comision: number;
 	/** Σ abonos registrados. */
 	total_pagos: number;
@@ -129,6 +129,52 @@ export interface CuentaDomiciliario {
 	deuda: number;
 	/** Últimos abonos (descendente). */
 	pagos: PagoDomiciliario[];
+	/** Resumen del día de hoy (entregas de hoy → nivel y comisión del día). */
+	hoy: ResumenDia | null;
+}
+
+/** Resumen de la comisión acumulada en un día para un domiciliario. */
+export interface ResumenDia {
+	/** Fecha local (YYYY-MM-DD) en hora de Bogotá. */
+	fecha: string;
+	/** Σ de los totales de los pedidos entregados ese día. */
+	total: number;
+	/** Nivel alcanzado por el total del día (null si no hubo entregas). */
+	nivel: number | null;
+	/** Comisión del día = Σ valores de los niveles hasta el alcanzado. */
+	comision: number;
+}
+
+// ---------- Horarios de operación (Fase 13) ----------
+
+/** Horario de un día de la semana (1 = Lunes … 7 = Domingo). */
+export interface HorarioDia {
+	dia_semana: number;
+	apertura: string;
+	cierre: string;
+	activo: boolean;
+}
+
+/** Excepción puntual de horario (anula el día de la semana). */
+export interface HorarioExcepcion {
+	fecha: string;
+	apertura: string;
+	cierre: string;
+	/** false = día cerrado (anula el horario semanal). */
+	activo: boolean;
+	motivo: string | null;
+}
+
+/** Estado de hoy calculado en la BD (public.horario_hoy()). */
+export interface HorarioHoy {
+	fecha: string;
+	dia_semana: number;
+	apertura: string;
+	cierre: string;
+	abierto: boolean;
+	motivo: string | null;
+	fuente: 'excepcion' | 'semanal' | 'sin_config';
+	hora_actual: string;
 }
 
 export interface Pedido {
@@ -344,12 +390,25 @@ export function ordenarZonas(zonas: Zona[]): Zona[] {
 export { formatearPeso } from './logic/formato';
 export {
 	calcularDeuda,
+	comisionDiaria,
+	fechaBogota,
 	nivelComision,
 	nivelDeTotal,
+	nivelDiario,
 	rangoDeNiveles,
 	redondearComision,
+	totalPedidoComision,
+	totalesDiarios,
 	validarTopeNivel,
 	vistaCompactaNiveles,
 	type NivelConRango,
 	type VistaCompactaNiveles
 } from './logic/comisiones';
+export {
+	DIAS_SEMANA,
+	diaDeFecha,
+	esHoraValida,
+	etiquetaDia,
+	horarioAbierto,
+	validarHoras
+} from './logic/horario';

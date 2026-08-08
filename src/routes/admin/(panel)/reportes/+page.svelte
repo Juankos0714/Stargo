@@ -265,7 +265,7 @@
 
 	<div class="mt-6 grid gap-6 lg:grid-cols-5">
 		<!-- Gráfica por día -->
-		<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-3">
+		<section class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-3">
 			<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 				<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Pedidos por día</h2>
 				<div class="flex gap-1 rounded-lg bg-slate-100 p-0.5">
@@ -328,7 +328,7 @@
 		</section>
 
 		<!-- Estado y domiciliarios disponibles -->
-		<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+		<section class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
 			<h2 class="mb-4 text-sm font-bold tracking-wide text-slate-500 uppercase">Distribución por estado</h2>
 			<ul class="space-y-3">
 				{#each estadosConDatos as fila (fila.estado)}

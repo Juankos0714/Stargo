@@ -6,7 +6,9 @@
 	import { etiquetaTipoRecargo, formatearPeso, type Barrio, type Recargo, type Zona } from '$lib/types';
 	import { calcularRecargos } from '$lib/logic/recargos';
 	import { validarPedido } from '$lib/logic/validacion';
+	import type { HorarioHoy } from '$lib/types';
 
+	let horario = $state<HorarioHoy | null>(null);
 	let barrios = $state<Barrio[]>([]);
 	let zonas = $state<Zona[]>([]);
 	let recargos = $state<Recargo[]>([]);
@@ -94,16 +96,20 @@
 
 	async function cargar() {
 		cargando = true;
-		const [rBarrios, rZonas, rRecargos] = await Promise.all([
+		const [rBarrios, rZonas, rRecargos, rHorario] = await Promise.all([
 			api.get<Barrio[]>('/api/barrios?select=id,nombre,zona_id&orden=nombre'),
 			api.get<Zona[]>('/api/zonas?select=id,nombre,tipo'),
-			api.get<Recargo[]>('/api/recargos?select=*')
+			api.get<Recargo[]>('/api/recargos?select=*'),
+			api.get<HorarioHoy>('/api/horario')
 		]);
 		if (rBarrios.error) errorCarga = rBarrios.error;
 		else barrios = rBarrios.data ?? [];
 		if (rZonas.error && !rBarrios.error) errorCarga = rZonas.error;
 		else zonas = rZonas.data ?? [];
 		if (!rRecargos.error) recargos = rRecargos.data ?? [];
+		// El estado del horario es informativo: si no se pudo calcular, el
+		// formulario sigue disponible (la BD vuelve a validar al crear).
+		if (!rHorario.error) horario = rHorario.data ?? null;
 		cargando = false;
 	}
 
@@ -249,9 +255,37 @@
 			<div class="text-center">
 				<h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Hacer un pedido</h1>
 				<p class="mt-2 text-slate-500">La tarifa se calcula automáticamente al seleccionar los barrios.</p>
+				{#if horario?.abierto}
+					<p class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-xs font-semibold text-green-700">
+						<Icon name="circle-check" class="size-3.5" />
+						Atendemos hoy hasta las {horario.cierre}
+					</p>
+				{/if}
 			</div>
 
-			{#if cargando}
+			{#if horario && !horario.abierto}
+				<!-- Fuera de horario: la app no recibe pedidos nuevos -->
+				<div class="mx-auto mt-10 max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center shadow-sm">
+					<div class="mx-auto flex size-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+						<Icon name="clock" class="size-7" />
+					</div>
+					<h2 class="mt-4 text-xl font-extrabold text-slate-900">Estamos fuera de horario de atención</h2>
+					<p class="mt-2 text-sm text-slate-600">
+						No se están recibiendo pedidos nuevos en este momento
+						{#if horario.fuente === 'excepcion' && horario.motivo} ({horario.motivo}){/if}.
+					</p>
+					<p class="mt-3 text-sm text-slate-600">
+						Horario de hoy: <strong>{horario.apertura} – {horario.cierre}</strong>. Vuelve a intentarlo dentro de ese
+						rango o consulta el estado de un pedido ya creado.
+					</p>
+					<a
+						href="/consultar-estado"
+						class="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
+					>
+						Consultar estado de mi pedido
+					</a>
+				</div>
+			{:else if cargando}
 				<div class="mt-10 flex items-center justify-center gap-3 py-16 text-slate-500">
 					<span class="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></span>
 					Cargando barrios…

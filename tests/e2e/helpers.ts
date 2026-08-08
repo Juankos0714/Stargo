@@ -105,6 +105,26 @@ export async function sembrarE2E(): Promise<EstadoE2E | null> {
 	const s = clienteService();
 	const password = ENTORNO.password;
 
+	// Purga best-effort de residuos `e2e_%` de corridas interrumpidas (un
+	// teardown que no corrió deja recargos/barrios/zonas con el prefijo de su
+	// corrida). Sin esto se acumulan y rompen selectores por texto duplicado
+	// (p. ej. 'E2E Compra' resolvía 9 elementos). Solo catálogo y filas de
+	// rol: los usuarios de Auth huérfanos no interfieren y no se tocan para
+	// no romper una corrida paralela de la matriz.
+	await intentar(async () => {
+		const { data: barriosViejos } = await s.from('barrios').select('id').like('nombre', 'Barrio E2E %');
+		const ids = (barriosViejos ?? []).map((b) => b.id as string);
+		if (ids.length > 0) {
+			await s.from('pedidos').delete().in('barrio_origen_id', ids);
+		}
+	});
+	await intentar(() => s.from('barrios').delete().like('nombre', 'Barrio E2E %'));
+	await intentar(() => s.from('tarifas').delete().like('zona_origen_id', 'e2e_%'));
+	await intentar(() => s.from('zonas').delete().like('id', 'e2e_%'));
+	await intentar(() => s.from('recargos').delete().like('codigo', 'e2e_%'));
+	await intentar(() => s.from('domiciliarios').delete().like('nombre', 'E2E Domiciliario %'));
+	await intentar(() => s.from('admins').delete().like('email', 'e2e_%'));
+
 	const crearUsuario = async (rol: string): Promise<{ id: string; email: string }> => {
 		const email = emailE2E(rol);
 		const { data, error } = await s.auth.admin.createUser({
@@ -182,6 +202,18 @@ export async function sembrarE2E(): Promise<EstadoE2E | null> {
 		{ codigo: `e2e_${PREFIJO_E2E}_inactivo`, nombre: 'E2E Inactivo', valor: 999, tipo: 'otro', activo: false }
 	]);
 	if (errRecargos) throw new Error(`E2E: siembra de recargos falló: ${errRecargos.message}`);
+
+	// Horario permisivo: crear_pedido() (Fase 13) bloquea fuera del horario
+	// y los E2E crean pedidos a cualquier hora.
+	await s.from('horario_operacion').upsert(
+		Array.from({ length: 7 }, (_, i) => ({
+			dia_semana: i + 1,
+			apertura: '00:00',
+			cierre: '23:59',
+			activo: true
+		})),
+		{ onConflict: 'dia_semana' }
+	);
 
 	const estado: EstadoE2E = {
 		prefijo: PREFIJO_E2E,

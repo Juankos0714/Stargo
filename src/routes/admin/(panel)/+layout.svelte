@@ -40,6 +40,11 @@
 			icon: 'coins'
 		},
 		{
+			href: '/admin/horario',
+			label: 'Horarios',
+			icon: 'clock'
+		},
+		{
 			href: '/admin/zonas',
 			label: 'Zonas',
 			icon: 'layer-group'

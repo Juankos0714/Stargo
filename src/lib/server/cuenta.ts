@@ -1,14 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { calcularDeuda } from '$lib/logic/comisiones';
-import type { ComisionNivel, PagoDomiciliario } from '$lib/types';
+import { calcularDeuda, comisionDiaria, fechaBogota, nivelDiario, totalesDiarios } from '$lib/logic/comisiones';
+import type { ComisionNivel, PagoDomiciliario, ResumenDia } from '$lib/types';
 
 /**
- * Cuentas de comisiones (Fase 10 + 11).
+ * Cuentas de comisiones (Fase 10 + 11 + 13).
  *
- * Deuda de un domiciliario = Σ comisiones de sus pedidos ENTREGADOS − Σ abonos
- * registrados. La comisión de cada pedido se congeló al entregarlo
- * (pedidos.comision) según el NIVEL que le correspondía por su valor; cambiar
- * un nivel después no altera las deudas pasadas.
+ * Desde la Fase 13 la comisión es DIARIA y ACUMULADA: el domiciliario debe
+ * a la app, por cada día trabajado, la suma de los valores de los niveles
+ * que cruza el total de TODAS sus entregas de ese día (no una comisión por
+ * pedido). La deuda = Σ comisiones diarias − Σ abonos registrados, y se
+ * recalcula siempre contra la escalera vigente.
  */
 
 export interface CuentaResumen {
@@ -19,17 +20,48 @@ export interface CuentaResumen {
 	pagos: PagoDomiciliario[];
 }
 
+/** Resumen de cuenta con el desglose del día de hoy (panel del domiciliario). */
+export type CuentaResumenConHoy = CuentaResumen & { hoy: ResumenDia };
+
 const MAX_PAGOS = 10;
+
+/** Entrega mínima para agrupar por día (solo lo que necesita totalesDiarios). */
+interface Entrega {
+	domiciliario_id: string | null;
+	total: number | null;
+	tarifa_base: number;
+	recargo_total: number;
+	updated_at: string;
+}
+
+/** Suma de comisiones diarias de un domiciliario y el resumen de HOY. */
+function comisionPorDias(
+	niveles: ComisionNivel[],
+	totales: Map<string, number> | undefined,
+	hoyBogota: string
+): { total: number; hoy: ResumenDia } {
+	let total = 0;
+	let hoy: ResumenDia = { fecha: hoyBogota, total: 0, nivel: null, comision: 0 };
+	for (const [fecha, totalDia] of totales ?? []) {
+		const comision = comisionDiaria(niveles, totalDia);
+		total += comision;
+		if (fecha === hoyBogota) {
+			hoy = { fecha, total: totalDia, nivel: nivelDiario(niveles, totalDia)?.nivel ?? null, comision };
+		}
+	}
+	return { total, hoy };
+}
 
 /**
  * Cuenta de un solo domiciliario (su panel). Devuelve los niveles vigentes
- * de comisión (para que sepa cuánto pagará por pedido), su bloqueo y el
- * resumen de deuda.
+ * de comisión (para que sepa cuánto pagará por día), su bloqueo, el
+ * resumen de deuda y el resumen del día de hoy (entregas de hoy → nivel y
+ * comisión del día).
  */
 export async function obtenerCuentaDomiciliario(
 	db: SupabaseClient,
 	domiciliarioId: string
-): Promise<{ niveles: ComisionNivel[]; bloqueado: boolean; resumen: CuentaResumen }> {
+): Promise<{ niveles: ComisionNivel[]; bloqueado: boolean; resumen: CuentaResumen; hoy: ResumenDia }> {
 	const { data: fila } = await db
 		.from('domiciliarios')
 		.select('bloqueado')
@@ -38,36 +70,48 @@ export async function obtenerCuentaDomiciliario(
 
 	const { data: niveles } = await db.from('comision_niveles').select('*').order('nivel');
 
-	const resumen = await obtenerResumenes(db, [domiciliarioId]);
+	const resumenes = await obtenerResumenes(db, [domiciliarioId], (niveles ?? []) as ComisionNivel[]);
+	const resumen = resumenes.get(domiciliarioId) ?? cuentaVaciaConHoy();
 	return {
 		niveles: (niveles ?? []) as ComisionNivel[],
 		bloqueado: fila?.bloqueado === true,
-		resumen: resumen.get(domiciliarioId) ?? cuentaVacia()
+		resumen,
+		hoy: resumen.hoy
 	};
 }
 
 /**
- * Resumen de deuda para un conjunto de domiciliarios (panel admin).
- * Consultas por lotes: pedidos entregados (Σ comisión) + abonos.
+ * Resumen de deuda para un conjunto de domiciliarios (panel admin y panel
+ * del domiciliario). Consultas por lotes: pedidos entregados (agrupados por
+ * día para la comisión diaria) + abonos. Devuelve también el resumen de hoy
+ * de cada uno (el panel del domi lo muestra; el admin lo ignora).
  */
 export async function obtenerResumenes(
 	db: SupabaseClient,
-	ids: string[]
-): Promise<Map<string, CuentaResumen>> {
-	const mapa = new Map<string, CuentaResumen>();
+	ids: string[],
+	niveles?: ComisionNivel[]
+): Promise<Map<string, CuentaResumenConHoy>> {
+	const mapa = new Map<string, CuentaResumenConHoy>();
 	const unicos = [...new Set(ids)].filter(Boolean);
 	if (unicos.length === 0) return mapa;
-	for (const id of unicos) mapa.set(id, cuentaVacia());
+	const hoyBogota = fechaBogota(new Date().toISOString());
+	for (const id of unicos) mapa.set(id, { ...cuentaVacia(), hoy: { fecha: hoyBogota, total: 0, nivel: null, comision: 0 } });
 
-	// 1) Comisiones generadas por pedidos entregados.
+	// 1) Comisiones DIARIAS: se agrupan los pedidos entregados por día
+	//    (hora de Bogotá) y se suma la comisión de cada día.
+	const escalera = (niveles ?? ((await db.from('comision_niveles').select('*').order('nivel')).data ?? [])) as ComisionNivel[];
 	const { data: entregados } = await db
 		.from('pedidos')
-		.select('domiciliario_id, comision')
+		.select('domiciliario_id, total, tarifa_base, recargo_total, updated_at')
 		.eq('estado', 'entregado')
 		.in('domiciliario_id', unicos);
-	for (const p of entregados ?? []) {
-		const r = mapa.get(p.domiciliario_id);
-		if (r) r.total_comision += p.comision ?? 0;
+	const porDia = totalesDiarios((entregados ?? []) as Entrega[]);
+	for (const [domId, dias] of porDia) {
+		const r = mapa.get(domId);
+		if (!r) continue;
+		const { total, hoy } = comisionPorDias(escalera, dias, hoyBogota);
+		r.total_comision = total;
+		r.hoy = hoy;
 	}
 
 	// 2) Abonos (con pocos domiciliarios la lista es corta).
@@ -90,4 +134,11 @@ export async function obtenerResumenes(
 
 function cuentaVacia(): CuentaResumen {
 	return { total_comision: 0, total_pagos: 0, deuda: 0, pagos: [] };
+}
+
+function cuentaVaciaConHoy(): CuentaResumenConHoy {
+	return {
+		...cuentaVacia(),
+		hoy: { fecha: fechaBogota(new Date().toISOString()), total: 0, nivel: null, comision: 0 }
+	};
 }

@@ -6,8 +6,8 @@
 		/** Niveles de la escalera con su rango calculado (rangoDeNiveles). */
 		niveles: NivelConRango[];
 		/**
-		 * Nivel a resaltar (p. ej. el que corresponde al pedido más reciente
-		 * del domiciliario). null desactiva el resaltado y el badge.
+		 * Nivel a resaltar (p. ej. el que alcanza el total del día del
+		 * domiciliario). null desactiva el resaltado y el badge.
 		 */
 		nivelDestacado?: number | null;
 		/** Etiqueta del nivel destacado en el badge y en la fila resaltada. */
@@ -21,9 +21,9 @@
 	let {
 		niveles,
 		nivelDestacado = null,
-		etiquetaDestacado = 'tu último pedido',
-		titulo = 'Comisión por nivel según el valor del pedido',
-		notaPie = 'La comisión de cada entrega se congela al marcarla como entregada.'
+		etiquetaDestacado = 'hoy',
+		titulo = 'Comisión por nivel según el total del día',
+		notaPie = 'La comisión del día se calcula según el total acumulado de las entregas: se cobra el valor de cada nivel que cruza el total del día.'
 	}: Props = $props();
 
 	/** Vista compacta: si es false se muestran los primeros 5 y los últimos 3 niveles. */

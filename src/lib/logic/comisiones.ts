@@ -1,16 +1,20 @@
 /**
- * Lógica pura de comisiones (Fase 11 — tests unitarios).
+ * Lógica pura de comisiones (Fase 11 + 13 — tests unitarios).
  *
- * Sin dependencias de BD ni de UI. El domiciliario debe a la app una
- * comisión por cada pedido entregado, calculada por NIVELES según el
- * valor del pedido (total = tarifa base + recargos):
+ * Sin dependencias de BD ni de UI. Desde la Fase 13 la comisión es DIARIA
+ * y ACUMULADA: el domiciliario debe a la app, por cada DÍA trabajado, la
+ * suma de los valores de los niveles que cruza el total acumulado de sus
+ * entregas de ese día (total = tarifa base + recargos):
  *
- *   Nivel 1 → pedidos hasta $10.000   · $1.300
- *   Nivel 2 → pedidos hasta $20.000   · $1.300
+ *   Nivel 1 → hasta $10.000   · $1.300
+ *   Nivel 2 → hasta $20.000   · $1.300
  *   ...
  *
- * La deuda es la diferencia entre lo generado (Σ comisiones de pedidos
- * entregados) y los abonos registrados; nunca puede ser negativa.
+ *   Ejemplo: total del día $40.000 → alcanza el NIVEL 4 → comisión del
+ *   día = $1.300 × 4 = $5.200 (se paga por CADA nivel que se cruza).
+ *
+ * La deuda es la diferencia entre lo generado (Σ comisiones diarias) y
+ * los abonos registrados; nunca puede ser negativa.
  */
 import type { ComisionNivel } from '../types';
 
@@ -79,6 +83,74 @@ export function nivelDeTotal(niveles: ComisionNivel[], total: number): ComisionN
 /** Comisión (valor del nivel) que corresponde a un total de pedido. */
 export function nivelComision(niveles: ComisionNivel[], total: number): number {
 	return nivelDeTotal(niveles, total)?.valor ?? 0;
+}
+
+// ---------- Comisión DIARIA acumulada (Fase 13) ----------
+
+/**
+ * Fecha local (YYYY-MM-DD) de un timestamp en hora de Bogotá (UTC-5).
+ * Tolera fechas inválidas devolviendo ''.
+ */
+export function fechaBogota(iso: string): string {
+	if (!iso) return '';
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return '';
+	// en-CA (y sv-SE) formatean la fecha como YYYY-MM-DD; la opción timeZone
+	// convierte el instante a la hora local de Bogotá sin depender del host.
+	return d.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+}
+
+/**
+ * Total de un pedido entregado: `total` (Fase 7) con respaldo a la suma
+ * tarifa + recargos para pedidos previos sin total.
+ */
+export function totalPedidoComision(total: number | null, tarifaBase: number, recargoTotal: number): number {
+	if (total != null && Number.isFinite(total)) return Math.max(0, total);
+	return Math.max(0, (Number.isFinite(tarifaBase) ? tarifaBase : 0) + (Number.isFinite(recargoTotal) ? recargoTotal : 0));
+}
+
+/**
+ * Agrupa entregas por domiciliario y por día (Bogotá):
+ * devuelve Map<domiciliario_id, Map<YYYY-MM-DD, total_del_día>>.
+ */
+export function totalesDiarios(
+	entregas: { domiciliario_id: string | null; total?: number | null; tarifa_base?: number; recargo_total?: number; updated_at: string }[]
+): Map<string, Map<string, number>> {
+	const mapa = new Map<string, Map<string, number>>();
+	for (const e of entregas) {
+		if (!e.domiciliario_id) continue;
+		const fecha = fechaBogota(e.updated_at);
+		if (!fecha) continue;
+		const porDia = mapa.get(e.domiciliario_id) ?? new Map<string, number>();
+		porDia.set(fecha, (porDia.get(fecha) ?? 0) + totalPedidoComision(e.total ?? null, e.tarifa_base ?? 0, e.recargo_total ?? 0));
+		mapa.set(e.domiciliario_id, porDia);
+	}
+	return mapa;
+}
+
+/**
+ * Nivel que alcanza el total acumulado de un DÍA (el mismo criterio que
+ * nivelDeTotal). Con total 0 (sin entregas) devuelve null: no hay nivel
+ * alcanzado ni comisión. Con niveles vacíos devuelve null.
+ */
+export function nivelDiario(niveles: ComisionNivel[], totalDia: number): ComisionNivel | null {
+	if (!Number.isFinite(totalDia) || totalDia <= 0) return null;
+	return nivelDeTotal(niveles, totalDia);
+}
+
+/**
+ * Comisión que genera el total acumulado de un DÍA: la suma de los valores
+ * de TODOS los niveles hasta el nivel alcanzado (se paga por cada nivel que
+ * se cruza). Con total 0 o sin niveles, 0. Ej.: $40.000 → nivel 4 →
+ * valor(1)+valor(2)+valor(3)+valor(4).
+ */
+export function comisionDiaria(niveles: ComisionNivel[], totalDia: number): number {
+	const alcanzado = nivelDiario(niveles, totalDia);
+	if (!alcanzado) return 0;
+	const ordenados = [...niveles].sort((a, b) => a.nivel - b.nivel);
+	return ordenados
+		.filter((n) => n.nivel <= alcanzado.nivel)
+		.reduce((acc, n) => acc + (Number.isFinite(n.valor) ? Math.max(0, n.valor) : 0), 0);
 }
 
 export interface NivelConRango extends ComisionNivel {

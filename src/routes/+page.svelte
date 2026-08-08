@@ -2,10 +2,12 @@
 	import { api } from '$lib/api';
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import type { HorarioHoy } from '$lib/types';
 
 	let cargando = $state(true);
 	let esAdmin = $state(false);
 	let esDomiciliario = $state(false);
+	let horario = $state<HorarioHoy | null>(null);
 
 	$effect(() => {
 		let activo = true;
@@ -15,6 +17,9 @@
 				esDomiciliario = r.data?.esDomiciliario === true && r.error === null;
 				cargando = false;
 			}
+		});
+		api.get<HorarioHoy>('/api/horario').then((r) => {
+			if (activo && !r.error) horario = r.data ?? null;
 		});
 		return () => {
 			activo = false;
@@ -56,6 +61,21 @@
 	</header>
 
 	<main class="relative z-10 mx-auto max-w-6xl px-6">
+		{#if horario && !horario.abierto}
+			<div class="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-center text-sm text-amber-200">
+				<Icon name="clock" class="size-4 shrink-0" />
+				<span>
+					Estamos fuera de horario de atención (hoy {horario.apertura} – {horario.cierre}): no se reciben pedidos
+					nuevos. Puedes seguir consultando el estado de tu pedido.
+				</span>
+			</div>
+		{:else if horario?.abierto}
+			<div class="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-center text-sm text-green-200">
+				<Icon name="circle-check" class="size-4 shrink-0" />
+				<span>Recibimos pedidos hoy hasta las {horario.cierre}.</span>
+			</div>
+		{/if}
+
 		<section class="pt-20 pb-16 text-center sm:pt-28">
 			<p class="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-[#8BB4FF] uppercase">
 				<span class="size-1.5 rounded-full bg-primary" ></span>

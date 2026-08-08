@@ -243,7 +243,7 @@
 
 <div class="grid gap-6 lg:grid-cols-3">
 	<!-- Formulario de registro -->
-	<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-1">
+	<div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-1">
 		<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Registrar domiciliario</h2>
 		<p class="mt-1 text-xs text-slate-400">
 			Con una contraseña se crea la cuenta completa (email + acceso al panel). Sin contraseña, el email debe
@@ -312,7 +312,8 @@
 		<div class="mt-6 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-800">
 			<p class="font-semibold">Deuda por comisiones</p>
 			<p class="mt-1">
-				Cada entrega completada genera una comisión (por niveles según el valor del pedido, configurable en
+				Por cada día trabajado se calcula la comisión según el total acumulado del día (el nivel alcanzado se
+				cobra por cada nivel que cruza; configúrala en
 				<a href="/admin/comisiones" class="font-semibold underline">Comisiones</a>). Esa deuda se acumula hasta que registres
 				un abono; si no la paga, puedes bloquear al domiciliario.
 			</p>
@@ -320,7 +321,7 @@
 	</div>
 
 	<!-- Listado -->
-	<div class="rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+	<div class="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
 		<div class="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
 			<input
 				type="search"

@@ -34,6 +34,11 @@ function tarifaOk() {
 			if (path.startsWith('/api/barrios')) return Promise.resolve({ data: BARRIOS, error: null });
 			if (path.startsWith('/api/zonas')) return Promise.resolve({ data: ZONAS, error: null });
 			if (path.startsWith('/api/recargos')) return Promise.resolve({ data: RECARGOS, error: null });
+			if (path.startsWith('/api/horario'))
+				return Promise.resolve({
+					data: { fecha: '2026-08-07', dia_semana: 5, apertura: '08:00', cierre: '20:00', abierto: true, motivo: null, fuente: 'semanal', hora_actual: '12:00' },
+					error: null
+				});
 			return Promise.resolve({ data: null, error: null });
 		});
 		postMock.mockResolvedValue({ data: null, error: null });
@@ -50,10 +55,42 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 	await user.click(input);
 	await user.type(input, query);
 	await user.click(await screen.findByRole('option', { name: new RegExp(query) }));
-}
+}	describe('Formulario de creación de pedido', () => {
+		test('cuando la app está abierta muestra el aviso de horario y el formulario funciona', async () => {
+			postMock.mockImplementation((path: string) =>
+				path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
+			);
+			render(Pagina);
+			await formularioListo();
 
-describe('Formulario de creación de pedido', () => {
-	test('la tarifa se calcula al seleccionar ambos barrios y habilita el envío', async () => {
+			expect(screen.getByText(/Atendemos hoy hasta las 20:00/)).toBeInTheDocument();
+			expect(screen.getByPlaceholderText('Ej: Barrio La Rivera…')).toBeInTheDocument();
+		});
+
+		test('cuando la app está cerrada reemplaza el formulario por el aviso de horario', async () => {
+			getMock.mockImplementation((path: string) => {
+				if (path.startsWith('/api/barrios')) return Promise.resolve({ data: BARRIOS, error: null });
+				if (path.startsWith('/api/zonas')) return Promise.resolve({ data: ZONAS, error: null });
+				if (path.startsWith('/api/recargos')) return Promise.resolve({ data: RECARGOS, error: null });
+				if (path.startsWith('/api/horario'))
+					return Promise.resolve({
+						data: { fecha: '2026-08-07', dia_semana: 5, apertura: '08:00', cierre: '20:00', abierto: false, motivo: '24 de diciembre', fuente: 'excepcion', hora_actual: '21:00' },
+						error: null
+					});
+				return Promise.resolve({ data: null, error: null });
+			});
+			render(Pagina);
+
+			await screen.findByText(/Estamos fuera de horario de atención/);
+			// El rango vive dentro de un <strong>; el texto previo en el <p>.
+			expect(screen.getByText(/Horario de hoy/)).toBeInTheDocument();
+			expect(screen.getByText('08:00 – 20:00')).toBeInTheDocument();
+			expect(screen.getByText('Consultar estado de mi pedido')).toBeInTheDocument();
+			expect(screen.queryByPlaceholderText('Ej: Barrio La Rivera…')).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: 'Confirmar pedido' })).not.toBeInTheDocument();
+		});
+
+		test('la tarifa se calcula al seleccionar ambos barrios y habilita el envío', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);

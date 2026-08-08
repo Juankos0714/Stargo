@@ -196,8 +196,14 @@
 		{
 			href: '/admin/comisiones',
 			label: 'Configurar comisiones',
-			desc: 'Valor que paga cada domiciliario por nivel según el valor del pedido.',
+			desc: 'Comisión diaria del domiciliario: se cobra por cada nivel que cruza el total del día.',
 			icon: 'coins'
+		},
+		{
+			href: '/admin/horario',
+			label: 'Configurar horarios',
+			desc: 'Cuándo la app recibe pedidos: horario semanal y fechas especiales.',
+			icon: 'clock'
 		},
 		{
 			href: '/admin/barrios',
@@ -220,9 +226,9 @@
 
 <header class="mb-6 flex flex-wrap items-start justify-between gap-3">
 	<div>
-		<h1 class="flex items-center gap-2.5 text-2xl font-extrabold tracking-tight text-slate-900">
-			Hola, {page.data.email?.split('@')[0]}
-			<Icon name="face-smile-beam" class="size-6 text-primary" />
+		<h1 class="flex min-w-0 items-center gap-2.5 text-2xl font-extrabold tracking-tight text-slate-900">
+			<span class="min-w-0 wrap-anywhere" title={page.data.email}>Hola, {page.data.email?.split('@')[0]}</span>
+			<Icon name="face-smile-beam" class="size-6 shrink-0 text-primary" />
 		</h1>
 		<p class="mt-1 text-sm text-slate-500">Así va la operación hoy.</p>
 	</div>
@@ -238,7 +244,7 @@
 		{#each tarjetas as tarjeta (tarjeta.label)}
 		<a
 			href={tarjeta.href}
-			class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
+			class="group min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
 		>
 			<div class="flex items-center justify-between">
 				<p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">{tarjeta.label}</p>
@@ -260,7 +266,7 @@
 
 <div class="mt-6 grid gap-6 lg:grid-cols-5">
 	<!-- Actividad reciente -->
-	<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-3">
+	<section class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-3">
 		<div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
 			<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Actividad reciente</h2>
 			<a href="/admin/pedidos" class="text-xs font-semibold text-primary-dark hover:underline">
@@ -296,13 +302,13 @@
 	</section>
 
 	<!-- Configuración -->
-	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+	<section class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
 		<h2 class="mb-4 text-sm font-bold tracking-wide text-slate-500 uppercase">Configuración</h2>
 		<div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
 			{#each configCards as card (card.label)}
 				<a
 					href={card.href}
-					class="group rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:border-primary hover:bg-white hover:shadow-sm"
+					class="group min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:border-primary hover:bg-white hover:shadow-sm"
 				>
 					<div class="flex items-center gap-2 text-xs font-semibold text-slate-500">
 						<Icon name={card.icon} class="size-3.5 text-primary" />

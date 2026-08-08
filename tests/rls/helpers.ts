@@ -210,6 +210,9 @@ export async function sembrarCatalogo(): Promise<Catalogo> {
 	]);
 	if (errRecargos) throw new Error(`Siembra de recargos falló: ${errRecargos.message}`);
 
+	// Horario permisivo: crear_pedido() exige estar dentro del horario.
+	await sembrarHorarioPermisivo();
+
 	return {
 		zonaA,
 		zonaB,
@@ -221,6 +224,25 @@ export async function sembrarCatalogo(): Promise<Catalogo> {
 		recargoPeso,
 		recargoInactivo
 	};
+}
+
+/**
+ * Deja el horario de operación PERMISIVO (00:00–23:59 todos los días): la
+ * Fase 13 bloquea crear_pedido() fuera de horario y los tests crean pedidos
+ * a cualquier hora. Lo llama sembrarCatalogo(); los tests de horario lo
+ * anulan después con sus propias filas/excepciones.
+ */
+export async function sembrarHorarioPermisivo(): Promise<void> {
+	const s = clienteService();
+	await s.from('horario_operacion').upsert(
+		Array.from({ length: 7 }, (_, i) => ({
+			dia_semana: i + 1,
+			apertura: '00:00',
+			cierre: '23:59',
+			activo: true
+		})),
+		{ onConflict: 'dia_semana' }
+	);
 }
 
 /** Inserta un pedido directo (service_role) para los tests de aislamiento. */
@@ -385,6 +407,20 @@ export async function limpiarTodo(): Promise<void> {
 	await intentar(() => s.from('zonas').delete().like('id', `zona_${PREFIJO}%`));
 	await intentar(() => s.from('zonas').delete().eq('id', 'zona_roja'));
 	await intentar(() => s.from('recargos').delete().like('codigo', `rc_${PREFIJO}%`));
+	// Horario: se restaura el default de la migración (08:00–20:00) y se
+	// limpian las excepciones que pudieron dejar los tests de horario.
+	await intentar(() =>
+		s.from('horario_operacion').upsert(
+			Array.from({ length: 7 }, (_, i) => ({
+				dia_semana: i + 1,
+				apertura: '08:00',
+				cierre: '20:00',
+				activo: true
+			})),
+			{ onConflict: 'dia_semana' }
+		)
+	);
+	await intentar(() => s.from('horario_excepcion').delete().neq('fecha', '0001-01-01'));
 	// Filas de rol.
 	await intentar(() => s.from('domiciliarios').delete().like('nombre', `%${PREFIJO}%`));
 	await intentar(() => s.from('admins').delete().like('email', `rlstest_${PREFIJO}%`));

@@ -26,13 +26,13 @@ function filaDe(texto: RegExp): HTMLElement | null {
 describe('TablaNiveles', () => {
 	test('muestra el badge del nivel destacado en el encabezado; sin destacado no hay badge', () => {
 		const { unmount } =		render(TablaNiveles, { niveles: nivelesEscalera(), nivelDestacado: 3 });
-		expect(screen.getByText('tu último pedido: nivel 3')).toBeInTheDocument();
+		expect(screen.getByText('hoy: nivel 3')).toBeInTheDocument();
 		// El texto del badge también aparece en cada fila de la tabla.
 		expect(screen.getAllByText(/^comisión \$ ?1\.300$/).length).toBeGreaterThan(0);
 		unmount();
 
 		render(TablaNiveles, { niveles: nivelesEscalera(), nivelDestacado: null });
-		expect(screen.queryByText(/tu último pedido/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/hoy: nivel/)).not.toBeInTheDocument();
 	});
 
 	test('resalta la fila del nivel destacado y deja las demás sin resaltar', () => {
@@ -41,11 +41,11 @@ describe('TablaNiveles', () => {
 		// jsdom mantiene el contenido del <details> en el DOM aunque esté cerrado.
 		const filaNivel3 = filaDe(/^Pedidos de \$ ?20\.001 a \$ ?30\.000$/);
 		expect(filaNivel3?.className).toContain('bg-primary-light/50');
-		expect(filaNivel3).toHaveTextContent('tu último pedido');
+		expect(filaNivel3).toHaveTextContent('hoy');
 
 		const filaNivel1 = filaDe(/^Pedidos hasta \$ ?10\.000$/);
 		expect(filaNivel1?.className).not.toContain('bg-primary-light/50');
-		expect(filaNivel1).not.toHaveTextContent('tu último pedido');
+		expect(filaNivel1).not.toHaveTextContent('hoy');
 	});
 
 	test('acepta un título y una nota al pie personalizados', () => {
@@ -62,7 +62,7 @@ describe('TablaNiveles', () => {
 	test('un nivel destacado fuera del rango no muestra badge ni mensaje engañoso', () => {
 		render(TablaNiveles, { niveles: nivelesEscalera(), nivelDestacado: 99 });
 
-		expect(screen.queryByText(/tu último pedido/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/hoy: nivel/)).not.toBeInTheDocument();
 		expect(screen.queryByText(/nivel 99/)).not.toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Ver los 12 niveles intermedios…/ })).toBeInTheDocument();
 	});
@@ -100,13 +100,13 @@ describe('TablaNiveles', () => {
 
 		expect(screen.queryByText(/110\.001/)).not.toBeInTheDocument();
 		const boton = screen.getByRole('button', {
-			name: /Ver los 12 niveles intermedios \(tu último pedido: nivel 12\)/
+			name: /Ver los 12 niveles intermedios \(hoy: nivel 12\)/
 		});
 
 		await user.click(boton);
 		const filaNivel12 = filaDe(/^Pedidos de \$ ?110\.001 a \$ ?120\.000$/);
 		expect(filaNivel12?.className).toContain('bg-primary-light/50');
-		expect(filaNivel12).toHaveTextContent('tu último pedido');
+		expect(filaNivel12).toHaveTextContent('hoy');
 	});
 
 	test('con 9 niveles y el 6 destacado usa el singular en el botón', () => {
@@ -114,7 +114,7 @@ describe('TablaNiveles', () => {
 
 		expect(screen.queryByText(/50\.001/)).not.toBeInTheDocument(); // nivel 6 oculto
 		expect(
-			screen.getByRole('button', { name: /Ver el nivel intermedio \(tu último pedido: nivel 6\)/ })
+			screen.getByRole('button', { name: /Ver el nivel intermedio \(hoy: nivel 6\)/ })
 		).toBeInTheDocument();
 	});
 

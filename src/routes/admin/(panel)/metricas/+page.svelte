@@ -157,7 +157,7 @@
 	<!-- Tarjetas -->
 	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 		{#each tarjetas as tarjeta (tarjeta.label)}
-			<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+			<div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 				<div class="flex items-center justify-between">
 					<p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">{tarjeta.label}</p>
 					<span class="flex size-8 items-center justify-center rounded-lg {tarjeta.color}">
@@ -176,7 +176,7 @@
 
 	<div class="mt-6 grid gap-6 lg:grid-cols-2">
 		<!-- Alertas recientes -->
-		<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+		<section class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 			<div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
 				<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Alertas recientes</h2>
 				<Icon name="triangle-exclamation" class="size-4 text-amber-500" />
@@ -204,7 +204,7 @@
 		</section>
 
 		<!-- Auditoría de tarifas -->
-		<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+		<section class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 			<div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
 				<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Cambios recientes de tarifas</h2>
 				<Icon name="floppy-disk" class="size-4 text-primary-dark" />

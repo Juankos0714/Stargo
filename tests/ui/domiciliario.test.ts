@@ -50,7 +50,13 @@ type OverridesCuenta = Partial<{
 	total_pagos: number;
 	deuda: number;
 	pagos: FixturePago[];
+	hoy: { fecha: string; total: number; nivel: number | null; comision: number } | null;
 }>;
+
+/** Resumen del día: fecha Bogotá, total acumulado, nivel alcanzado y comisión. */
+function dia(total: number, nivel: number | null, comision: number, fecha = '2026-08-07') {
+	return { fecha, total, nivel, comision };
+}
 
 function cuenta(niveles = escalera20(), overrides: OverridesCuenta = {}) {
 	return {
@@ -60,6 +66,7 @@ function cuenta(niveles = escalera20(), overrides: OverridesCuenta = {}) {
 		total_pagos: 0,
 		deuda: 0,
 		pagos: [] as FixturePago[],
+		hoy: dia(0, null, 0),
 		...overrides
 	};
 }
@@ -119,7 +126,7 @@ async function renderizarCon(
 	});
 	const r = render(Pagina);
 	// La sección de comisiones aparece cuando la cuenta termina de cargar.
-	await screen.findByText(/Comisión por nivel según el valor del pedido/);
+	await screen.findByText(/Comisión por nivel según el total del día/);
 	return r;
 }
 
@@ -129,26 +136,42 @@ function filaDe(texto: RegExp): HTMLElement | null {
 	return span.closest('li');
 }
 
-describe('Panel del domiciliario: resaltado del nivel del último pedido', () => {
-	test('muestra en el encabezado el badge con el nivel del último pedido', async () => {
-		await renderizarCon([
-			{ id: 'p1', numero: 'ABC111', estado: 'en_camino', total: 25000, created_at: '2026-08-01T10:00:00' }
-		]);
+describe('Panel del domiciliario: comisión diaria y resaltado del nivel del día', () => {
+	test('muestra la tarjeta de HOY con total, nivel alcanzado y comisión del día', async () => {
+		await renderizarCon([], escalera20(), {
+			// Total del día $40.000 → nivel 4 → 4 × 1.300 = $5.200.
+			hoy: dia(40000, 4, 5200)
+		});
+
+		const tarjetaHoy = screen.getByText(/Hoy/).closest('div.rounded-2xl');
+		expect(tarjetaHoy).toHaveTextContent('$ 40.000');
+		expect(tarjetaHoy).toHaveTextContent('nivel 4');
+		expect(tarjetaHoy).toHaveTextContent('comisión $ 5.200');
+	});
+
+	test('la tarjeta de HOY sin entregas no inventa nivel ni comisión', async () => {
+		await renderizarCon([], escalera20(), { hoy: dia(0, null, 0) });
+
+		const tarjetaHoy = screen.getByText(/Hoy/).closest('div.rounded-2xl');
+		expect(tarjetaHoy).toHaveTextContent('sin entregas aún');
+		expect(tarjetaHoy).not.toHaveTextContent(/nivel \d/);
+	});
+
+	test('muestra en el encabezado el badge con el nivel del día', async () => {
+		await renderizarCon([], escalera20(), { hoy: dia(25000, 3, 3900) });
 
 		// $25.000 cae en el nivel 3 (hasta $30.000).
-		expect(screen.getByText('tu último pedido: nivel 3')).toBeInTheDocument();
+		expect(screen.getByText('hoy: nivel 3')).toBeInTheDocument();
 		// El badge de resumen de comisiones sigue presente (el texto también
 		// aparece en cada fila de la tabla, por eso getAllByText).
 		expect(screen.getAllByText(/^comisión \$ ?1\.300$/).length).toBeGreaterThan(0);
 	});
 
-	test('resalta la fila del nivel del último pedido al expandir la tabla', async () => {
+	test('resalta la fila del nivel del día al expandir la tabla', async () => {
 		const user = userEvent.setup();
-		await renderizarCon([
-			{ id: 'p1', numero: 'ABC111', estado: 'en_camino', total: 25000, created_at: '2026-08-01T10:00:00' }
-		]);
+		await renderizarCon([], escalera20(), { hoy: dia(25000, 3, 3900) });
 
-		await user.click(screen.getByText(/Comisión por nivel según el valor del pedido/));
+		await user.click(screen.getByText(/Comisión por nivel según el total del día/));
 		// jsdom respeta el toggle del <details> al hacer clic en el <summary>.
 		expect(screen.getByText(/Comisión por nivel/).closest('details')?.open).toBe(true);
 
@@ -156,44 +179,24 @@ describe('Panel del domiciliario: resaltado del nivel del último pedido', () =>
 		const filaNivel3 = filaDe(/Pedidos de .*20\.001 a .*30\.000/);
 		expect(filaNivel3).not.toBeNull();
 		expect(filaNivel3?.className).toContain('bg-primary-light/50');
-		expect(filaNivel3).toHaveTextContent('tu último pedido');
+		expect(filaNivel3).toHaveTextContent('hoy');
 
 		// El nivel 1 (rango hasta $10.000) NO está resaltado.
 		const filaNivel1 = filaDe(/Pedidos hasta .*10\.000/);
 		expect(filaNivel1?.className).not.toContain('bg-primary-light/50');
-		expect(filaNivel1).not.toHaveTextContent('tu último pedido');
+		expect(filaNivel1).not.toHaveTextContent('hoy');
 	});
 
-	test('el badge y el resaltado corresponden al pedido MÁS reciente (orden por created_at)', async () => {
+	test('si el nivel del día queda oculto, el botón lo anuncia y al expandir se resalta', async () => {
 		const user = userEvent.setup();
-		await renderizarCon([
-			// Pedido entregado más viejo: total $8.000 → nivel 1.
-			{ id: 'p1', numero: 'ABC111', estado: 'entregado', total: 8000, created_at: '2026-08-01T10:00:00' },
-			// Pedido más reciente: total $25.000 → nivel 3.
-			{ id: 'p2', numero: 'ABC222', estado: 'en_camino', total: 25000, created_at: '2026-08-01T11:00:00' }
-		]);
-
-		expect(screen.getByText('tu último pedido: nivel 3')).toBeInTheDocument();
-		expect(screen.queryByText('tu último pedido: nivel 1')).not.toBeInTheDocument();
-
-		await user.click(screen.getByText(/Comisión por nivel según el valor del pedido/));
-		expect(filaDe(/Pedidos de .*20\.001 a .*30\.000/)?.className).toContain('bg-primary-light/50');
-		expect(filaDe(/Pedidos hasta .*10\.000/)?.className).not.toContain('bg-primary-light/50');
-	});
-
-	test('si el nivel del último pedido queda oculto, el botón lo anuncia y al expandir se resalta', async () => {
-		const user = userEvent.setup();
-		await renderizarCon([
-			// Total $120.000 → nivel 12 (oculto entre los intermedios 6–17).
-			{ id: 'p1', numero: 'ABC111', estado: 'en_camino', total: 120000, created_at: '2026-08-01T10:00:00' }
-		]);
+		await renderizarCon([], escalera20(), { hoy: dia(120000, 12, 15600) });
 
 		// En la vista compacta la fila del nivel 12 NO está en el DOM.
 		expect(screen.queryByText(/110\.001/)).not.toBeInTheDocument();
 
-		// El botón intermedio menciona el nivel oculto del último pedido.
+		// El botón intermedio menciona el nivel oculto del día.
 		const boton = screen.getByRole('button', {
-			name: /Ver los 12 niveles intermedios \(tu último pedido: nivel 12\)/
+			name: /Ver los 12 niveles intermedios \(hoy: nivel 12\)/
 		});
 		expect(boton).toBeInTheDocument();
 
@@ -202,17 +205,17 @@ describe('Panel del domiciliario: resaltado del nivel del último pedido', () =>
 		const filaNivel12 = filaDe(/Pedidos de .*110\.001 a .*120\.000/);
 		expect(filaNivel12).not.toBeNull();
 		expect(filaNivel12?.className).toContain('bg-primary-light/50');
-		expect(filaNivel12).toHaveTextContent('tu último pedido');
+		expect(filaNivel12).toHaveTextContent('hoy');
 		expect(
 			screen.getByRole('button', { name: /Mostrar solo el inicio y el final de la tabla/ })
 		).toBeInTheDocument();
 	});
 
-	test('sin pedidos no muestra badge ni resaltado, pero la tabla de niveles sigue visible', async () => {
+	test('sin entregas hoy no muestra badge ni resaltado, pero la tabla de niveles sigue visible', async () => {
 		await renderizarCon([]);
 
-		expect(screen.queryByText(/tu último pedido/)).not.toBeInTheDocument();
-		expect(screen.getByText(/Comisión por nivel según el valor del pedido \(20 niveles\)/)).toBeInTheDocument();
+		expect(screen.queryByText(/hoy: nivel/)).not.toBeInTheDocument();
+		expect(screen.getByText(/Comisión por nivel según el total del día \(20 niveles\)/)).toBeInTheDocument();
 		expect(screen.getAllByText(/^comisión \$ ?1\.300$/).length).toBeGreaterThan(0);
 	});
 

@@ -13,8 +13,6 @@
 		accionDomiciliario,
 		etiquetaEstado,
 		formatearPeso,
-		nivelComision,
-		nivelDeTotal,
 		rangoDeNiveles,
 		type CuentaDomiciliario,
 		type HistorialEstado,
@@ -52,27 +50,13 @@
 	/** Niveles con su rango calculado, para la tabla de comisiones. */
 	const nivelesConRango = $derived(rangoDeNiveles(cuenta?.niveles ?? []));
 
-	/** Pedido más reciente del domiciliario (por fecha de creación). */
-	const ultimoPedido = $derived(
-		pedidos.length > 0
-			? [...pedidos].sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
-			: null
-	);
+	/** Resumen del día de hoy: total acumulado, nivel alcanzado y comisión del día. */
+	const hoy = $derived(cuenta?.hoy ?? null);
 
-	/** Nivel de comisión que corresponde al valor del pedido más reciente (si hay). */
-	const nivelUltimoPedido = $derived(
-		ultimoPedido ? nivelDeTotal(nivelesConRango, totalPedido(ultimoPedido)) : null
+	/** Fecha legible del resumen de hoy. */
+	const hoyEtiqueta = $derived(
+		hoy?.fecha ? new Date(hoy.fecha + 'T12:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }) : ''
 	);
-
-	/**
-	 * Comisión que el domiciliario debe por un pedido: el snapshot congelado
-	 * al entregarlo, o la comisión del nivel que corresponde al valor del
-	 * pedido para los aún en curso (la que se congelará al entregarlo).
-	 */
-	function comisionPedido(p: PedidoFila): number {
-		if (p.estado === 'entregado') return p.comision ?? 0;
-		return nivelComision(cuenta?.niveles ?? [], totalPedido(p));
-	}
 
 	function formatearFecha(iso: string): string {
 		return new Date(iso).toLocaleString('es-CO', {
@@ -210,16 +194,32 @@
 	</div>
 {/if}
 
-<!-- Mi cuenta: comisiones por nivel y deuda -->
+<!-- Mi cuenta: comisión diaria, niveles y deuda -->
 <section class="mb-6">
-	<div class="grid gap-4 sm:grid-cols-3">
+	<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+		<div class="rounded-2xl border border-primary/25 bg-primary-light/40 p-4 shadow-sm">
+			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary-dark uppercase">
+				<Icon name="sun" class="size-3.5" />
+				Hoy {hoyEtiqueta}
+			</p>
+			<p class="mt-1 text-2xl font-extrabold text-slate-900">
+				{hoy ? formatearPeso(hoy.total) : formatearPeso(null)}
+			</p>
+			<p class="mt-0.5 text-xs text-slate-500">
+				{#if hoy && hoy.nivel}
+					total del día · nivel {hoy.nivel} → <span class="font-bold text-primary-dark">comisión {formatearPeso(hoy.comision)}</span>
+				{:else}
+					acumulado de tus entregas de hoy (sin entregas aún)
+				{/if}
+			</p>
+		</div>
 		<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">
 				<Icon name="coins" class="size-3.5 text-primary" />
 				Generado en comisiones
 			</p>
 			<p class="mt-1 text-2xl font-extrabold text-slate-900">{formatearPeso(cuenta?.total_comision ?? null)}</p>
-			<p class="mt-0.5 text-xs text-slate-400">por pedidos entregados</p>
+			<p class="mt-0.5 text-xs text-slate-400">comisión diaria acumulada por días trabajados</p>
 		</div>
 		<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">
@@ -249,7 +249,13 @@
 		</div>
 	</div>
 
-	<TablaNiveles niveles={nivelesConRango} nivelDestacado={nivelUltimoPedido?.nivel ?? null} />
+	<TablaNiveles
+		niveles={nivelesConRango}
+		nivelDestacado={hoy?.nivel ?? null}
+		etiquetaDestacado="hoy"
+		titulo="Comisión por nivel según el total del día"
+		notaPie="La comisión de cada día se calcula según el total acumulado de tus entregas: se cobra el valor de cada nivel que cruza el total del día."
+	/>
 </section>
 
 {#if (cuenta?.pagos?.length ?? 0) > 0}
@@ -333,7 +339,6 @@
 			{@const accion = accionDomiciliario(p.estado)}
 			{@const total = totalPedido(p)}
 			{@const recs = p.recargos ?? []}
-			{@const comision = comisionPedido(p)}
 			<div class="rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
 				<div class="flex flex-wrap items-center gap-3 border-b border-slate-100 p-5">
 					<div>
@@ -377,12 +382,6 @@
 						</div>
 					{:else}
 						<p class="mt-0.5 text-xs text-slate-500">Tarifa del trayecto (sin recargos)</p>
-					{/if}
-					{#if comision > 0}
-						<p class="mt-1.5 flex justify-between border-t border-primary/15 pt-1.5 text-xs">
-							<span class="text-slate-500">Comisión aprox. para StarGo</span>
-							<span class="font-bold text-slate-700">− {formatearPeso(comision)}</span>
-						</p>
 					{/if}
 				</div>
 
@@ -444,7 +443,6 @@
 	<div class="space-y-3">
 		{#each completados as p (p.id)}
 			{@const total = totalPedido(p)}
-			{@const comision = comisionPedido(p)}
 			<div class="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
 				<p class="font-mono text-base font-black tracking-widest text-slate-900">{p.numero}</p>
 				<p class="text-sm text-slate-500">
@@ -453,9 +451,6 @@
 				<BadgeEstado estado={p.estado} />
 				<div class="ml-auto text-right">
 					<p class="font-bold text-slate-900">{formatearPeso(total)}</p>
-					{#if comision > 0}
-						<p class="text-[10px] text-slate-400">comisión − {formatearPeso(comision)}</p>
-					{/if}
 				</div>
 				<span class="text-xs text-slate-400">{formatearFecha(p.created_at)}</span>
 			</div>

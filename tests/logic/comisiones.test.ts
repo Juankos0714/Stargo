@@ -1,10 +1,15 @@
 import { describe, expect, test } from 'vitest';
 import {
 	calcularDeuda,
+	comisionDiaria,
+	fechaBogota,
 	nivelComision,
 	nivelDeTotal,
+	nivelDiario,
 	rangoDeNiveles,
 	redondearComision,
+	totalPedidoComision,
+	totalesDiarios,
 	validarTopeNivel,
 	vistaCompactaNiveles,
 	type NivelConRango
@@ -153,6 +158,77 @@ describe('rangoDeNiveles', () => {
 		const rangos = rangoDeNiveles(niveles([3, 30000, 100], [1, 10000, 50]));
 		expect(rangos.map((r) => r.nivel)).toEqual([1, 3]);
 		expect(rangos.map((r) => r.desde)).toEqual([1, 10001]);
+	});
+});
+
+describe('comisión DIARIA acumulada (Fase 13)', () => {
+	test('fechaBogota devuelve la fecha local de Bogotá (UTC-5)', () => {
+		// 2026-08-07T23:30:00Z = 18:30 en Bogotá → mismo día.
+		expect(fechaBogota('2026-08-07T23:30:00Z')).toBe('2026-08-07');
+		// 2026-08-08T02:00:00Z = 21:00 del 7 en Bogotá → día anterior.
+		expect(fechaBogota('2026-08-08T02:00:00Z')).toBe('2026-08-07');
+		expect(fechaBogota('')).toBe('');
+		expect(fechaBogota('no-es-fecha')).toBe('');
+	});
+
+	test('totalPedidoComision usa el total con respaldo a tarifa + recargos', () => {
+		expect(totalPedidoComision(6000, 4000, 2000)).toBe(6000);
+		expect(totalPedidoComision(null, 4000, 2000)).toBe(6000);
+		expect(totalPedidoComision(-5, 4000, 2000)).toBe(0);
+	});
+
+	test('totalesDiarios agrupa por domiciliario y por día (Bogotá)', () => {
+		const entregas = [
+			{ domiciliario_id: 'a', total: 6000, tarifa_base: 6000, recargo_total: 0, updated_at: '2026-08-07T18:00:00Z' },
+			{ domiciliario_id: 'a', total: 15000, tarifa_base: 15000, recargo_total: 0, updated_at: '2026-08-07T20:30:00Z' },
+			{ domiciliario_id: 'a', total: 9000, tarifa_base: 9000, recargo_total: 0, updated_at: '2026-08-08T00:30:00Z' }, // 7 en Bogotá
+			{ domiciliario_id: 'b', total: 5000, tarifa_base: 5000, recargo_total: 0, updated_at: '2026-08-08T12:00:00Z' }
+		];
+		const dias = totalesDiarios(entregas);
+		expect(dias.get('a')?.get('2026-08-07')).toBe(6000 + 15000 + 9000);
+		expect(dias.get('b')?.get('2026-08-08')).toBe(5000);
+		expect(dias.get('a')?.has('2026-08-08')).toBe(false);
+		// Sin domiciliario se ignora.
+		expect(dias.get('')).toBeUndefined();
+	});
+
+	test('nivelDiario: sin entregas (0) no hay nivel; con total usa el criterio de nivelDeTotal', () => {
+		expect(nivelDiario(ESCALERA, 0)).toBeNull();
+		expect(nivelDiario(ESCALERA, -1)).toBeNull();
+		// ESCALERA salta del nivel 3 (hasta 30.000) al 10 (hasta 100.000).
+		expect(nivelDiario(ESCALERA, 30000)?.nivel).toBe(3);
+		expect(nivelDiario(ESCALERA, 30001)?.nivel).toBe(10);
+		expect(nivelDiario(ESCALERA, 99999)?.nivel).toBe(10);
+		expect(nivelDiario([], 5000)).toBeNull();
+	});
+
+	test('comisionDiaria: $40.000 → nivel 4 → 1300 × 4 = 5200', () => {
+		const l4 = niveles(
+			[1, 10000, 1300],
+			[2, 20000, 1300],
+			[3, 30000, 1300],
+			[4, 40000, 1300]
+		);
+		expect(comisionDiaria(l4, 40000)).toBe(5200); // nivel 4 → 4 × 1300
+		expect(comisionDiaria(l4, 29999)).toBe(3900); // nivel 3 → 3 × 1300
+		expect(comisionDiaria(l4, 1)).toBe(1300); // nivel 1 → 1 × 1300
+		expect(comisionDiaria(l4, 0)).toBe(0);
+		expect(comisionDiaria(l4, -5)).toBe(0);
+	});
+
+	test('comisionDiaria suma el valor de CADA nivel cruzado (valores distintos por nivel)', () => {
+		const variada = niveles(
+			[1, 10000, 1300],
+			[2, 20000, 2200],
+			[3, 30000, 3500]
+		);
+		expect(comisionDiaria(variada, 25000)).toBe(1300 + 2200 + 3500); // nivel 3
+		expect(comisionDiaria(variada, 15000)).toBe(1300 + 2200); // nivel 2
+		expect(comisionDiaria(variada, 99999)).toBe(1300 + 2200 + 3500); // sobre el último
+	});
+
+	test('comisionDiaria sin niveles devuelve 0', () => {
+		expect(comisionDiaria([], 50000)).toBe(0);
 	});
 });
 
