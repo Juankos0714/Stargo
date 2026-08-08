@@ -25,8 +25,9 @@ test('cliente crea un pedido, ve la tarifa calculada y lo confirma', async ({ pa
 	// El desglose muestra la tarifa base (6000) y el total.
 	await expect(page.getByText(/6\.000/).first()).toBeVisible();
 
-	// Consultar estado: el pedido nace en "Pendiente".
-	await page.getByRole('link', { name: /Consultar estado/ }).click();
+	// Consultar estado: el pedido nace en "Pendiente". El link del CTA lleva el
+	// ?numero= (el del nav del header no), por eso se apunta por href.
+	await page.locator('a[href^="/consultar-estado?numero="]').click();
 	await expect(page.getByTestId('estado-pedido')).toHaveText('Pendiente', { timeout: 15_000 });
 });
 

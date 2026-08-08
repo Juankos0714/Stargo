@@ -31,12 +31,20 @@
 @layer base {
 	html {
 		font-family: var(--font-sans);
+		/* Evita el scroll horizontal de página (tablas anchas, textos largos,
+		   íconos con nowrap). `clip` no crea un contenedor de scroll, así que
+		   los elementos sticky (topbars de admin/domiciliario) siguen pegando. */
+		overflow-x: clip;
 	}
 	body {
 		background: #ffffff;
 		color: #111827;
 		-webkit-font-smoothing: antialiased;
 		text-rendering: optimizeLegibility;
+		overflow-x: clip;
+		/* iOS no infla el texto si se hace zoom en inputs */
+		-webkit-text-size-adjust: 100%;
+		text-size-adjust: 100%;
 	}
 	::selection {
 		background: rgb(0 100 255 / 0.18);
@@ -54,5 +62,14 @@
 		height: 1em;
 		overflow: visible;
 		box-sizing: content-box;
+	}
+}
+
+/* iOS Safari: min-h-screen (100vh) corta el contenido tras la barra del
+   navegador; 100dvh lo corrige en iPhone 12+ (iOS 15.4+). Va fuera de los
+   @layer para vencer a la utilidad .min-h-screen de Tailwind. */
+@supports (min-height: 100dvh) {
+	.min-h-screen {
+		min-height: 100dvh;
 	}
 }

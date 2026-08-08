@@ -22,7 +22,9 @@ test('admin asigna un pedido pendiente y lo ve en Asignados', async ({ page }) =
 	// Aparece en la pestaña "Pendientes" (la default) con el código visible.
 	const fila = page.locator('tr', { hasText: codigo });
 	await expect(fila).toBeVisible({ timeout: 15_000 });
-	await expect(fila.getByText('Pendiente')).toBeVisible();
+	// El badge (span.rounded-full) es el único «Pendiente» visible: el hito del
+	// historial también dice «Pendiente» pero está oculto dentro del <details>.
+	await expect(fila.locator('span.rounded-full', { hasText: 'Pendiente' })).toBeVisible();
 
 	// Asignar el domiciliario E2E.
 	const nombreDom = `E2E Domiciliario ${e.prefijo}`;
@@ -34,6 +36,9 @@ test('admin asigna un pedido pendiente y lo ve en Asignados', async ({ page }) =
 	await page.getByRole('button', { name: /Asignados/ }).click();
 	const filaAsignada = page.locator('tr', { hasText: codigo });
 	await expect(filaAsignada).toBeVisible({ timeout: 15_000 });
-	await expect(filaAsignada.getByText('Asignado')).toBeVisible();
-	await expect(filaAsignada.getByText(nombreDom)).toBeVisible();
+	await expect(filaAsignada.locator('span.rounded-full', { hasText: 'Asignado' })).toBeVisible();
+	// La celda del domiciliario usa span.font-medium (los hitos del historial
+	// usan font-semibold): así evitamos el hito «Asignado a E2E Domiciliario…»
+	// oculto que está en la primera columna, antes de la celda del nombre.
+	await expect(filaAsignada.locator('span.font-medium', { hasText: nombreDom })).toBeVisible();
 });

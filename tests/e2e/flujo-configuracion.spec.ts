@@ -6,17 +6,19 @@
  *
  * Corre solo en desktop (la matriz de tarifas es una tabla ancha).
  */
-import { test, expect } from '@playwright/test';
-import { clienteService, elegirBarrio, estadoE2E, loginUI } from './helpers';
+import { test, expect } from '@playwright/test';	import { clienteService, elegirBarrio, estadoE2E, loginUI, sufijoUnico } from './helpers';
 
 const estado = estadoE2E();
-test.skip(!estado, 'Sin credenciales Supabase — suite omitida (corre bun run test:e2e).');
-
-test('admin crea zona, barrio y tarifa; el cliente calcula con ella', { tag: '@desktop' }, async ({ page }) => {
+test.skip(!estado, 'Sin credenciales Supabase — suite omitida (corre bun run test:e2e).');	test('admin crea zona, barrio y tarifa; el cliente calcula con ella', { tag: '@desktop' }, async ({ page }) => {
 	const e = estado!;
-	const zonaId = `e2e_${e.prefijo}_nueva`;
-	const nombreZona = `Zona E2E Nueva ${e.prefijo}`;
-	const nombreBarrio = `Barrio E2E Nuevo ${e.prefijo}`;
+	// Sufijo único por invocación: la matriz comparte el prefijo E2E entre
+	// proyectos (chromium-desktop y webkit-desktop corren este spec @desktop),
+	// y el panel crea la zona con insert SIMPLE — sin sufijo, el segundo
+	// proyecto en correr falla por duplicado y el mensaje de éxito no aparece.
+	const sufijo = sufijoUnico();
+	const zonaId = `e2e_${e.prefijo}_nueva_${sufijo}`;
+	const nombreZona = `Zona E2E Nueva ${e.prefijo} ${sufijo}`;
+	const nombreBarrio = `Barrio E2E Nuevo ${e.prefijo} ${sufijo}`;
 
 	await loginUI(page, e.usuarios.admin.email, e.password, '/admin');
 

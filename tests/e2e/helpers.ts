@@ -34,6 +34,16 @@ export { peticion, peticionTexto, CookieJar, loginEnApp };
  *  entre global-setup, specs y teardown (procesos distintos). */
 export const PREFIJO_E2E = process.env.E2E_PREFIJO ?? `e2e${Date.now().toString(36)}`;
 
+/**
+ * Sufijo ÚNICO por invocación de un spec. La matriz corre varios proyectos
+ * (desktop/mobile, chromium/webkit) EN PARALELO con el MISMO prefijo E2E;
+ * los specs que crean datos (domis dedicados, zonas de configuración, etc.)
+ * usan este sufijo para no colisionar entre corridas de proyectos.
+ */
+export function sufijoUnico(): string {
+	return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
 const AQUI = join(fileURLToPath(new URL('.', import.meta.url)));
 export const RUTA_ESTADO = join(AQUI, '.state.json');
 

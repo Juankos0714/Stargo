@@ -35,6 +35,11 @@
 			icon: 'users'
 		},
 		{
+			href: '/admin/comisiones',
+			label: 'Comisiones',
+			icon: 'coins'
+		},
+		{
 			href: '/admin/zonas',
 			label: 'Zonas',
 			icon: 'layer-group'

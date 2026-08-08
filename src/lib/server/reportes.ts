@@ -285,10 +285,11 @@ export async function obtenerReporte(
 		}
 	}
 
-	const { data: doms, error: errDom } = await db.from('domiciliarios').select('id, nombre, activo');
+	const { data: doms, error: errDom } = await db.from('domiciliarios').select('id, nombre, activo, bloqueado');
 	if (errDom) throw new Error(errDom.message);
-	const domiciliarios = (doms ?? []) as { id: string; nombre: string; activo: boolean }[];
-	const activos = domiciliarios.filter((d) => d.activo);
+	const domiciliarios = (doms ?? []) as { id: string; nombre: string; activo: boolean; bloqueado: boolean }[];
+	// Los bloqueados por falta de pago no cuentan como disponibles.
+	const activos = domiciliarios.filter((d) => d.activo && !d.bloqueado);
 
 	const ocupados = await obtenerOcupados(db);
 	const ocupadosActivos = activos.filter((d) => ocupados.has(d.id)).length;

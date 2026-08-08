@@ -33,7 +33,10 @@ export default defineConfig({
 		alias: {
 			$lib: fileURLToPath(new URL('./src/lib', import.meta.url)),
 			// Ningún componente debe leer credenciales reales en los tests.
-			'$env/static/public': fileURLToPath(new URL('./tests/ui/mocks/env-static-public.ts', import.meta.url))
+			'$env/static/public': fileURLToPath(new URL('./tests/ui/mocks/env-static-public.ts', import.meta.url)),
+			// $app/state no existe en el alias de vitest: apunta al stub (mismo
+			// patrón que env-static-public), con page.data.domiciliarioId fijo.
+			'$app/state': fileURLToPath(new URL('./tests/ui/mocks/app-state.ts', import.meta.url))
 		}
 	},
 	test: {

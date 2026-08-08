@@ -27,10 +27,11 @@
 
 	let hoyStats = $state<Reporte['resumen'] | null>(null);
 	let recientes = $state<PedidoFila[]>([]);
-	let config = $state<{ zonas: number | null; barrios: number | null; tarifas: number | null }>({
+	let config = $state<{ zonas: number | null; barrios: number | null; tarifas: number | null; comisiones: number | null }>({
 		zonas: null,
 		barrios: null,
-		tarifas: null
+		tarifas: null,
+		comisiones: null
 	});
 	let cargando = $state(true);
 	let error = $state<string | null>(null);
@@ -52,12 +53,13 @@
 		cargando = true;
 		error = null;
 		const hoyISO = aISO(new Date());
-		const [r, p, z, b, t] = await Promise.all([
+		const [r, p, z, b, t, c] = await Promise.all([
 			api.get<Reporte>(`/api/reportes?desde=${hoyISO}&hasta=${hoyISO}`),
 			api.get<PedidoFila[]>('/api/pedidos'),
 			api.get<unknown[]>('/api/zonas?select=id'),
 			api.get<unknown[]>('/api/barrios?select=id'),
-			api.get<unknown[]>('/api/tarifas?select=id')
+			api.get<unknown[]>('/api/tarifas?select=id'),
+			api.get<unknown[]>('/api/comisiones?select=id')
 		]);
 		if (id !== cargarId) return;
 		cargando = false;
@@ -70,7 +72,8 @@
 		config = {
 			zonas: z.error ? null : (z.data?.length ?? 0),
 			barrios: b.error ? null : (b.data?.length ?? 0),
-			tarifas: t.error ? null : (t.data?.length ?? 0)
+			tarifas: t.error ? null : (t.data?.length ?? 0),
+			comisiones: c.error ? null : (c.data?.length ?? 0)
 		};
 	}
 
@@ -81,9 +84,9 @@
 		let limpiar: (() => void)[] = [];
 		hidratarSesionRealtime().then(() => {
 			if (!activo) return;
-			limpiar = ['pedidos', 'domiciliarios'].map((tabla) =>
+			limpiar = (['pedidos', 'domiciliarios', 'comision_niveles'] as const).map((tabla) =>
 				suscribirCambios({
-					tabla: tabla as 'pedidos' | 'domiciliarios',
+					tabla,
 					onCambio: () => cargarDebounced(),
 					onEstado: (estado) => {
 						estadoRealtime = estado;
@@ -155,7 +158,8 @@
 	const configCards = $derived([
 		{ label: 'Zonas', valor: config.zonas, icon: 'layer-group', href: '/admin/zonas' },
 		{ label: 'Barrios', valor: config.barrios, icon: 'location-dot', href: '/admin/barrios' },
-		{ label: 'Tarifas', valor: config.tarifas, icon: 'table-cells', href: '/admin/tarifas' }
+		{ label: 'Tarifas', valor: config.tarifas, icon: 'table-cells', href: '/admin/tarifas' },
+		{ label: 'Comisiones', valor: config.comisiones, icon: 'coins', href: '/admin/comisiones' }
 	]);
 
 	const acciones = [
@@ -188,6 +192,12 @@
 			label: 'Editar matriz de tarifas',
 			desc: 'Precios origen → destino entre zonas.',
 			icon: 'table-cells'
+		},
+		{
+			href: '/admin/comisiones',
+			label: 'Configurar comisiones',
+			desc: 'Valor que paga cada domiciliario por nivel según el valor del pedido.',
+			icon: 'coins'
 		},
 		{
 			href: '/admin/barrios',
@@ -276,7 +286,7 @@
 							</p>
 						</div>
 						<div class="shrink-0 text-right">
-							<p class="text-sm font-bold whitespace-nowrap text-slate-900">{formatearPeso(p.tarifa_base)}</p>
+							<p class="text-sm font-bold whitespace-nowrap text-slate-900">{formatearPeso(p.total ?? p.tarifa_base)}</p>
 							<p class="text-[10px] text-slate-400">{formatearFecha(p.created_at)}</p>
 						</div>
 					</li>

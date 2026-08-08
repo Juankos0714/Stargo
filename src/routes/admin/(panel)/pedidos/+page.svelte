@@ -56,8 +56,12 @@
 		{ valor: 'todos', label: 'Todos' }
 	];
 
+	// Solo domiciliarios activos y NO bloqueados por falta de pago: los
+	// bloqueados no deben recibir pedidos nuevos (la BD también lo valida).
 	const activos = $derived(
-		domiciliarios.filter((d) => d.activo).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+		domiciliarios
+			.filter((d) => d.activo && !d.bloqueado)
+			.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
 	);
 
 	function formatearFecha(iso: string): string {

@@ -73,8 +73,13 @@ describe.skipIf(!RLS_DISPONIBLE)('RLS — monitoreo (errores, alertas, auditorí
 		});
 
 		test('anon NO puede SELECT errores_app (ni con filtro)', async () => {
+			// El anon NO tiene grants sobre la tabla (REVOKE ALL en la fase 9):
+			// PostgREST responde con un error duro de permisos, no con 0 filas en
+			// silencio. Por eso ambas aserciones esperan DENEGACIÓN (error u 0
+			// filas), igual que en alertas e historial_tarifas — darle SELECT al
+			// anon debilitaría el contrato «nadie lee sin ser admin».
 			esperaDenegado(await seleccion(anon, 'errores_app'), 'anon SELECT errores_app');
-			esperaVacio(
+			esperaDenegado(
 				await seleccion(anon, 'errores_app', { columna: 'tipo', valor: 'unhandled' }),
 				'anon SELECT errores_app filtrado'
 			);

@@ -28,17 +28,17 @@ test('domiciliario avanza el pedido asignado hasta Entregado', async ({ page }) 
 	// Ve el pedido asignado en "En curso".
 	const card = page.locator('div.rounded-2xl', { hasText: codigo });
 	await expect(card).toBeVisible({ timeout: 15_000 });
-	await expect(card.getByText('Asignado')).toBeVisible();
+	await expect(card.getByText('Asignado').first()).toBeVisible();
 
 	// Aceptar → Recogido → En camino → Entregado.
 	await botonAccion(page, codigo, 'Aceptar pedido').click();
-	await expect(card.getByText('Aceptado')).toBeVisible({ timeout: 15_000 });
+	await expect(card.getByText('Aceptado').first()).toBeVisible({ timeout: 15_000 });
 
 	await botonAccion(page, codigo, 'Marcar recogido').click();
-	await expect(card.getByText('Recogido')).toBeVisible({ timeout: 15_000 });
+	await expect(card.getByText('Recogido').first()).toBeVisible({ timeout: 15_000 });
 
 	await botonAccion(page, codigo, 'Marcar en camino').click();
-	await expect(card.getByText('En camino')).toBeVisible({ timeout: 15_000 });
+	await expect(card.getByText('En camino').first()).toBeVisible({ timeout: 15_000 });
 
 	// El último paso pide confirmación (window.confirm).
 	page.once('dialog', (d) => void d.accept());
@@ -48,5 +48,5 @@ test('domiciliario avanza el pedido asignado hasta Entregado', async ({ page }) 
 	await page.getByRole('button', { name: /Completadas/ }).click();
 	const fila = page.locator('div.rounded-2xl', { hasText: codigo });
 	await expect(fila).toBeVisible({ timeout: 15_000 });
-	await expect(fila.getByText('Entregado')).toBeVisible();
+	await expect(fila.getByText('Entregado').first()).toBeVisible();
 });

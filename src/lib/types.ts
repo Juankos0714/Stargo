@@ -72,7 +72,63 @@ export interface Domiciliario {
 	email: string | null;
 	telefono: string | null;
 	activo: boolean;
+	/** Bloqueado por falta de pago: no recibe pedidos nuevos hasta que el admin lo desbloquee (Fase 10). */
+	bloqueado?: boolean;
 	created_at?: string;
+}
+
+// ---------- Comisiones, abonos y bloqueo (Fase 10 + 11) ----------
+
+/**
+ * Nivel de comisión (Fase 11): la comisión depende del VALOR del pedido.
+ * Cada nivel cubre un rango de total (0..hasta para el nivel 1; el rango
+ * siguiente empieza en hasta+1). `valor` es la comisión (COP) para ese rango.
+ */
+export interface ComisionNivel {
+	id: string;
+	nivel: number;
+	hasta: number;
+	valor: number;
+	created_at?: string;
+}
+
+/**
+ * Configuración global de la escalera (Fase 12): una sola fila en
+ * comision_config. `paso` es cuánto abarca cada nivel (el tope de un nivel
+ * es nivel × paso) y `niveles` la cantidad de niveles de la escalera.
+ */
+export interface ComisionConfig {
+	id: string;
+	/** Rango que abarca cada nivel (COP): nivel 1 cubre 0..paso, nivel 2 paso+1..2×paso… */
+	paso: number;
+	/** Cantidad de niveles de la escalera. */
+	niveles: number;
+	updated_at?: string;
+}
+
+/** Abono que el admin registra contra la deuda de comisiones de un domiciliario. */
+export interface PagoDomiciliario {
+	id: string;
+	domiciliario_id: string;
+	valor: number;
+	nota: string | null;
+	registrado_por: string | null;
+	created_at: string;
+}
+
+/** Resumen de cuenta del domiciliario (su deuda y pagos). */
+export interface CuentaDomiciliario {
+	/** Niveles vigentes de comisión (ordenados), para saber cuánto pagar por pedido. */
+	niveles: ComisionNivel[];
+	bloqueado: boolean;
+	/** Σ comisiones de pedidos entregados. */
+	total_comision: number;
+	/** Σ abonos registrados. */
+	total_pagos: number;
+	/** total_comision − total_pagos (nunca negativo). */
+	deuda: number;
+	/** Últimos abonos (descendente). */
+	pagos: PagoDomiciliario[];
 }
 
 export interface Pedido {
@@ -89,6 +145,8 @@ export interface Pedido {
 	recargo_total: number;
 	/** tarifa_base + recargo_total (null en pedidos previos a la Fase 7). */
 	total: number | null;
+	/** Comisión congelada al entregar (Fase 10); 0/ausente en pedidos previos. */
+	comision?: number;
 	motivo_cancelacion: string | null;
 	zona_origen_id: string | null;
 	zona_destino_id: string | null;
@@ -284,3 +342,14 @@ export function ordenarZonas(zonas: Zona[]): Zona[] {
 // ≥90%). Se re-exportan aquí para no romper los imports históricos desde
 // '$lib/types'.
 export { formatearPeso } from './logic/formato';
+export {
+	calcularDeuda,
+	nivelComision,
+	nivelDeTotal,
+	rangoDeNiveles,
+	redondearComision,
+	validarTopeNivel,
+	vistaCompactaNiveles,
+	type NivelConRango,
+	type VistaCompactaNiveles
+} from './logic/comisiones';

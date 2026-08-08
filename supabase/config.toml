@@ -32,7 +32,14 @@ sender_name = "Admin"
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:54321"
-additional_redirect_urls = ["http://127.0.0.1:5173"]
+# URLs permitidas para los enlaces de recuperación de contraseña: el dev
+# server (5173) y el preview de la suite de integración (4175).
+additional_redirect_urls = [
+	"http://127.0.0.1:5173",
+	"http://127.0.0.1:5173/recuperar-clave",
+	"http://127.0.0.1:4175",
+	"http://127.0.0.1:4175/recuperar-clave"
+]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 

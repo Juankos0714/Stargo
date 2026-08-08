@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
 	import BadgeEstado from '$lib/components/BadgeEstado.svelte';
+	import TablaNiveles from '$lib/components/TablaNiveles.svelte';
 	import { hidratarSesionRealtime } from '$lib/supabase-browser';
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
@@ -12,6 +13,10 @@
 		accionDomiciliario,
 		etiquetaEstado,
 		formatearPeso,
+		nivelComision,
+		nivelDeTotal,
+		rangoDeNiveles,
+		type CuentaDomiciliario,
 		type HistorialEstado,
 		type Pedido
 	} from '$lib/types';
@@ -23,6 +28,7 @@
 	}
 
 	let pedidos = $state<PedidoFila[]>([]);
+	let cuenta = $state<CuentaDomiciliario | null>(null);
 	let cargando = $state(true);
 	let error = $state<string | null>(null);
 	let mensaje = $state<{ tipo: 'ok' | 'err'; texto: string } | null>(null);
@@ -37,6 +43,36 @@
 			.sort((a, b) => a.created_at.localeCompare(b.created_at))
 	);
 	const completados = $derived(pedidos.filter((p) => ESTADOS_FINALES.includes(p.estado)));
+
+	/** Total que recauda el domiciliario: tarifa base + recargos (Fase 7). */
+	function totalPedido(p: PedidoFila): number {
+		return p.total ?? p.tarifa_base + (p.recargo_total ?? 0);
+	}
+
+	/** Niveles con su rango calculado, para la tabla de comisiones. */
+	const nivelesConRango = $derived(rangoDeNiveles(cuenta?.niveles ?? []));
+
+	/** Pedido más reciente del domiciliario (por fecha de creación). */
+	const ultimoPedido = $derived(
+		pedidos.length > 0
+			? [...pedidos].sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+			: null
+	);
+
+	/** Nivel de comisión que corresponde al valor del pedido más reciente (si hay). */
+	const nivelUltimoPedido = $derived(
+		ultimoPedido ? nivelDeTotal(nivelesConRango, totalPedido(ultimoPedido)) : null
+	);
+
+	/**
+	 * Comisión que el domiciliario debe por un pedido: el snapshot congelado
+	 * al entregarlo, o la comisión del nivel que corresponde al valor del
+	 * pedido para los aún en curso (la que se congelará al entregarlo).
+	 */
+	function comisionPedido(p: PedidoFila): number {
+		if (p.estado === 'entregado') return p.comision ?? 0;
+		return nivelComision(cuenta?.niveles ?? [], totalPedido(p));
+	}
 
 	function formatearFecha(iso: string): string {
 		return new Date(iso).toLocaleString('es-CO', {
@@ -64,6 +100,12 @@
 		pedidos = r.data ?? [];
 	}
 
+	async function cargarCuenta() {
+		const r = await api.get<CuentaDomiciliario>('/api/domiciliarios/mi-cuenta');
+		if (r.error) return;
+		cuenta = r.data;
+	}
+
 	const cargarDebounced = debounce(() => cargar(), 250);
 
 	async function avanzar(p: PedidoFila) {
@@ -89,6 +131,7 @@
 		notas = { ...notas };
 		mensaje = { tipo: 'ok', texto: `Pedido ${p.numero}: ${accion.etiqueta.toLowerCase()}.` };
 		await cargar();
+		await cargarCuenta();
 	}
 
 	$effect(() => {
@@ -112,9 +155,13 @@
 				: undefined;
 		});
 		cargar();
+		cargarCuenta();
 		// Red de seguridad: refresco periódico por si un evento se pierde
 		// (p. ej. cancelación con domiciliario_id nulo o cambios de red).
-		const reloj = setInterval(() => cargar(), 60000);
+		const reloj = setInterval(() => {
+			cargar();
+			cargarCuenta();
+		}, 60000);
 		return () => {
 			activo = false;
 			clearInterval(reloj);
@@ -137,6 +184,22 @@
 	<IndicadorRealtime estado={estadoRealtime} />
 </header>
 
+{#if cuenta?.bloqueado}
+	<div
+		class="mb-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+		role="alert"
+	>
+		<Icon name="ban" class="mt-0.5 size-5 shrink-0" />
+		<div>
+			<p class="font-bold">Estás bloqueado por falta de pago</p>
+			<p class="mt-0.5 text-xs text-red-600">
+				No recibirás pedidos nuevos hasta que el administrador registre un abono y desbloquee tu cuenta.
+				Puedes terminar los pedidos que ya tienes en curso.
+			</p>
+		</div>
+	</div>
+{/if}
+
 {#if mensaje}
 	<div
 		class="mb-5 rounded-xl border px-4 py-3 text-sm {mensaje.tipo === 'ok'
@@ -145,6 +208,81 @@
 	>
 		{mensaje.texto}
 	</div>
+{/if}
+
+<!-- Mi cuenta: comisiones por nivel y deuda -->
+<section class="mb-6">
+	<div class="grid gap-4 sm:grid-cols-3">
+		<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+				<Icon name="coins" class="size-3.5 text-primary" />
+				Generado en comisiones
+			</p>
+			<p class="mt-1 text-2xl font-extrabold text-slate-900">{formatearPeso(cuenta?.total_comision ?? null)}</p>
+			<p class="mt-0.5 text-xs text-slate-400">por pedidos entregados</p>
+		</div>
+		<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+				<Icon name="circle-check" class="size-3.5 text-primary" />
+				Abonos registrados
+			</p>
+			<p class="mt-1 text-2xl font-extrabold text-slate-900">{formatearPeso(cuenta?.total_pagos ?? null)}</p>
+			<p class="mt-0.5 text-xs text-slate-400">pagos que ha registrado el administrador</p>
+		</div>
+		<div
+			class="rounded-2xl border p-4 shadow-sm {cuenta && cuenta.deuda > 0
+				? 'border-red-200 bg-red-50'
+				: 'border-green-200 bg-green-50'}"
+		>
+			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase {cuenta && cuenta.deuda > 0
+				? 'text-red-600'
+				: 'text-green-700'}">
+				<Icon name="triangle-exclamation" class="size-3.5" />
+				Deuda pendiente
+			</p>
+			<p class="mt-1 text-2xl font-extrabold {cuenta && cuenta.deuda > 0 ? 'text-red-700' : 'text-green-700'}">
+				{formatearPeso(cuenta?.deuda ?? null)}
+			</p>
+			<p class="mt-0.5 text-xs {cuenta && cuenta.deuda > 0 ? 'text-red-500' : 'text-green-600'}">
+				{cuenta && cuenta.deuda > 0 ? 'al día este monto para no ser bloqueado' : 'estás al día'}
+			</p>
+		</div>
+	</div>
+
+	<TablaNiveles niveles={nivelesConRango} nivelDestacado={nivelUltimoPedido?.nivel ?? null} />
+</section>
+
+{#if (cuenta?.pagos?.length ?? 0) > 0}
+	<details class="mb-6 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+		<summary
+			class="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-primary-dark hover:underline"
+		>
+			Últimos abonos ({cuenta?.pagos.length})
+			<!-- Σ de TODOS los abonos (la API solo lista los últimos 10). -->
+			<span
+				class="ml-auto whitespace-nowrap rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-bold text-primary"
+			>
+				total abonado {formatearPeso(cuenta?.total_pagos ?? 0)}
+			</span>
+			<!-- Estado de la deuda: verde al día, rojo en deuda (mismos colores que la tarjeta de deuda). -->
+			<span
+				class="whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold {cuenta && cuenta.deuda > 0
+					? 'bg-red-100 text-red-700'
+					: 'bg-green-100 text-green-700'}"
+			>
+				{cuenta && cuenta.deuda > 0 ? 'en deuda' : 'al día'}
+			</span>
+		</summary>
+		<ul class="mt-2 space-y-1.5 border-l-2 border-slate-200 pl-3">
+			{#each cuenta?.pagos ?? [] as pago (pago.id)}
+				<li class="flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
+					<span class="font-bold text-green-700">{formatearPeso(pago.valor)}</span>
+					{pago.nota ? `· ${pago.nota}` : ''}
+					<span class="ml-auto text-slate-400">{formatearFecha(pago.created_at)}</span>
+				</li>
+			{/each}
+		</ul>
+	</details>
 {/if}
 
 <div class="mb-5 flex gap-1.5">
@@ -193,6 +331,9 @@
 	<div class="space-y-5">
 		{#each activos as p (p.id)}
 			{@const accion = accionDomiciliario(p.estado)}
+			{@const total = totalPedido(p)}
+			{@const recs = p.recargos ?? []}
+			{@const comision = comisionPedido(p)}
 			<div class="rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
 				<div class="flex flex-wrap items-center gap-3 border-b border-slate-100 p-5">
 					<div>
@@ -200,10 +341,6 @@
 						<p class="font-mono text-xl font-black tracking-widest text-slate-900">{p.numero}</p>
 					</div>
 					<BadgeEstado estado={p.estado} size="md" class="ml-auto" />
-					<div class="w-full sm:w-auto sm:text-right">
-						<p class="text-[10px] font-semibold tracking-wide text-slate-400 uppercase">Tarifa</p>
-						<p class="text-lg font-extrabold text-primary-dark">{formatearPeso(p.tarifa_base)}</p>
-					</div>
 				</div>
 
 				<div class="grid gap-4 p-5 sm:grid-cols-2">
@@ -217,6 +354,36 @@
 						<p class="mt-1 font-medium text-slate-900">{p.barrio_destino_nombre ?? '—'}</p>
 						<p class="text-sm text-slate-600">{p.direccion_destino}</p>
 					</div>
+				</div>
+
+				<!-- Valor a cobrar: el total completo (tarifa + recargos), no solo el trayecto -->
+				<div class="mx-5 mb-2 rounded-xl border border-primary/20 bg-primary-light/40 px-4 py-3">
+					<p class="flex items-baseline justify-between gap-3">
+						<span class="text-xs font-semibold text-slate-500 uppercase">Valor a cobrar</span>
+						<span class="text-xl font-extrabold text-primary-dark">{formatearPeso(total)}</span>
+					</p>
+					{#if recs.length > 0}
+						<div class="mt-1.5 space-y-0.5 text-xs text-slate-600">
+							<p class="flex justify-between">
+								<span>Tarifa base</span>
+								<span>{formatearPeso(p.tarifa_base)}</span>
+							</p>
+							{#each recs as r (r.codigo)}
+								<p class="flex justify-between">
+									<span>{r.nombre}</span>
+									<span class="font-semibold">{formatearPeso(r.valor)}</span>
+								</p>
+							{/each}
+						</div>
+					{:else}
+						<p class="mt-0.5 text-xs text-slate-500">Tarifa del trayecto (sin recargos)</p>
+					{/if}
+					{#if comision > 0}
+						<p class="mt-1.5 flex justify-between border-t border-primary/15 pt-1.5 text-xs">
+							<span class="text-slate-500">Comisión aprox. para StarGo</span>
+							<span class="font-bold text-slate-700">− {formatearPeso(comision)}</span>
+						</p>
+					{/if}
 				</div>
 
 				{#if p.observaciones}
@@ -276,13 +443,20 @@
 {:else}
 	<div class="space-y-3">
 		{#each completados as p (p.id)}
+			{@const total = totalPedido(p)}
+			{@const comision = comisionPedido(p)}
 			<div class="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
 				<p class="font-mono text-base font-black tracking-widest text-slate-900">{p.numero}</p>
 				<p class="text-sm text-slate-500">
 					{p.barrio_origen_nombre ?? '—'} → {p.barrio_destino_nombre ?? '—'}
 				</p>
 				<BadgeEstado estado={p.estado} />
-				<span class="ml-auto font-bold text-slate-900">{formatearPeso(p.tarifa_base)}</span>
+				<div class="ml-auto text-right">
+					<p class="font-bold text-slate-900">{formatearPeso(total)}</p>
+					{#if comision > 0}
+						<p class="text-[10px] text-slate-400">comisión − {formatearPeso(comision)}</p>
+					{/if}
+				</div>
 				<span class="text-xs text-slate-400">{formatearFecha(p.created_at)}</span>
 			</div>
 		{/each}

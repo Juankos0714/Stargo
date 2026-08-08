@@ -1,6 +1,5 @@
 import { error, type Cookies, type RequestEvent } from '@sveltejs/kit';
 import type { User } from '@supabase/supabase-js';
-import { dev } from '$app/environment';
 import { getSupabaseAnon, getSupabaseAsUser } from './supabase';
 
 export const ACCESS_COOKIE = 'stargo_access_token';
@@ -10,23 +9,32 @@ const COOKIE_OPTS = {
 	httpOnly: true,
 	sameSite: 'lax' as const,
 	path: '/',
-	secure: !dev
+	// El flag Secure se decide por llamador (esSecure(url)): el default aquí es
+	// no-secure y los endpoints lo sobreescriben con esSecure() cuando aplica.
+	secure: false
 };
 
 export function setSessionCookies(
 	cookies: Cookies,
 	session: { access_token: string; refresh_token: string },
-	secure = !dev
+	// Secure se decide por llamador con esSecure(url); el default es no-secure.
+	secure = false
 ) {
 	cookies.set(ACCESS_COOKIE, session.access_token, { ...COOKIE_OPTS, secure, maxAge: 60 * 60 * 24 * 7 });
 	cookies.set(REFRESH_COOKIE, session.refresh_token, { ...COOKIE_OPTS, secure, maxAge: 60 * 60 * 24 * 30 });
 }
 
-/** En producción solo cookies sobre HTTPS; en dev siempre permitidas (localhost). */
+/**
+ * ¿Las cookies de sesión deben ir con Secure?
+ * Solo cuando la conexión es HTTPS. En dev (localhost) y en previews locales
+ * (la suite E2E corre producción sobre http://127.0.0.1:4176) van sin Secure:
+ * forzarla sobre HTTP rompe el login en WebKit/Safari, que rechaza cookies
+ * Secure sobre HTTP (a diferencia de Chromium, que trata 127.0.0.1 como
+ * contexto seguro y las acepta).
+ */
 export function esSecure(url: URL): boolean {
-	return !dev || url.protocol === 'https:';
+	return url.protocol === 'https:';
 }
-
 export function clearSessionCookies(cookies: Cookies) {
 	cookies.delete(ACCESS_COOKIE, { path: '/' });
 	cookies.delete(REFRESH_COOKIE, { path: '/' });

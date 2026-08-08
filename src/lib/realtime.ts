@@ -1,7 +1,13 @@
 import { supabaseBrowser } from '$lib/supabase-browser';
 
 export type RealtimeEstado = 'conectando' | 'conectado' | 'desconectado';	export interface SuscripcionCambios {
-	tabla: 'pedidos' | 'pedido_eventos' | 'domiciliarios';
+	tabla:
+		| 'pedidos'
+		| 'pedido_eventos'
+		| 'domiciliarios'
+		| 'pagos_domiciliarios'
+		| 'comision_niveles'
+		| 'comision_config';
 	evento?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
 	filtro?: Record<string, string>;
 	/** Se llama con cada evento de cambio (payload de Realtime). */

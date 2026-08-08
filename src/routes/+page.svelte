@@ -35,14 +35,14 @@
 		></div>
 	</div>
 
-	<header class="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+	<header class="relative z-10 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-6 py-6">
 		<a href="/">
 			<Logo type="full" surface="dark" height={36} priority />
 		</a>
-		<nav class="flex items-center gap-3 text-sm">
+		<nav class="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm">
 			<a href="/nuevo-pedido" class="rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white">Hacer pedido</a>
 			<a href="/consultar-estado" class="rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white">Consultar estado</a>
-			<a href="/calculadora" class="rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white">Calculadora</a>
+			<a href="/calculadora" class="hidden rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white sm:inline-flex">Calculadora</a>
 			{#if !cargando}
 				{#if esAdmin}
 					<a href="/admin" class="rounded-lg bg-primary px-4 py-2 font-semibold text-white shadow-lg transition hover:bg-primary-dark">Panel admin</a>
