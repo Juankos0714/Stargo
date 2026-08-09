@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getSupabaseAsUser, getSupabaseService } from '$lib/server/supabase';
 import { requireAdmin } from '$lib/server/auth';
 import { obtenerResumenes } from '$lib/server/cuenta';
+import { esErrorUsuarioExistente } from '$lib/logic/auth-errores';
 import type { Domiciliario } from '$lib/types';
 
 // ---------- GET: listar domiciliarios (solo admin) ----------
@@ -92,11 +93,9 @@ export const POST: RequestHandler = async (event) => {
 			// Si la cuenta YA existe (o ya fue invitada sin aceptar), no se reenvía
 			// invitación: se enlaza/reactiva la fila igual (el domiciliario entra
 			// con la contraseña que ya tiene o con la del enlace pendiente).
-			const yaExiste =
-				errInv.code === 'email_exists' ||
-				errInv.code === 'user_already_exists' ||
-				/already (been )?(registered|invited)|already exists/i.test(errInv.message);
-			if (!yaExiste) {
+			// esErrorUsuarioExistente cubre todas las variantes del mensaje/código
+			// de GoTrue ("User already registered", "User already been invited",…)
+			if (!esErrorUsuarioExistente(errInv)) {
 				return json({ error: `No se pudo enviar la invitación: ${errInv.message}` }, { status: 400 });
 			}
 		} else {
@@ -113,11 +112,7 @@ export const POST: RequestHandler = async (event) => {
 			email_confirm: true
 		});
 		if (errUser) {
-			const yaExiste =
-				errUser.code === 'email_exists' ||
-				errUser.code === 'user_already_exists' ||
-				/already (been )?registered|already exists/i.test(errUser.message);
-			if (!yaExiste) {
+			if (!esErrorUsuarioExistente(errUser)) {
 				return json({ error: `No se pudo crear la cuenta: ${errUser.message}` }, { status: 400 });
 			}
 		} else {
