@@ -51,7 +51,7 @@
 						<div class="text-[10px] text-[#8BB4FF]">Repartidor</div>
 					</div>
 				</div>
-				<CentroNotificaciones urlBase="/domiciliario" tono="oscuro" />
+				<CentroNotificaciones urlBase="/domiciliario" tono="oscuro" soloSonarEn="desktop" />
 			</div>
 			<button
 				type="button"
@@ -73,7 +73,7 @@
 					<Logo type="mark" surface="light" height={28} />
 				</a>
 				<div class="flex items-center gap-1.5">
-					<CentroNotificaciones urlBase="/domiciliario" tono="claro" />
+					<CentroNotificaciones urlBase="/domiciliario" tono="claro" soloSonarEn="mobile" />
 					<button
 						type="button"
 						onclick={salir}

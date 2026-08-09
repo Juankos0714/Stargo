@@ -118,7 +118,7 @@
 						<div class="text-[10px] text-[#8BB4FF]">Administrador</div>
 					</div>
 				</div>
-				<CentroNotificaciones urlBase="/admin/pedidos" tono="oscuro" />
+				<CentroNotificaciones urlBase="/admin/pedidos" tono="oscuro" soloSonarEn="desktop" />
 			</div>
 			<button
 				type="button"
@@ -148,7 +148,7 @@
 					<Logo type="mark" surface="light" height={28} />
 				</a>
 				<div class="flex items-center gap-1.5">
-					<CentroNotificaciones urlBase="/admin/pedidos" tono="claro" />
+					<CentroNotificaciones urlBase="/admin/pedidos" tono="claro" soloSonarEn="mobile" />
 					<button
 						type="button"
 						onclick={salir}

@@ -4,14 +4,23 @@ import userEvent from '@testing-library/user-event';
 import CentroNotificaciones from '../../src/lib/components/CentroNotificaciones.svelte';
 import { api } from '$lib/api';
 import { pushSoportado, suscribirPush, estaSuscrito } from '$lib/push';
+import { sonarNotificacion } from '$lib/sonido';
 
-// El componente usa Realtime, hidratación de sesión, Web Push y navegación:
-// todo se controla con mocks (mismo patrón que el resto de tests de UI).
+// El componente usa Realtime, hidratación de sesión, Web Push, sonido y
+// navegación: todo se controla con mocks (mismo patrón que el resto de tests
+// de UI). El callback de Realtime se captura para simular INSERT/UPDATE.
+const realtime = vi.hoisted(() => ({
+	onCambio: undefined as ((payload: unknown) => void) | undefined
+}));
+
 vi.mock('$lib/api', () => ({
 	api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), del: vi.fn() }
 }));
 vi.mock('$lib/realtime', () => ({
-	suscribirCambios: () => () => {}
+	suscribirCambios: (opts: { onCambio: (payload: unknown) => void }) => {
+		realtime.onCambio = opts.onCambio;
+		return () => {};
+	}
 }));
 vi.mock('$lib/supabase-browser', () => ({
 	hidratarSesionRealtime: vi.fn(async () => true)
@@ -21,6 +30,9 @@ vi.mock('$lib/push', () => ({
 	suscribirPush: vi.fn(),
 	estaSuscrito: vi.fn()
 }));
+vi.mock('$lib/sonido', () => ({
+	sonarNotificacion: vi.fn()
+}));
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
 }));
@@ -29,9 +41,19 @@ const getMock = vi.mocked(api.get);
 const pushSoportadoMock = vi.mocked(pushSoportado);
 const suscribirPushMock = vi.mocked(suscribirPush);
 const estaSuscritoMock = vi.mocked(estaSuscrito);
+const sonarMock = vi.mocked(sonarNotificacion);
+
+/** Stub de matchMedia: jsdom no lo implementa. Por defecto simula desktop. */
+function stubMatchMedia(esDesktop: boolean) {
+	const matcher = (q: string) => ({ matches: q === '(min-width: 768px)' ? esDesktop : false });
+	vi.stubGlobal('matchMedia', matcher);
+	window.matchMedia = matcher as unknown as typeof window.matchMedia;
+}
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	stubMatchMedia(true); // desktop por defecto
+	realtime.onCambio = undefined;
 	getMock.mockResolvedValue({ data: [], error: null });
 	// Por defecto: push soportado, sin suscripción previa, y activación con éxito.
 	pushSoportadoMock.mockReturnValue(true);
@@ -92,9 +114,73 @@ describe('CentroNotificaciones — estados de activación de Web Push', () => {
 		// El panel de notificaciones (lista) sí sigue visible.
 		expect(screen.getByText('Notificaciones')).toBeInTheDocument();
 	});
-});
+});	describe('CentroNotificaciones — sonido al llegar una notificación nueva', () => {
+	test('un INSERT reproduce el sonido y dispara una recarga de la lista', async () => {
+		await abrirPanel();
 
-describe('CentroNotificaciones — flujo de activar notificaciones', () => {
+		// El $effect registró el callback de Realtime al montar.
+		expect(realtime.onCambio).toBeTypeOf('function');
+
+		// Llamadas a /api/notificaciones al montar y al abrir el panel:
+		// el INSERT debe AUMENTAR el conteo (recarga), no solo existir.
+		const llamadasAntes = getMock.mock.calls.filter(([p]) => p === '/api/notificaciones').length;
+		realtime.onCambio?.({ eventType: 'INSERT', new: { id: 1 } });
+		await waitFor(() =>
+			expect(getMock.mock.calls.filter(([p]) => p === '/api/notificaciones').length).toBeGreaterThan(
+				llamadasAntes
+			)
+		);
+		expect(sonarMock).toHaveBeenCalledTimes(1);
+	});
+
+	test('un UPDATE (marcar leída) NO reproduce sonido', async () => {
+		await abrirPanel();
+
+		realtime.onCambio?.({ eventType: 'UPDATE', new: { id: 1, leida: true } });
+
+		expect(sonarMock).not.toHaveBeenCalled();
+	});
+
+	test('eventos sin tipo no reproducen sonido', async () => {
+		await abrirPanel();
+
+		realtime.onCambio?.({ old: { id: 1 } });
+		realtime.onCambio?.(null);
+
+		expect(sonarMock).not.toHaveBeenCalled();
+	});
+
+	test('la instancia del breakpoint no visible NO suena (evita doble sonido)', async () => {
+		// En desktop, la instancia móvil (topbar) debe callar.
+		stubMatchMedia(true); // desktop
+		const { unmount } = render(CentroNotificaciones, {
+			urlBase: '/admin/pedidos',
+			soloSonarEn: 'mobile'
+		});
+		await waitFor(() => expect(realtime.onCambio).toBeTypeOf('function'));
+
+		realtime.onCambio?.({ eventType: 'INSERT', new: { id: 2 } });
+
+		expect(sonarMock).not.toHaveBeenCalled();
+		unmount();
+	});
+
+	test('la instancia del breakpoint visible SÍ suena', async () => {
+		// En desktop, la instancia del sidebar (desktop) suena.
+		stubMatchMedia(true);
+		const { unmount } = render(CentroNotificaciones, {
+			urlBase: '/admin/pedidos',
+			soloSonarEn: 'desktop'
+		});
+		await waitFor(() => expect(realtime.onCambio).toBeTypeOf('function'));
+
+		realtime.onCambio?.({ eventType: 'INSERT', new: { id: 3 } });
+
+		expect(sonarMock).toHaveBeenCalledTimes(1);
+		unmount();
+	});
+});
+	describe('CentroNotificaciones — flujo de activar notificaciones', () => {
 	test('clic en activar con éxito: llama a suscribirPush y pasa al estado activado', async () => {
 		const user = await abrirPanel();
 

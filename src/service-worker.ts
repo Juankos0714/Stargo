@@ -118,6 +118,11 @@ self.addEventListener('push', (event) => {
 			body: datos.body ?? 'Tienes una nueva notificación de StarGo.',
 			icon: datos.icon ?? '/icons/icon-192.png',
 			badge: datos.badge ?? '/icons/icon-192.png',
+			// Sonido/vibración: en Android `vibrate` dispara el tono del sistema;
+			// en iOS Safari se usa `sound` con una URL de audio. Sin estas
+			// opciones la notificación llega SILENCIOSA en el móvil.
+			vibrate: [150, 80, 150],
+			sound: '/sonidos/notificacion.wav',
 			data: datos.data ?? {}
 		})
 	);

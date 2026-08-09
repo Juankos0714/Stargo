@@ -4,6 +4,7 @@
 	import { hidratarSesionRealtime } from '$lib/supabase-browser';
 	import { suscribirCambios } from '$lib/realtime';
 	import { pushSoportado, suscribirPush, estaSuscrito } from '$lib/push';
+	import { sonarNotificacion } from '$lib/sonido';
 	import Icon from './Icon.svelte';
 
 	interface Notificacion {
@@ -20,8 +21,15 @@
 		urlBase?: string;
 		/** 'claro' (topbar móvil) u 'oscuro' (sidebar). */
 		tono?: 'claro' | 'oscuro';
+		/**
+		 * Los layouts montan DOS instancias (sidebar desktop + topbar móvil);
+		 * sin este gate el INSERT sonaría dos veces. La instancia del sidebar
+		 * marca 'desktop' y la del topbar 'mobile': solo suena la del breakpoint
+		 * visible. Sin valor, siempre suena (compat).
+		 */
+		soloSonarEn?: 'desktop' | 'mobile';
 	}
-	let { urlBase = '/', tono = 'claro' }: Props = $props();
+	let { urlBase = '/', tono = 'claro', soloSonarEn }: Props = $props();
 
 	let abierto = $state(false);
 	let lista = $state<Notificacion[]>([]);
@@ -84,14 +92,30 @@
 		}
 	}
 
+	/** ¿Esta instancia es la visible en el breakpoint actual? (evita doble sonido). */
+	function debeSonar(): boolean {
+		if (!soloSonarEn) return true;
+		const esDesktop =
+			typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches;
+		return soloSonarEn === 'desktop' ? esDesktop : !esDesktop;
+	}
+
 	$effect(() => {
 		let activo = true;
 		let limpiar: (() => void) | undefined;
 		hidratarSesionRealtime().then(() => {
 			if (!activo) return;
 			limpiar = suscribirCambios({
-				tabla: 'notificaciones',
-				onCambio: () => cargar()
+				tabla: 'notificaciones',					onCambio: (payload) => {
+						// Solo suena cuando llega una notificación NUEVA (INSERT), no al
+						// marcarla leída (UPDATE). El sonido del sistema no suena con la
+						// app en foco, así que se reproduce uno local. El gate por
+						// breakpoint evita que las dos instancias montadas (sidebar +
+						// topbar) suenen a la vez.
+						const evento = (payload as { eventType?: string } | null)?.eventType;
+						if (evento === 'INSERT' && debeSonar()) sonarNotificacion();
+						cargar();
+					}
 			});
 		});
 		cargar();
@@ -132,8 +156,14 @@
 		<!-- Backdrop para cerrar al hacer clic fuera -->
 		<div class="fixed inset-0 z-30" role="presentation" onclick={() => (abierto = false)}></div>
 
-		<div class="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-			<div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+		<!-- Panel fijo arriba a la derecha: nunca desborda la pantalla. El
+		     cuerpo hace scroll interno (max-h) y el ancho se adapta en móvil. -->
+		<div
+			class="fixed top-2 right-2 z-50 flex max-h-[calc(100dvh-1rem)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:top-4 sm:right-4 sm:max-h-[calc(100dvh-2rem)]"
+			role="dialog"
+			aria-modal="false"
+		>
+			<div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
 				<p class="text-xs font-bold tracking-wide text-slate-500 uppercase">Notificaciones</p>
 				{#if lista.length > 0}
 					<button
@@ -147,44 +177,45 @@
 				{/if}
 			</div>
 
-			{#if cargando}
-				<div class="flex items-center justify-center gap-2 px-4 py-8 text-xs text-slate-400">
-					<span class="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent"></span>
-					Cargando…
-				</div>
-			{:else if lista.length === 0}
-				<p class="px-4 py-8 text-center text-xs text-slate-400">No tienes notificaciones nuevas.</p>
-			{:else}
-				<ul class="max-h-72 divide-y divide-slate-100 overflow-y-auto">
-					{#each lista as n (n.id)}
-						<li>
-							<button
-								type="button"
-								onclick={() => abrirNotificacion(n)}
-								class="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
-							>
-								<span
-									class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full {n.tipo === 'nuevo_pedido'
-										? 'bg-primary-light text-primary'
-										: 'bg-emerald-50 text-emerald-600'}"
+			<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+				{#if cargando}
+					<div class="flex items-center justify-center gap-2 px-4 py-8 text-xs text-slate-400">
+						<span class="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent"></span>
+						Cargando…
+					</div>
+				{:else if lista.length === 0}
+					<p class="px-4 py-8 text-center text-xs text-slate-400">No tienes notificaciones nuevas.</p>
+				{:else}
+					<ul class="divide-y divide-slate-100">
+						{#each lista as n (n.id)}
+							<li>
+								<button
+									type="button"
+									class="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
 								>
-									<Icon name={n.tipo === 'nuevo_pedido' ? 'clipboard-list' : 'circle-check'} class="size-3.5" />
-								</span>
-								<span class="min-w-0 flex-1">
-									<span class="block truncate text-sm font-semibold text-slate-900">{n.titulo}</span>
-									{#if n.cuerpo}
-										<span class="mt-0.5 block line-clamp-2 text-xs text-slate-500">{n.cuerpo}</span>
-									{/if}
-									<span class="mt-0.5 block text-[10px] text-slate-400">{hace(n.created_at)}</span>
-								</span>
-							</button>
-						</li>
-					{/each}
-				</ul>
-			{/if}
+									<span
+										class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full {n.tipo === 'nuevo_pedido'
+											? 'bg-primary-light text-primary'
+											: 'bg-emerald-50 text-emerald-600'}"
+									>
+										<Icon name={n.tipo === 'nuevo_pedido' ? 'clipboard-list' : 'circle-check'} class="size-3.5" />
+									</span>
+									<span class="min-w-0 flex-1">
+										<span class="block truncate text-sm font-semibold text-slate-900">{n.titulo}</span>
+										{#if n.cuerpo}
+											<span class="mt-0.5 block line-clamp-2 text-xs text-slate-500">{n.cuerpo}</span>
+										{/if}
+										<span class="mt-0.5 block text-[10px] text-slate-400">{hace(n.created_at)}</span>
+									</span>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
 
 			{#if pushSoportado()}
-				<div class="border-t border-slate-100 bg-slate-50 px-4 py-3">
+				<div class="shrink-0 border-t border-slate-100 bg-slate-50 px-4 py-3">
 					{#if pushActivo === true}
 						<p class="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700">
 							<Icon name="circle-check" class="size-3.5" />
