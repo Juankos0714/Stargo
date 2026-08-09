@@ -18,7 +18,13 @@ const OFFLINE_URL = '/offline.html';
 // Archivos grandes que no aportan al offline básico (se omiten del precache).
 const EXCLUIDOS = new Set(['/icons/og-image.png', '/icons/icon-1024.png']);
 
-const PRECACHE: string[] = [...build, ...files.filter((f) => !EXCLUIDOS.has(f)), OFFLINE_URL];
+// OJO: `files` (de $service-worker) YA incluye /offline.html porque vive en
+// static/. Agregarlo de nuevo duplicaba la URL y cache.addAll() fallaba con
+// InvalidStateError (duplicate requests), abortando el install del SW.
+// El Set elimina cualquier duplicado (build + files + offline) sin perder nada.
+const PRECACHE: string[] = [
+	...new Set([...build, ...files.filter((f) => !EXCLUIDOS.has(f)), OFFLINE_URL])
+];
 
 declare const self: ServiceWorkerGlobalScope;
 
