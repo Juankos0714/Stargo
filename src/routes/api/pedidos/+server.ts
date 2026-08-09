@@ -162,7 +162,7 @@ export const GET: RequestHandler = async (event) => {
 		data: filas.map((p) => ({
 			...p,
 			barrio_origen_nombre: p.barrio_origen_id ? (nombres.get(p.barrio_origen_id) ?? null) : null,
-			barrio_destino_nombre: nombres.get(p.barrio_destino_id) ?? null,
+			barrio_destino_nombre: p.barrio_destino_id ? (nombres.get(p.barrio_destino_id) ?? null) : null,
 			domiciliario_nombre: p.domiciliario_id ? (nombresDom.get(p.domiciliario_id) ?? null) : null,
 			historial: historialPorPedido.get(p.id) ?? []
 		}))

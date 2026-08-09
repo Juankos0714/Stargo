@@ -257,7 +257,7 @@ export async function obtenerPedidosReporte(
 	const filas: ReportePedidoFila[] = pedidos.map((p) => ({
 		...p,
 		barrio_origen_nombre: p.barrio_origen_id ? (nombresBarrios.get(p.barrio_origen_id) ?? null) : null,
-		barrio_destino_nombre: nombresBarrios.get(p.barrio_destino_id) ?? null,
+		barrio_destino_nombre: p.barrio_destino_id ? (nombresBarrios.get(p.barrio_destino_id) ?? null) : null,
 		domiciliario_nombre: p.domiciliario_id ? (nombresDom.get(p.domiciliario_id) ?? null) : null
 	}));
 

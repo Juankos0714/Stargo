@@ -208,7 +208,8 @@ export interface Pedido {
 	/** NULL en compra/diligencia sin recogida (Fase 14). */
 	barrio_origen_id: string | null;
 	direccion_origen: string | null;
-	barrio_destino_id: string;
+	/** NULL en pedidos cuyo barrio fue eliminado (ON DELETE SET NULL). */
+	barrio_destino_id: string | null;
 	direccion_destino: string;
 	observaciones: string | null;
 	tarifa_base: number;

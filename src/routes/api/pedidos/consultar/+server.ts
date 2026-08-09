@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
 	// Resolver nombres de barrios para mostrar al cliente.
 	const pedido = data.pedido;
-	const ids = [pedido.barrio_origen_id, pedido.barrio_destino_id];
+	const ids = [pedido.barrio_origen_id, pedido.barrio_destino_id].filter(Boolean) as string[];
 	const r = await getSupabaseAnon().from('barrios').select('id, nombre').in('id', ids);
 	const nombres = new Map((r.data ?? []).map((b) => [b.id, b.nombre]));
 

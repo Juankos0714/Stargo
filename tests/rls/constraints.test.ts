@@ -172,6 +172,67 @@ describe.skipIf(!RLS_DISPONIBLE)('Constraints e integridad', () => {
 		});
 	});
 
+	describe('borrar barrios con pedidos asociados (ON DELETE SET NULL)', () => {
+		test('borrar un barrio con pedidos NO falla y deja el pedido sin barrio', async () => {
+			// Barrio propio del test para no tocar el catálogo compartido.
+			const { data: barrio, error: errBarrio } = await servicio
+				.from('barrios')
+				.insert({ nombre: `Barrio SET NULL ${Date.now()}`, zona_id: cat.zonaA })
+				.select('id')
+				.single();
+			expect(errBarrio, `siembra del barrio: ${errBarrio?.message}`).toBeNull();
+			expect(barrio?.id).toBeTruthy();
+			if (!barrio?.id) throw new Error('No se pudo sembrar el barrio del test');
+
+			const pedido = await sembrarPedido({
+				barrioOrigenId: barrio.id,
+				barrioDestinoId: cat.barrioB,
+				estado: 'pendiente'
+			});
+
+			// Antes del fix (ON DELETE RESTRICT) esto fallaba con
+			// «violates foreign key constraint pedidos_barrio_origen_fkey».
+			const r = await servicio.from('barrios').delete().eq('id', barrio.id);
+			expect(r.error, `borrar barrio con pedidos: ${r.error?.message}`).toBeNull();
+
+			// El pedido sobrevive y queda sin barrio de origen (SET NULL).
+			const { data: fila } = await servicio
+				.from('pedidos')
+				.select('barrio_origen_id, barrio_destino_id')
+				.eq('id', pedido.id)
+				.single();
+			expect(fila?.barrio_origen_id).toBeNull();
+			expect(fila?.barrio_destino_id).toBe(cat.barrioB);
+
+			// El mismo mecanismo aplica a la FK de DESTINO: borrar un barrio que
+			// es DESTINO de un pedido deja el pedido con barrio_destino_id NULL.
+			// (Se usa un barrio propio, no cat.barrioB, que el resto de la suite
+			// sigue necesitando.)
+			const { data: barrioDest, error: errBarrioDest } = await servicio
+				.from('barrios')
+				.insert({ nombre: `Barrio SET NULL dest ${Date.now()}`, zona_id: cat.zonaB })
+				.select('id')
+				.single();
+			expect(errBarrioDest, `siembra del barrio destino: ${errBarrioDest?.message}`).toBeNull();
+			expect(barrioDest?.id).toBeTruthy();
+			if (!barrioDest?.id) throw new Error('No se pudo sembrar el barrio destino del test');
+
+			const pedidoDestino = await sembrarPedido({
+				barrioOrigenId: cat.barrioA,
+				barrioDestinoId: barrioDest.id,
+				estado: 'pendiente'
+			});
+			const { error: errDestino } = await servicio.from('barrios').delete().eq('id', barrioDest.id);
+			expect(errDestino, `borrar barrio destino: ${errDestino?.message}`).toBeNull();
+			const { data: fila2 } = await servicio
+				.from('pedidos')
+				.select('barrio_destino_id')
+				.eq('id', pedidoDestino.id)
+				.single();
+			expect(fila2?.barrio_destino_id).toBeNull();
+		});
+	});
+
 	describe('RPC crear_pedido: validación de recargos en la BD', () => {
 		const recargos = (n: number) =>
 			Array.from({ length: n }, (_, i) => `rc_${Date.now().toString(36)}_tope_${i}`);
