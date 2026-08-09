@@ -97,6 +97,12 @@ self.addEventListener('fetch', (event) => {
 
 // ---------- Web Push (Fase 15) ----------
 // La Edge Function send-push envía { title, body, icon, badge, data:{url} }.
+// iOS Safari (16.4+) IGNORA `sound` y `vibrate` de showNotification: Apple no
+// permite sonido personalizado en web push, solo toca el sonido del sistema
+// (o nada si el iPhone está en silencio). El sonido personalizado con la app
+// ABIERTA lo reproduce la propia app vía Web Audio (src/lib/sonido.ts).
+// Estas opciones se mantienen para los navegadores que sí las soportan
+// (Android usa `vibrate` para el tono del sistema; Firefox soporta `sound`).
 interface DatosPush {
 	title?: string;
 	body?: string;
@@ -118,11 +124,11 @@ self.addEventListener('push', (event) => {
 			body: datos.body ?? 'Tienes una nueva notificación de StarGo.',
 			icon: datos.icon ?? '/icons/icon-192.png',
 			badge: datos.badge ?? '/icons/icon-192.png',
-			// Sonido/vibración: en Android `vibrate` dispara el tono del sistema;
-			// en iOS Safari se usa `sound` con una URL de audio. Sin estas
-			// opciones la notificación llega SILENCIOSA en el móvil.
+			// Sonido/vibración: en Android `vibrate` dispara el tono del sistema.
+			// En iOS se IGNORAN ambas (limitación de Apple); el `sound` con URL
+			// absoluta lo usan los navegadores que sí lo soportan (Firefox).
 			vibrate: [150, 80, 150],
-			sound: '/sonidos/notificacion.wav',
+			sound: new URL('/sonidos/notificacion.wav', self.location.origin).href,
 			data: datos.data ?? {}
 		})
 	);

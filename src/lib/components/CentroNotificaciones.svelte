@@ -3,7 +3,7 @@
 	import { api } from '$lib/api';
 	import { hidratarSesionRealtime } from '$lib/supabase-browser';
 	import { suscribirCambios } from '$lib/realtime';
-	import { pushSoportado, suscribirPush, estaSuscrito } from '$lib/push';
+	import { esIOS, pushSoportado, suscribirPush, estaSuscrito } from '$lib/push';
 	import { sonarNotificacion } from '$lib/sonido';
 	import Icon from './Icon.svelte';
 
@@ -245,6 +245,20 @@
 							</p>
 						{/if}
 					{/if}
+				</div>
+			{:else if esIOS()}
+				<!-- iOS 16.4+: el push solo existe en la PWA INSTALADA. En Safari
+				     normal no aparece el botón; se explica cómo instalar, o el
+				     usuario creería que la activación está rota. -->
+				<div class="shrink-0 border-t border-slate-100 bg-slate-50 px-4 py-3">
+					<p class="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-600">
+						<Icon name="bell" class="size-3.5" />
+						Notificaciones solo en la app instalada
+					</p>
+					<p class="mt-1 text-center text-[10px] text-slate-400">
+						En iPhone agrega StarGo a la pantalla de inicio (Compartir →
+						«Agregar a pantalla de inicio») y entra desde ahí para activarlas.
+					</p>
 				</div>
 			{/if}
 		</div>

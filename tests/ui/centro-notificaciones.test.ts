@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import CentroNotificaciones from '../../src/lib/components/CentroNotificaciones.svelte';
 import { api } from '$lib/api';
-import { pushSoportado, suscribirPush, estaSuscrito } from '$lib/push';
+import { esIOS, pushSoportado, suscribirPush, estaSuscrito } from '$lib/push';
 import { sonarNotificacion } from '$lib/sonido';
 
 // El componente usa Realtime, hidratación de sesión, Web Push, sonido y
@@ -26,6 +26,7 @@ vi.mock('$lib/supabase-browser', () => ({
 	hidratarSesionRealtime: vi.fn(async () => true)
 }));
 vi.mock('$lib/push', () => ({
+	esIOS: vi.fn(),
 	pushSoportado: vi.fn(),
 	suscribirPush: vi.fn(),
 	estaSuscrito: vi.fn()
@@ -38,6 +39,7 @@ vi.mock('$app/navigation', () => ({
 }));
 
 const getMock = vi.mocked(api.get);
+const esIOSMock = vi.mocked(esIOS);
 const pushSoportadoMock = vi.mocked(pushSoportado);
 const suscribirPushMock = vi.mocked(suscribirPush);
 const estaSuscritoMock = vi.mocked(estaSuscrito);
@@ -55,7 +57,9 @@ beforeEach(() => {
 	stubMatchMedia(true); // desktop por defecto
 	realtime.onCambio = undefined;
 	getMock.mockResolvedValue({ data: [], error: null });
-	// Por defecto: push soportado, sin suscripción previa, y activación con éxito.
+	// Por defecto: no es iOS, push soportado, sin suscripción previa, y
+	// activación con éxito.
+	esIOSMock.mockReturnValue(false);
 	pushSoportadoMock.mockReturnValue(true);
 	suscribirPushMock.mockResolvedValue({ ok: true });
 	estaSuscritoMock.mockResolvedValue(null);
@@ -113,6 +117,18 @@ describe('CentroNotificaciones — estados de activación de Web Push', () => {
 		expect(screen.queryByText('Notificaciones push activadas')).not.toBeInTheDocument();
 		// El panel de notificaciones (lista) sí sigue visible.
 		expect(screen.getByText('Notificaciones')).toBeInTheDocument();
+	});
+
+	test('en iPhone sin la app instalada (push no soportado pero iOS): muestra el aviso de instalar', async () => {
+		// iOS 16.4+: el push solo existe en la PWA instalada; en Safari normal
+		// no hay botón de activar, pero el usuario debe saber por qué.
+		esIOSMock.mockReturnValue(true);
+		pushSoportadoMock.mockReturnValue(false);
+		await abrirPanel();
+
+		expect(screen.getByText('Notificaciones solo en la app instalada')).toBeInTheDocument();
+		expect(screen.getByText(/Agregar a pantalla de inicio/)).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Activar notificaciones push' })).not.toBeInTheDocument();
 	});
 });	describe('CentroNotificaciones — sonido al llegar una notificación nueva', () => {
 	test('un INSERT reproduce el sonido y dispara una recarga de la lista', async () => {

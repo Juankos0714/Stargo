@@ -99,13 +99,11 @@ export async function obtenerResumenes(
 
 	// 1) Comisiones DIARIAS: se agrupan los pedidos entregados por día
 	//    (hora de Bogotá) y se suma la comisión de cada día.
+	//    PostgREST limita cada respuesta a ~1000 filas: se pagina igual que
+	//    en reportes.ts para que la deuda no se calcule sobre datos parciales.
 	const escalera = (niveles ?? ((await db.from('comision_niveles').select('*').order('nivel')).data ?? [])) as ComisionNivel[];
-	const { data: entregados } = await db
-		.from('pedidos')
-		.select('domiciliario_id, total, tarifa_base, recargo_total, updated_at')
-		.eq('estado', 'entregado')
-		.in('domiciliario_id', unicos);
-	const porDia = totalesDiarios((entregados ?? []) as Entrega[]);
+	const entregados = await obtenerEntregados(db, unicos);
+	const porDia = totalesDiarios(entregados);
 	for (const [domId, dias] of porDia) {
 		const r = mapa.get(domId);
 		if (!r) continue;
@@ -114,14 +112,10 @@ export async function obtenerResumenes(
 		r.hoy = hoy;
 	}
 
-	// 2) Abonos (con pocos domiciliarios la lista es corta).
-	const { data: rPagos } = await db
-		.from('pagos_domiciliarios')
-		.select('*')
-		.in('domiciliario_id', unicos)
-		.order('created_at', { ascending: false });
+	// 2) Abonos (paginado: con muchos abonos la suma total no debe truncarse).
+	const rPagos = await obtenerPagos(db, unicos);
 
-	for (const pago of (rPagos ?? []) as PagoDomiciliario[]) {
+	for (const pago of rPagos) {
 		const r = mapa.get(pago.domiciliario_id);
 		if (!r) continue;
 		r.total_pagos += pago.valor;
@@ -130,6 +124,45 @@ export async function obtenerResumenes(
 
 	for (const r of mapa.values()) r.deuda = calcularDeuda(r.total_comision, r.total_pagos);
 	return mapa;
+}
+
+const MAX_ENTREGADOS = 10000;
+const PAGE = 1000;
+
+/** Pedidos entregados de los domiciliarios, paginado (PostgREST ~1000 filas). */
+async function obtenerEntregados(db: SupabaseClient, ids: string[]): Promise<Entrega[]> {
+	const filas: Entrega[] = [];
+	for (let offset = 0; offset < MAX_ENTREGADOS; offset += PAGE) {
+		const { data, error } = await db
+			.from('pedidos')
+			.select('domiciliario_id, total, tarifa_base, recargo_total, updated_at')
+			.eq('estado', 'entregado')
+			.in('domiciliario_id', ids)
+			.range(offset, offset + PAGE - 1);
+		if (error) throw new Error(error.message);
+		const lote = (data ?? []) as Entrega[];
+		filas.push(...lote);
+		if (lote.length < PAGE) break;
+	}
+	return filas;
+}
+
+/** Abonos de los domiciliarios, paginado (la suma total no debe truncarse). */
+async function obtenerPagos(db: SupabaseClient, ids: string[]): Promise<PagoDomiciliario[]> {
+	const filas: PagoDomiciliario[] = [];
+	for (let offset = 0; offset < MAX_ENTREGADOS; offset += PAGE) {
+		const { data, error } = await db
+			.from('pagos_domiciliarios')
+			.select('*')
+			.in('domiciliario_id', ids)
+			.order('created_at', { ascending: false })
+			.range(offset, offset + PAGE - 1);
+		if (error) throw new Error(error.message);
+		const lote = (data ?? []) as PagoDomiciliario[];
+		filas.push(...lote);
+		if (lote.length < PAGE) break;
+	}
+	return filas;
 }
 
 function cuentaVacia(): CuentaResumen {

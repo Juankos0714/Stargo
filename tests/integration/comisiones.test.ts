@@ -195,6 +195,44 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 		expect(cuenta.bloqueado).toBe(false);
 	});
 
+	test('consistencia con varios pedidos el mismo día: hoy = total_comision = deuda (sin abonos)', async () => {
+		const s = clienteService();
+		// Extiende la escalera a 9 niveles de $10.000 para que 90.000 caiga en
+		// el nivel 9 (igual que la escalera por defecto de producción). El
+		// nivel 4 ya existe (lo creó un test anterior): upsert lo ajusta.
+		await s.from('comision_niveles').upsert(
+			[
+				{ nivel: 4, hasta: 40000, valor: 1300 },
+				{ nivel: 5, hasta: 50000, valor: 1300 },
+				{ nivel: 6, hasta: 60000, valor: 1300 },
+				{ nivel: 7, hasta: 70000, valor: 1300 },
+				{ nivel: 8, hasta: 80000, valor: 1300 },
+				{ nivel: 9, hasta: 90000, valor: 1300 }
+			],
+			{ onConflict: 'nivel' }
+		);
+
+		// Tres pedidos de $30.000 entregados HOY: total del día 90.000.
+		const creados: { id: string }[] = [];
+		for (let i = 0; i < 3; i++) creados.push(await crearYEntregar(30000));
+
+		const cuenta = await cuentaDomA();
+		// Comisión DIARIA: 90.000 → nivel 9 → 9 × 1.300 = 11.700.
+		expect(cuenta.hoy.total).toBe(90000);
+		expect(cuenta.hoy.nivel).toBe(9);
+		expect(cuenta.hoy.comision).toBe(11700);
+		// La deuda debe salir del MISMO cálculo diario, no de los snapshots
+		// por pedido (3 × 1.300 = 3.900, el bug que reportó el usuario).
+		expect(cuenta.total_comision).toBe(11700);
+		expect(cuenta.deuda).toBe(11700);
+
+		// Restaura el estado de la corrida: quita los niveles extra Y borra los
+		// 3 pedidos creados (si quedaran, inflarían la deuda de los tests
+		// siguientes, que esperan total_comision = 4.800).
+		await s.from('pedidos').delete().in('id', creados.map((p) => p.id));
+		await s.from('comision_niveles').delete().gte('nivel', 4);
+	});
+
 	test('admin registra un abono (POST /api/pagos) y la deuda se reduce', async () => {
 		const r = await peticion<{ error?: string; data?: { valor: number; nota: string | null } }>('/api/pagos', {
 			metodo: 'POST',

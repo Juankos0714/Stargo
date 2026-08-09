@@ -230,9 +230,52 @@ describe('comisión DIARIA acumulada (Fase 13)', () => {
 	test('comisionDiaria sin niveles devuelve 0', () => {
 		expect(comisionDiaria([], 50000)).toBe(0);
 	});
-});
+});	describe('escenario reportado: 90.000/día vs deuda (Fase 13)', () => {
+		/** Escalera por defecto (Fase 12): 20 niveles de $10.000, $1.300 c/u. */
+		function escalera20(): ComisionNivel[] {
+			return niveles(...Array.from({ length: 20 }, (_, i) => [i + 1, (i + 1) * 10000, 1300] as [number, number, number]));
+		}
 
-describe('vistaCompactaNiveles', () => {
+		test('3 pedidos de 30.000 el mismo día = 90.000 → comisión del día 11.700 (9 × 1.300)', () => {
+			const escalera = escalera20();
+			// Los tres pedidos se entregan el mismo día (Bogotá).
+			const entregas = [1, 2, 3].map((i) => ({
+				domiciliario_id: 'dom-a',
+				total: 30000,
+				tarifa_base: 30000,
+				recargo_total: 0,
+				updated_at: `2026-08-09T${10 + i}:00:00Z` // 05:00-07:00 en Bogotá: mismo día
+			}));
+			const dias = totalesDiarios(entregas);
+			expect(dias.get('dom-a')?.get('2026-08-09')).toBe(90000);
+			// Comisión DIARIA: 90.000 cae en el nivel 9 → 9 × 1.300 = 11.700.
+			expect(nivelDiario(escalera, 90000)?.nivel).toBe(9);
+			expect(comisionDiaria(escalera, 90000)).toBe(11700);
+			// Lo que la Fase 11 congelaba POR PEDIDO: 3 × 1.300 = 3.900 (ya no se usa).
+			expect(3 * nivelComision(escalera, 30000)).toBe(3900);
+		});
+
+		test('deuda = Σ comisiones diarias − Σ abonos (no usa los snapshots por pedido)', () => {
+			const escalera = escalera20();
+			const totalComision = comisionDiaria(escalera, 90000); // 11.700
+			expect(totalComision).toBe(11700);
+			expect(calcularDeuda(totalComision, 0)).toBe(11700);
+			expect(calcularDeuda(totalComision, 7800)).toBe(3900);
+			expect(calcularDeuda(totalComision, 11700)).toBe(0);
+		});
+
+		test('si la escalera solo llega al nivel 3, un día de 90.000 cobra 3 × 1.300 = 3.900 (el total cae en el último nivel)', () => {
+			const corta = niveles(
+				[1, 10000, 1300],
+				[2, 20000, 1300],
+				[3, 30000, 1300]
+			);
+			expect(nivelDiario(corta, 90000)?.nivel).toBe(3);
+			expect(comisionDiaria(corta, 90000)).toBe(3900);
+		});
+	});
+
+	describe('vistaCompactaNiveles', () => {
 	function escalera(cantidad: number): ComisionNivel[] {
 		return niveles(
 			...Array.from({ length: cantidad }, (_, i) => [i + 1, (i + 1) * 10000, 1300] as [number, number, number])

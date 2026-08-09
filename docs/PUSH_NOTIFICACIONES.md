@@ -77,3 +77,33 @@ Supabase → Authentication → Emails → Templates:
   desde la Edge Function).
 - Si `PUBLIC_VAPID_PUBLIC_KEY` está vacío, el botón de activar push no
   aparece y el resto de la app funciona igual.
+
+## Sonido en iPhone (iOS)
+
+Apple limita el sonido de las notificaciones web en iOS:
+
+- **`sound` y `vibrate` de `showNotification()` se IGNORAN en iOS.** La app
+  no puede reproducir un audio personalizado en la notificación del sistema
+  (a diferencia de Android, donde `vibrate` dispara el tono del sistema).
+  iOS toca el sonido del sistema por defecto — o nada si el iPhone está en
+  silencio (interruptor lateral) o la app tiene las notificaciones en modo
+  silencioso desde Ajustes → Notificaciones → StarGo.
+- **Web Push en iOS solo funciona en la PWA INSTALADA** (agregada a pantalla
+  de inicio), iOS 16.4+. En Safari normal no existe `PushManager`: el panel
+  de notificaciones muestra un aviso («Notificaciones solo en la app
+  instalada») explicando cómo instalar la app.
+- **Con la app ABIERTA**, el sonido lo reproduce la propia app vía Web Audio
+  (`src/lib/sonido.ts`): la campana ding-dong. iOS exige que el usuario toque
+  la pantalla al menos una vez para desbloquear el AudioContext; si la app
+  vuelve de segundo plano, el siguiente toque lo vuelve a desbloquear
+  (los gestos se registran de forma persistente, no con `once`).
+
+  Detalle: si una notificación llega antes del primer toque (o justo al volver
+  de segundo plano), la campana queda pendiente y suena en cuanto el usuario
+  toca la pantalla. Para probar el sonido en un iPhone real:
+
+  1. Instala la PWA (Compartir → «Agregar a pantalla de inicio») y entra desde ahí.
+  2. Activa las notificaciones push desde la campanita (pide el permiso de iOS).
+  3. Crea un pedido de prueba con la app abierta: debe sonar la campana.
+  4. Cierra la app y crea otro pedido: la notificación del sistema debe
+     aparecer (con el sonido del sistema, sujeto al interruptor de silencio).

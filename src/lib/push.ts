@@ -10,6 +10,21 @@ import { browser } from '$app/environment';
  * las notificaciones llegan aunque la app esté cerrada.
  */
 
+/**
+ * ¿Es un iPhone/iPad (iOS)?
+ *
+ * iOS 16.4+ SOLO permite Web Push en la PWA INSTALADA (agregada a pantalla
+ * de inicio): en Safari normal no existe PushManager, así que el botón de
+ * activar no aparece. Este helper permite mostrar un aviso explicando que
+ * hay que instalar la app primero (sin él el usuario cree que algo falla).
+ */
+export function esIOS(): boolean {
+	if (!browser) return false;
+	const ua = navigator.userAgent;
+	// iPadOS se reporta como Mac con touch (maxTouchPoints > 1).
+	return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
 /** ¿El navegador soporta Web Push? (SW + PushManager + notificaciones). */
 export function pushSoportado(): boolean {
 	return (
