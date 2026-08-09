@@ -30,3 +30,30 @@ export function esErrorUsuarioExistente(
 		)
 	);
 }
+
+/**
+ * ¿El error indica que Supabase Auth NO PUDO ENVIAR el correo (invitación,
+ * confirmación, etc.)?
+ *
+ * GoTrue acepta el alta pero el mailer falla — normalmente por configuración
+ * de SMTP/email en el Dashboard de Supabase (Auth → Settings → Email), por
+ * límites del proveedor o por una plantilla rota. Mensajes típicos:
+ *   - "Error sending invite email"
+ *   - "Error sending confirmation mail"
+ *   - "Failed to send email"
+ *   - Errores SMTP/mailer
+ *
+ * No es un bug de la app: la cuenta suele NO crearse (GoTrue revierte la
+ * transacción) y el flujo puede reintentarse una vez corregido el email.
+ * El mensaje que ve el usuario debe orientarlo a revisar la configuración,
+ * no mostrar el texto crudo de GoTrue.
+ */
+export function esErrorEnvioEmail(
+	error: { code?: string | null; message?: string | null } | null | undefined
+): boolean {
+	if (!error) return false;
+	const mensaje = error.message ?? '';
+	return /error sending (invite )?email|error sending confirmation|failed to send (the )?email|smtp|mailer|email provider|no email provider/i.test(
+		mensaje
+	);
+}

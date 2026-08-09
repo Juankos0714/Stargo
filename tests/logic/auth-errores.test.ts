@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { esErrorUsuarioExistente } from '$lib/logic/auth-errores';
+import { esErrorEnvioEmail, esErrorUsuarioExistente } from '$lib/logic/auth-errores';
 
 describe('esErrorUsuarioExistente', () => {
 	it('reconoce "User already registered" (variante clásica)', () => {
@@ -29,7 +29,27 @@ describe('esErrorUsuarioExistente', () => {
 			false
 		);
 		expect(esErrorUsuarioExistente({ code: 'invalid_otp', message: 'Token has expired or is invalid' })).toBe(false);
+		expect(esErrorUsuarioExistente({ code: null, message: 'Error sending invite email' })).toBe(false);
 		expect(esErrorUsuarioExistente(null)).toBe(false);
 		expect(esErrorUsuarioExistente(undefined)).toBe(false);
+	});
+});
+
+describe('esErrorEnvioEmail', () => {
+	it('reconoce "Error sending invite email" (mailer de Supabase falló)', () => {
+		expect(esErrorEnvioEmail({ code: null, message: 'Error sending invite email' })).toBe(true);
+	});
+
+	it('reconoce otras variantes de fallo del correo', () => {
+		expect(esErrorEnvioEmail({ code: null, message: 'Error sending confirmation mail' })).toBe(true);
+		expect(esErrorEnvioEmail({ code: 'smtp_error', message: 'Failed to send email: connection refused' })).toBe(true);
+		expect(esErrorEnvioEmail({ code: null, message: 'SMTP connection timeout' })).toBe(true);
+	});
+
+	it('NO marca errores de cuenta existente ni de validación', () => {
+		expect(esErrorEnvioEmail({ code: 'user_already_exists', message: 'User already registered' })).toBe(false);
+		expect(esErrorEnvioEmail({ code: null, message: 'User already been invited' })).toBe(false);
+		expect(esErrorEnvioEmail({ code: 'weak_password', message: 'Password should be at least 6 characters' })).toBe(false);
+		expect(esErrorEnvioEmail(null)).toBe(false);
 	});
 });

@@ -50,9 +50,16 @@ async function cacheFirst(req: Request): Promise<Response> {
 	const cache = await caches.open(CACHE);
 	const cached = await cache.match(req);
 	if (cached) return cached;
-	const res = await fetch(req);
-	if (res.ok) cache.put(req, res.clone());
-	return res;
+	// Sin try/catch un fetch que falle (sin red, asset roto, 5xx) rechaza la
+	// promesa de respondWith y Chrome logra «Uncaught (in promise) Failed to
+	// fetch» sin dejar que la app sirva el fallback.
+	try {
+		const res = await fetch(req);
+		if (res.ok) cache.put(req, res.clone());
+		return res;
+	} catch {
+		return Response.error();
+	}
 }
 
 async function navegacion(req: Request): Promise<Response> {

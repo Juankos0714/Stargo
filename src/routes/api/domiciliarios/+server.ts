@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { getSupabaseAsUser, getSupabaseService } from '$lib/server/supabase';
 import { requireAdmin } from '$lib/server/auth';
 import { obtenerResumenes } from '$lib/server/cuenta';
-import { esErrorUsuarioExistente } from '$lib/logic/auth-errores';
+import { esErrorEnvioEmail, esErrorUsuarioExistente } from '$lib/logic/auth-errores';
 import type { Domiciliario } from '$lib/types';
 
 // ---------- GET: listar domiciliarios (solo admin) ----------
@@ -90,6 +90,18 @@ export const POST: RequestHandler = async (event) => {
 			redirectTo: `${event.url.origin}/login`
 		});
 		if (errInv) {
+			// El mailer de Supabase no pudo entregar el correo (SMTP/plantilla):
+			// la cuenta NO se crea (GoTrue revierte) y el mensaje debe orientar al
+			// admin a revisar Auth → Settings → Email, no a mostrar texto crudo.
+			if (esErrorEnvioEmail(errInv)) {
+				return json(
+					{
+						error:
+							'Supabase no pudo enviar el correo de invitación. Revisa la configuración de email (Auth → Settings → Email / SMTP) en el Dashboard de Supabase e inténtalo de nuevo.'
+					},
+					{ status: 400 }
+				);
+			}
 			// Si la cuenta YA existe (o ya fue invitada sin aceptar), no se reenvía
 			// invitación: se enlaza/reactiva la fila igual (el domiciliario entra
 			// con la contraseña que ya tiene o con la del enlace pendiente).
@@ -112,6 +124,15 @@ export const POST: RequestHandler = async (event) => {
 			email_confirm: true
 		});
 		if (errUser) {
+			if (esErrorEnvioEmail(errUser)) {
+				return json(
+					{
+						error:
+							'Supabase no pudo crear la cuenta ni enviar el correo. Revisa la configuración de email (Auth → Settings → Email / SMTP) en el Dashboard de Supabase e inténtalo de nuevo.'
+					},
+					{ status: 400 }
+				);
+			}
 			if (!esErrorUsuarioExistente(errUser)) {
 				return json({ error: `No se pudo crear la cuenta: ${errUser.message}` }, { status: 400 });
 			}
