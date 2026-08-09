@@ -1,10 +1,15 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen, waitFor, fireEvent } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import CentroNotificaciones from '../../src/lib/components/CentroNotificaciones.svelte';
 import { api } from '$lib/api';
 import { esIOS, pushSoportado, suscribirPush, estaSuscrito } from '$lib/push';
-import { sonarNotificacion } from '$lib/sonido';
+import {
+	sonarNotificacion,
+	obtenerVolumenSonido,
+	fijarVolumenSonido,
+	previsualizarSonido
+} from '$lib/sonido';
 
 // El componente usa Realtime, hidratación de sesión, Web Push, sonido y
 // navegación: todo se controla con mocks (mismo patrón que el resto de tests
@@ -32,7 +37,10 @@ vi.mock('$lib/push', () => ({
 	estaSuscrito: vi.fn()
 }));
 vi.mock('$lib/sonido', () => ({
-	sonarNotificacion: vi.fn()
+	sonarNotificacion: vi.fn(),
+	obtenerVolumenSonido: vi.fn(),
+	fijarVolumenSonido: vi.fn(),
+	previsualizarSonido: vi.fn()
 }));
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
@@ -44,6 +52,9 @@ const pushSoportadoMock = vi.mocked(pushSoportado);
 const suscribirPushMock = vi.mocked(suscribirPush);
 const estaSuscritoMock = vi.mocked(estaSuscrito);
 const sonarMock = vi.mocked(sonarNotificacion);
+const obtenerVolumenMock = vi.mocked(obtenerVolumenSonido);
+const fijarVolumenMock = vi.mocked(fijarVolumenSonido);
+const previsualizarMock = vi.mocked(previsualizarSonido);
 
 /** Stub de matchMedia: jsdom no lo implementa. Por defecto simula desktop. */
 function stubMatchMedia(esDesktop: boolean) {
@@ -63,6 +74,8 @@ beforeEach(() => {
 	pushSoportadoMock.mockReturnValue(true);
 	suscribirPushMock.mockResolvedValue({ ok: true });
 	estaSuscritoMock.mockResolvedValue(null);
+	// Volumen de la campana por defecto: 1 (100 %).
+	obtenerVolumenMock.mockReturnValue(1);
 });
 
 /** Monta el componente y abre el panel de notificaciones (clic en la campana). */
@@ -194,6 +207,67 @@ describe('CentroNotificaciones — estados de activación de Web Push', () => {
 
 		expect(sonarMock).toHaveBeenCalledTimes(1);
 		unmount();
+	});
+});
+	describe('CentroNotificaciones — control de volumen de la campana', () => {
+	test('el slider de volumen se renderiza con el valor guardado', async () => {
+		obtenerVolumenMock.mockReturnValue(0.4);
+		await abrirPanel();
+
+		const slider = screen.getByRole('slider', { name: 'Volumen de la campana' });
+		expect(slider).toBeInTheDocument();
+		// El input range expone el value como string (p. ej. '40').
+		expect(slider).toHaveValue('40');
+		expect(screen.getByText('40%')).toBeInTheDocument();
+	});
+
+	test('mover el slider actualiza el estado; al soltar persiste (fijarVolumenSonido) y previsualiza', async () => {
+		await abrirPanel();
+		const slider = screen.getByRole('slider', { name: 'Volumen de la campana' });
+
+		// Arrastrar a 60 %: solo actualiza el estado (no persiste aún).
+		await fireEvent.input(slider, { target: { value: '60' } });
+		expect(fijarVolumenMock).not.toHaveBeenCalled();
+		expect(screen.getByText('60%')).toBeInTheDocument();
+
+		// Soltar: persiste y previsualiza el sonido.
+		await fireEvent.change(slider, { target: { value: '60' } });
+		expect(fijarVolumenMock).toHaveBeenCalledWith(0.6);
+		expect(previsualizarMock).toHaveBeenCalled();
+	});
+
+	test('al abrir el panel se relee el volumen persistido (dos instancias sincronizadas)', async () => {
+		obtenerVolumenMock.mockReturnValue(0.25);
+		await abrirPanel();
+
+		expect(screen.getByRole('slider', { name: 'Volumen de la campana' })).toHaveValue('25');
+		expect(screen.getByText('25%')).toBeInTheDocument();
+	});
+
+	test('el botón de silenciar pone el volumen a 0 y el de reactivar lo restaura', async () => {
+		await abrirPanel();
+
+		// Silenciar.
+		await userEvent.click(screen.getByRole('button', { name: 'Silenciar campana' }));
+		expect(fijarVolumenMock).toHaveBeenCalledWith(0);
+		expect(screen.getByText('0%')).toBeInTheDocument();
+		expect(
+			screen.getByText(/Campana silenciada: no sonará en la app/)
+		).toBeInTheDocument();
+
+		// Reactivar: vuelve al último volumen no nulo (por defecto 1).
+		await userEvent.click(screen.getByRole('button', { name: 'Activar sonido de la campana' }));
+		expect(fijarVolumenMock).toHaveBeenLastCalledWith(1);
+		expect(screen.getByText('100%')).toBeInTheDocument();
+	});
+
+	test('silenciar NO desactiva la sección de push (siguen visibles ambas)', async () => {
+		await abrirPanel();
+
+		await userEvent.click(screen.getByRole('button', { name: 'Silenciar campana' }));
+
+		expect(screen.getByRole('slider', { name: 'Volumen de la campana' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Activar notificaciones push' })).toBeInTheDocument();
 	});
 });
 	describe('CentroNotificaciones — flujo de activar notificaciones', () => {

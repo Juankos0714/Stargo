@@ -39,6 +39,8 @@ import {
 	faTruck,
 	faTruckFast,
 	faUsers,
+	faVolumeHigh,
+	faVolumeXmark,
 	faXmark	} from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 
@@ -87,5 +89,7 @@ export const iconos: Record<string, IconDefinition> = {
 	truck: faTruck,
 	'truck-fast': faTruckFast,
 	users: faUsers,
+	'volume-high': faVolumeHigh,
+	'volume-xmark': faVolumeXmark,
 	xmark: faXmark
 };

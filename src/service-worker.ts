@@ -120,17 +120,39 @@ self.addEventListener('push', (event) => {
 	}
 
 	event.waitUntil(
-		self.registration.showNotification(datos.title ?? 'StarGo', {
-			body: datos.body ?? 'Tienes una nueva notificación de StarGo.',
-			icon: datos.icon ?? '/icons/icon-192.png',
-			badge: datos.badge ?? '/icons/icon-192.png',
-			// Sonido/vibración: en Android `vibrate` dispara el tono del sistema.
-			// En iOS se IGNORAN ambas (limitación de Apple); el `sound` con URL
-			// absoluta lo usan los navegadores que sí lo soportan (Firefox).
-			vibrate: [150, 80, 150],
-			sound: new URL('/sonidos/notificacion.wav', self.location.origin).href,
-			data: datos.data ?? {}
-		})
+		(async () => {
+			// Con la app ABIERTA en una pestaña visible, el sistema silencia la
+			// notificación (Chrome/Android/iOS) y el sonido lo pone la app
+			// (src/lib/sonido.ts). Normalmente lo dispara Realtime; si Realtime
+			// está desconectado (red, suspensión), este mensaje es el respaldo:
+			// la página reproduce la campana local. sonarNotificacion() tiene
+			// cooldown de 2 s, así que si Realtime ya sonó, esto se descarta
+			// (nunca hay doble campana).
+			//
+			// Solo se avisa a la PRIMERA ventana visible controlada por este SW:
+			//  - sin includeUncontrolled: los clientes no controlados NO reciben
+			//    postMessage (un mensaje a ellos se pierde sin más).
+			//  - un solo destino evita que dos ventanas visibles (multi-monitor)
+			//    suenen a la vez (el cooldown de la campana es por pestaña).
+			const ventanas = await self.clients.matchAll({ type: 'window' });
+			const visible = ventanas.find((cliente) => cliente.visibilityState === 'visible');
+			if (visible) visible.postMessage({ tipo: 'sonar', datos });
+
+			// El banner del sistema SIEMPRE se muestra: es la vía que garantiza
+			// el aviso cuando la app está cerrada o en segundo plano (ahí la app
+			// no puede reproducir audio). En Android `vibrate` dispara el tono
+			// del sistema; en iOS se ignoran vibrate/sound (limitación de Apple:
+			// el iPhone toca su sonido del sistema o nada si está en silencio);
+			// en desktop el sonido lo pone el sistema operativo.
+			await self.registration.showNotification(datos.title ?? 'StarGo', {
+				body: datos.body ?? 'Tienes una nueva notificación de StarGo.',
+				icon: datos.icon ?? '/icons/icon-192.png',
+				badge: datos.badge ?? '/icons/icon-192.png',
+				vibrate: [150, 80, 150],
+				sound: new URL('/sonidos/notificacion.wav', self.location.origin).href,
+				data: datos.data ?? {}
+			});
+		})()
 	);
 });
 

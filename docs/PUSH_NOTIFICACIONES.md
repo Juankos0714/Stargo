@@ -78,7 +78,18 @@ Supabase → Authentication → Emails → Templates:
 - Si `PUBLIC_VAPID_PUBLIC_KEY` está vacío, el botón de activar push no
   aparece y el resto de la app funciona igual.
 
-## Sonido en iPhone (iOS)
+## Sonido por plataforma
+
+El sonido de las notificaciones depende de la plataforma y de si la app está
+abierta o no. Resumen de cómo funciona y de qué depende cada caso:
+
+| Plataforma | App cerrada / segundo plano | App abierta (primer plano) |
+|---|---|---|
+| Android | Banner + sonido del sistema (lo dispara `vibrate` de `showNotification`) | Banner + campana local (Web Audio), vía Realtime o respaldo del SW |
+| iPhone (iOS) | Banner + sonido del sistema — sujeto al interruptor de silencio y a que la PWA esté INSTALADA | Banner + campana local (Web Audio) |
+| Computadora | Banner + sonido según el SO y la configuración de Chrome | Banner + campana local (Web Audio) |
+
+### Sonido en iPhone (iOS)
 
 Apple limita el sonido de las notificaciones web en iOS:
 
@@ -98,12 +109,39 @@ Apple limita el sonido de las notificaciones web en iOS:
   vuelve de segundo plano, el siguiente toque lo vuelve a desbloquear
   (los gestos se registran de forma persistente, no con `once`).
 
-  Detalle: si una notificación llega antes del primer toque (o justo al volver
-  de segundo plano), la campana queda pendiente y suena en cuanto el usuario
-  toca la pantalla. Para probar el sonido en un iPhone real:
+### Volumen y silencio de la campana local
 
-  1. Instala la PWA (Compartir → «Agregar a pantalla de inicio») y entra desde ahí.
-  2. Activa las notificaciones push desde la campanita (pide el permiso de iOS).
-  3. Crea un pedido de prueba con la app abierta: debe sonar la campana.
-  4. Cierra la app y crea otro pedido: la notificación del sistema debe
-     aparecer (con el sonido del sistema, sujeto al interruptor de silencio).
+El panel de notificaciones (campanita) incluye un control de volumen de la
+campana local (0-100 %) con botón de silencio. Se persiste en `localStorage`
+(`stargo_volumen_sonido`), es por dispositivo/navegador y solo afecta al
+sonido que reproduce la app con ella ABIERTA — el push del sistema (app
+cerrada) sigue sonando según el SO, independientemente de este control.
+Implementación: `obtenerVolumenSonido()`, `fijarVolumenSonido()` y
+`previsualizarSonido()` en `src/lib/sonido.ts`; la campana usa
+`MASTER × volumen` como ganancia y `sonarNotificacion()` no crea audio si el
+volumen es 0.
+
+### Respaldo del sonido en primer plano (service worker → app)
+
+Con la app abierta, el sonido normalmente lo dispara Realtime (INSERT en
+`notificaciones`). Pero si Realtime está desconectado (red, suspensión), el
+push del sistema es la única señal que llega — y con la app en foco los
+navegadores silencian la notificación del sistema. Por eso:
+
+1. El SW, al recibir un push, busca la PRIMERA ventana visible controlada y
+   le envía `postMessage({ tipo: 'sonar' })` (`src/service-worker.ts`).
+2. `+layout.svelte` registra el listener (`registrarSonidoSW()` en
+   `src/lib/sonido.ts`): el mensaje reproduce la campana local.
+3. El cooldown de 2 s de `sonarNotificacion()` evita el doble sonido si
+   Realtime también alcanzó a sonar.
+4. El banner del sistema SIEMPRE se muestra (aunque haya ventana visible):
+   es la vía que garantiza el aviso con la app cerrada o en segundo plano,
+   que es donde la app no puede reproducir audio.
+
+Para probar el sonido en un iPhone real:
+
+1. Instala la PWA (Compartir → «Agregar a pantalla de inicio») y entra desde ahí.
+2. Activa las notificaciones push desde la campanita (pide el permiso de iOS).
+3. Crea un pedido de prueba con la app abierta: debe sonar la campana.
+4. Cierra la app y crea otro pedido: la notificación del sistema debe
+   aparecer (con el sonido del sistema, sujeto al interruptor de silencio).

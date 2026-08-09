@@ -4,7 +4,12 @@
 	import { hidratarSesionRealtime } from '$lib/supabase-browser';
 	import { suscribirCambios } from '$lib/realtime';
 	import { esIOS, pushSoportado, suscribirPush, estaSuscrito } from '$lib/push';
-	import { sonarNotificacion } from '$lib/sonido';
+	import {
+		sonarNotificacion,
+		obtenerVolumenSonido,
+		fijarVolumenSonido,
+		previsualizarSonido
+	} from '$lib/sonido';
 	import Icon from './Icon.svelte';
 
 	interface Notificacion {
@@ -39,6 +44,10 @@
 	let pushActivo = $state<boolean | null>(null);
 	let activandoPush = $state(false);
 	let pushMensaje = $state<string | null>(null);
+	// Volumen de la campana local (0..1), persistido en localStorage.
+	let volumen = $state(obtenerVolumenSonido());
+	// Último volumen no nulo, para que silenciar/activar sea reversible.
+	let ultimoVolumen = $state(1);
 
 	function hace(iso: string): string {
 		const ms = Date.now() - new Date(iso).getTime();
@@ -92,6 +101,29 @@
 		}
 	}
 
+	/** Actualiza el estado del slider mientras se arrastra (sin persistir aún). */
+	function ajustarVolumen(v: number) {
+		volumen = v;
+		if (v > 0) ultimoVolumen = v;
+	}
+
+	/** Persiste el volumen al soltar el slider y previsualiza el sonido. */
+	function soltarVolumen() {
+		fijarVolumenSonido(volumen);
+		previsualizarSonido();
+	}
+
+	/** Alterna entre silencio y el último volumen que tenía el usuario. */
+	function alternarSilencio() {
+		if (volumen > 0) {
+			ultimoVolumen = volumen;
+			volumen = 0;
+		} else {
+			volumen = ultimoVolumen > 0 ? ultimoVolumen : 1;
+		}
+		fijarVolumenSonido(volumen);
+	}
+
 	/** ¿Esta instancia es la visible en el breakpoint actual? (evita doble sonido). */
 	function debeSonar(): boolean {
 		if (!soloSonarEn) return true;
@@ -136,7 +168,12 @@
 		aria-expanded={abierto}
 		onclick={() => {
 			abierto = !abierto;
-			if (abierto) cargar();
+			if (abierto) {
+				cargar();
+				// Relee el volumen persistido: el layout monta DOS instancias
+				// (sidebar + topbar) y solo la visible se actualiza al cambiar.
+				volumen = obtenerVolumenSonido();
+			}
 		}}
 		class="relative flex size-9 items-center justify-center rounded-lg transition {tono === 'oscuro'
 			? 'text-slate-300 hover:bg-white/10 hover:text-white'
@@ -211,6 +248,42 @@
 							</li>
 						{/each}
 					</ul>
+				{/if}
+			</div>
+
+			<!-- Volumen de la campana local: visible SIEMPRE (afecta al sonido de
+			     la app abierta, independiente del push del sistema). -->
+			<div class="shrink-0 border-t border-slate-100 bg-slate-50 px-4 py-3">
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						onclick={alternarSilencio}
+						aria-label={volumen === 0 ? 'Activar sonido de la campana' : 'Silenciar campana'}
+						class="flex size-8 shrink-0 items-center justify-center rounded-lg transition {volumen === 0
+							? 'text-slate-400 hover:bg-slate-200/70'
+							: 'text-slate-500 hover:bg-slate-200/70 hover:text-slate-700'}"
+					>
+						<Icon name={volumen === 0 ? 'volume-xmark' : 'volume-high'} class="size-4" />
+					</button>
+					<input
+						type="range"
+						min="0"
+						max="100"
+						step="5"
+						value={Math.round(volumen * 100)}
+						oninput={(e) => ajustarVolumen(Number((e.currentTarget as HTMLInputElement).value) / 100)}
+						onchange={soltarVolumen}
+						aria-label="Volumen de la campana"
+						class="h-1.5 flex-1 cursor-pointer accent-primary"
+					/>
+					<span class="w-9 shrink-0 text-right text-[11px] font-semibold text-slate-500 tabular-nums">
+						{Math.round(volumen * 100)}%
+					</span>
+				</div>
+				{#if volumen === 0}
+					<p class="mt-1 text-center text-[10px] text-slate-400">
+						Campana silenciada: no sonará en la app, pero el push del sistema sigue activo.
+					</p>
 				{/if}
 			</div>
 

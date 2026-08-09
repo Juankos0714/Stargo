@@ -2,15 +2,19 @@
 	import './layout.css';
 	import IndicadorOffline from '$lib/components/IndicadorOffline.svelte';
 	import BotonInstalar from '$lib/components/BotonInstalar.svelte';
+	import { registrarSonidoSW } from '$lib/sonido';
 	import { base as basePath } from '$app/paths';
 
 	let { children } = $props();
 
 	// Registro del service worker (requisito PWA para que aparezca la opción
 	// de instalar/descargar en móviles). SvelteKit NO lo registra solo, y el
-	// archivo solo se compila en builds de producción.
+	// archivo solo se compila en builds de producción. También se escuchan los
+	// mensajes «sonar» del SW: cuando llega un push con la app abierta y
+	// Realtime está caído, el SW pide a la pestaña que reproduzca la campana.
 	$effect(() => {
 		if (!import.meta.env.PROD) return;
+		registrarSonidoSW();
 		if (!('serviceWorker' in navigator)) return;
 		navigator.serviceWorker.register(`${basePath}/service-worker.js`).catch((err) => {
 			// No bloquea la app; solo ayuda a diagnosticar si no aparece el prompt de instalación.

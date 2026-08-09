@@ -29,12 +29,22 @@ const usosLiterales = contenidoSvelte
 	.flatMap((c) => [...c.matchAll(/<Icon\b[^>]*\bname="([^"]+)"/g)])
 	.map((m) => m[1]);
 
+/** Nombres en expresiones: <Icon name={... ? 'x' : 'y'} /> (ternarios, como el
+ *  control de volumen o el tipo de notificación). Se extraen los strings
+ *  citados dentro del atributo `name={...}` y se conservan SOLO los que ya
+ *  son iconos del registro (los demás son valores de datos, p. ej. el tipo
+ *  de notificación 'nuevo_pedido'). */
+const usosEnExpresion = contenidoSvelte
+	.flatMap((c) => [...c.matchAll(/name=\{([^}]*)\}/g)])
+	.flatMap((m) => [...m[1].matchAll(/['"]([^'"]+)['"]/g)].map((s) => s[1]))
+	.filter((n) => n in iconos);
+
 /** Nombres dinámicos: icon: 'x' (arrays de navegación/acciones del panel admin). */
 const usosDinamicos = contenidoSvelte
 	.flatMap((c) => [...c.matchAll(/\bicon:\s*['"]([^'"]+)['"]/g)])
 	.map((m) => m[1]);
 
-const nombresUsados = [...new Set([...usosLiterales, ...usosDinamicos])];
+const nombresUsados = [...new Set([...usosLiterales, ...usosEnExpresion, ...usosDinamicos])];
 
 // --- Tests -----------------------------------------------------------------
 
@@ -59,7 +69,9 @@ describe('registro de iconos (icon-registry.ts)', () => {
 			(n) =>
 				!contenidoSvelte.some(
 					(c) =>
-						new RegExp(`name=["']${n}["']`).test(c) || new RegExp(`icon:\\s*['"]${n}['"]`).test(c)
+						new RegExp(`name=["']${n}["']`).test(c) ||
+						new RegExp(`name=\\{[^}]*['"]${n}['"][^}]*\\}`).test(c) ||
+						new RegExp(`icon:\\s*['"]${n}['"]`).test(c)
 				)
 		);
 		expect(

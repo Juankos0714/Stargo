@@ -38,6 +38,25 @@ let contexto: AudioContext | null = null;
 let ultimoToque = 0;
 /** Campana diferida: llegó con el contexto suspendido, suena al reanudar. */
 let pendiente = false;
+// Volumen de la campana local (0..1). Preferencia del usuario, persistida en
+// localStorage: 0 = campana silenciada (solo afecta al sonido EN LA APP, no a
+// las notificaciones del sistema ni a la vibración).
+const CLAVE_VOLUMEN = 'stargo_volumen_sonido';
+let volumen = 1;
+
+// Carga la preferencia al importar el módulo en el navegador (en node los
+// tests de lógica no tienen window: se queda en el valor por defecto).
+if (typeof window !== 'undefined' && window.localStorage) {
+	try {
+		const crudo = window.localStorage.getItem(CLAVE_VOLUMEN);
+		if (crudo !== null) {
+			const v = Number(crudo);
+			if (Number.isFinite(v)) volumen = Math.min(1, Math.max(0, v));
+		}
+	} catch {
+		// Sin almacenamiento (modo privado): se usa el valor por defecto.
+	}
+}
 
 // Misma firma que scripts/generar_sonido_notificacion.py (mantener en sintonía).
 // Se exportan para que tests/sonido.test.ts verifique la sintonía con el script.
@@ -58,6 +77,26 @@ export const DURACION = 1.6; // s hasta apagar los osciladores (cola incluida)
 export const MASTER = 0.43;
 // Cola larga: 2 s de cooldown evita que ráfagas solapen campanas.
 export const COOLDOWN = 2000;
+
+/** Volumen actual de la campana local (0..1). */
+export function obtenerVolumenSonido(): number {
+	return volumen;
+}
+
+/**
+ * Fija el volumen de la campana local y lo persiste (localStorage).
+ * Se recorta a 0..1; 0 = campana silenciada.
+ */
+export function fijarVolumenSonido(v: number): void {
+	volumen = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+	try {
+		if (typeof window !== 'undefined' && window.localStorage) {
+			window.localStorage.setItem(CLAVE_VOLUMEN, String(volumen));
+		}
+	} catch {
+		// Sin almacenamiento: el volumen vale para esta visita.
+	}
+}
 
 function obtenerContexto(): AudioContext | null {
 	if (contexto) return contexto;
@@ -137,9 +176,10 @@ function reproducir(ctx: AudioContext): void {
 		navigator.vibrate(120);
 	}
 
-	// Ganancia maestra: normaliza la mezcla al pico del WAV (0.92).
+	// Ganancia maestra: normaliza la mezcla al pico del WAV (0.92) y aplica
+	// el volumen del usuario (0..1; 0 = silencio).
 	const master = ctx.createGain();
-	master.gain.value = MASTER;
+	master.gain.value = MASTER * volumen;
 	master.connect(ctx.destination);
 	// Cada llamada crea su propio subgrafo; se desconecta al terminar la
 	// cola para no acumular nodos muertos en el contexto compartido.
@@ -166,14 +206,18 @@ function reproducir(ctx: AudioContext): void {
 	}
 }
 
-/** Reproduce la campana ding-dong. No lanza: falla silencioso. */	export function sonarNotificacion(): void {
-		try {
-			// Cooldown: evita que una ráfaga de notificaciones solape campanas.
-			// El marcado de tiempo se hace en reproducir() (cuando la campana
-			// suena de verdad, no cuando llega la notificación).
-			if (Date.now() - ultimoToque < COOLDOWN) return;
+/** Reproduce la campana ding-dong. No lanza: falla silencioso. */
+export function sonarNotificacion(): void {
+	try {
+		// Campana silenciada por el usuario: no se crea nada.
+		if (volumen <= 0) return;
 
-			const ctx = obtenerContexto();
+		// Cooldown: evita que una ráfaga de notificaciones solape campanas.
+		// El marcado de tiempo se hace en reproducir() (cuando la campana
+		// suena de verdad, no cuando llega la notificación).
+		if (Date.now() - ultimoToque < COOLDOWN) return;
+
+		const ctx = obtenerContexto();
 		if (!ctx) return;
 		// Si aún está suspendido (p. ej. la notificación llegó antes del primer
 		// gesto, o iOS lo re-suspendió al ir a segundo plano), en iOS el resume
@@ -190,12 +234,51 @@ function reproducir(ctx: AudioContext): void {
 	}
 }
 
+let sonidoSWRegistrado = false;
+
+/**
+ * Reproduce la campana para PREVISUALIZAR el volumen en el panel (obedece el
+ * cooldown y el volumen, igual que una notificación real). Se llama desde el
+ * control de volumen al soltar el deslizador.
+ */
+export function previsualizarSonido(): void {
+	sonarNotificacion();
+}
+
+/**
+ * Escucha el mensaje «sonar» que envía el service worker al recibir un push.
+ *
+ * Respaldo del sonido en primer plano: normalmente la campana la dispara
+ * Realtime (INSERT en notificaciones), pero si Realtime está desconectado
+ * (red, suspensión del navegador), el push del sistema es la única señal que
+ * llega. El SW avisa a la pestaña visible con `postMessage({ tipo: 'sonar' })`
+ * y aquí se reproduce la campana local. El cooldown de sonarNotificacion()
+ * evita el doble sonido si Realtime también alcanzó a sonar.
+ *
+ * Idempotente: el listener se registra una sola vez por carga de página.
+ */
+export function registrarSonidoSW(): void {
+	if (sonidoSWRegistrado) return;
+	sonidoSWRegistrado = true;
+	try {
+		if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+		navigator.serviceWorker.addEventListener('message', (e: MessageEvent) => {
+			const tipo = (e.data as { tipo?: string } | null)?.tipo;
+			if (tipo === 'sonar') sonarNotificacion();
+		});
+	} catch {
+		// Sin service worker (p. ej. en dev o navegadores antiguos): silencio.
+	}
+}
+
 /**
  * Limpia el estado compartido. Solo lo usan los tests para aislar cada caso;
  * en producción el contexto dura lo que la visita (reanudable en cada gesto).
+ * NO toca el volumen: es una preferencia del usuario persistida.
  */
 export function resetearSonido(): void {
 	contexto = null;
 	ultimoToque = 0;
 	pendiente = false;
+	sonidoSWRegistrado = false;
 }
