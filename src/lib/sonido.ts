@@ -38,21 +38,40 @@ export function sonarNotificacion(): void {
 		if (!ctx) return;
 		void ctx.resume();
 
-		const duracion = 0.35;
-		const osc = ctx.createOscillator();
+		const duracion = 0.45;
+		const t0 = ctx.currentTime;
+		// Fundido de entrada casi inmediato y cierre rápido: el pico de volumen
+		// se mantiene más tiempo → suena MÁS FUERTE y claro.
 		const gain = ctx.createGain();
-		osc.type = 'sine';
-		// Dos tonos consecutivos (mi → sol) dan un «ding-dong» más perceptible
-		// que un tono único y se distinguen de otras alertas del sistema.
-		osc.frequency.setValueAtTime(660, ctx.currentTime);
-		osc.frequency.setValueAtTime(880, ctx.currentTime + 0.16);
-		gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-		gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + 0.02);
-		gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duracion);
+		gain.gain.setValueAtTime(0.0001, t0);
+		gain.gain.exponentialRampToValueAtTime(0.55, t0 + 0.005);
+		gain.gain.setValueAtTime(0.55, t0 + duracion - 0.06);
+		gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duracion);
+		gain.connect(ctx.destination);
 
-		osc.connect(gain).connect(ctx.destination);
-		osc.start();
-		osc.stop(ctx.currentTime + duracion);
+		// Tres osciladores en paralelo (acorde) dan un «ding-dong» potente:
+		// la fundamental + un armónico (3×) con menos ganancia para dar cuerpo
+		// sin saturar. Dos tonos consecutivos (mi → la) mejoran la percepción.
+		const frecuencias: [number, number][] = [
+			[660, t0],
+			[880, t0 + 0.19]
+		];
+		for (const [f, inicio] of frecuencias) {
+			const osc = ctx.createOscillator();
+			const osc2 = ctx.createOscillator();
+			const g2 = ctx.createGain();
+			osc.type = 'sine';
+			osc.frequency.setValueAtTime(f, inicio);
+			osc2.type = 'sine';
+			osc2.frequency.setValueAtTime(f * 3, inicio);
+			g2.gain.value = 0.3; // armónico de apoyo, más bajo que la fundamental
+			osc.connect(gain);
+			osc2.connect(g2).connect(gain);
+			osc.start(inicio);
+			osc.stop(t0 + duracion);
+			osc2.start(inicio);
+			osc2.stop(t0 + duracion);
+		}
 	} catch {
 		// Sin soporte de audio o bloqueado por el navegador: silencio.
 	}
