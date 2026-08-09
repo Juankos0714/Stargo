@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSupabaseAsUser } from '$lib/server/supabase';
+import { getSupabaseAsUser, getSupabaseService } from '$lib/server/supabase';
 import { requireAdmin } from '$lib/server/auth';
 import { obtenerResumenes } from '$lib/server/cuenta';
 import type { Domiciliario } from '$lib/types';
@@ -37,12 +37,18 @@ export const GET: RequestHandler = async (event) => {
 	return json({ data: filas });
 };
 
-// ---------- POST: enlazar un domiciliario (solo admin) ----------
-// El registro de la cuenta de Supabase Auth se hace MANUALMENTE en el
-// dashboard de Supabase (Authentication → Users → Add user). Este endpoint
-// solo enlaza la fila del domiciliario con el email de esa cuenta vía el RPC
-// registrar_domiciliario (SECURITY DEFINER): si el email no tiene cuenta,
-// el RPC lo rechaza con un mensaje claro.
+// ---------- POST: registrar un domiciliario (solo admin) ----------
+// Dos modos, ambos desde el panel (sin tocar el dashboard de Supabase):
+//
+//   Con `password` → el servidor CREA la cuenta de Supabase Auth con
+//   email_confirm: true (service role). El domiciliario entra de inmediato
+//   con ese email y esa contraseña: NO necesita correo de confirmación ni
+//   invitación.
+//   Sin `password` → la cuenta debe existir (creada en el dashboard de
+//   Supabase) y solo se enlaza la fila del domiciliario.
+//
+// Ambos terminan en registrar_domiciliario (SECURITY DEFINER) para crear o
+// reactivar la fila de la tabla domiciliarios.
 export const POST: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
 	const db = getSupabaseAsUser(sesion.accessToken);
@@ -51,6 +57,9 @@ export const POST: RequestHandler = async (event) => {
 	const nombre = String(body?.nombre ?? '').trim();
 	const email = String(body?.email ?? '').trim().toLowerCase();
 	const telefono = String(body?.telefono ?? '').trim() || null;
+	// Se recorta la contraseña: evita claves de solo espacios y espacios
+	// accidentales alrededor.
+	const password = String(body?.password ?? '').trim();
 
 	if (!nombre) return json({ error: 'El nombre es obligatorio.' }, { status: 400 });
 	if (!email) return json({ error: 'El email es obligatorio.' }, { status: 400 });
@@ -58,22 +67,56 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'El email no es válido.' }, { status: 400 });
 	}
 
-	// Enlaza (o reactiva) la fila del domiciliario con ese email. La cuenta de
-	// Supabase Auth debe existir (creada en el dashboard); si no, el RPC lo
-	// reporta y el 400 llega a la UI como mensaje legible.
+	// 1) Si viene password, crea la cuenta de Auth (email confirmado: el domi
+	//    entra sin correo de confirmación). Si el email ya existe, NO se toca
+	//    su contraseña: solo se enlaza la fila.
+	let cuentaCreada = false;
+	if (password) {
+		if (password.length < 6) {
+			return json({ error: 'La contraseña debe tener al menos 6 caracteres.' }, { status: 400 });
+		}
+		const service = getSupabaseService();
+		if (!service) {
+			return json(
+				{ error: 'Falta SUPABASE_SERVICE_ROLE_KEY en el entorno: no se puede crear la cuenta.' },
+				{ status: 500 }
+			);
+		}
+		const { error: errUser } = await service.auth.admin.createUser({
+			email,
+			password,
+			email_confirm: true
+		});
+		if (errUser) {
+			// Si el email ya tiene cuenta, NO se resetea su contraseña: solo se enlaza.
+			const yaExiste =
+				errUser.code === 'email_exists' ||
+				errUser.code === 'user_already_exists' ||
+				/already (been )?(registered|invited)|already exists/i.test(errUser.message ?? '');
+			if (!yaExiste) {
+				return json({ error: `No se pudo crear la cuenta: ${errUser.message}` }, { status: 400 });
+			}
+		} else {
+			cuentaCreada = true;
+		}
+	}
+
+	// 2) Enlaza (o reactiva) la fila del domiciliario con ese email.
 	const { data, error: err } = await db.rpc('registrar_domiciliario', {
 		p_nombre: nombre,
 		p_telefono: telefono,
 		p_email: email
 	});
 	if (err) return json({ error: err.message }, { status: 400 });
-	return json({ data });
+	return json({ data, meta: { cuentaCreada } });
 };
 
 // ---------- PUT: actualizar (solo admin) ----------
-// Soporta dos campos (pueden ir juntos o por separado):
+// Soporta tres campos (pueden ir juntos o por separado):
 //   activo    → activar/desactivar acceso (escritura directa con RLS admin)
 //   bloqueado → bloqueo/desbloqueo por falta de pago (RPC, solo admin)
+//   password  → reiniciar la contraseña del domiciliario (service role,
+//               sin correo de confirmación: entra de inmediato con la nueva)
 export const PUT: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
 	const db = getSupabaseAsUser(sesion.accessToken);
@@ -85,8 +128,44 @@ export const PUT: RequestHandler = async (event) => {
 	const body = await event.request.json().catch(() => ({}));
 	const tieneActivo = typeof body?.activo === 'boolean';
 	const tieneBloqueado = typeof body?.bloqueado === 'boolean';
-	if (!tieneActivo && !tieneBloqueado) {
-		return json({ error: 'Envía al menos un campo: activo o bloqueado.' }, { status: 400 });
+	const tienePassword = typeof body?.password === 'string' && body.password.trim().length > 0;
+	if (!tieneActivo && !tieneBloqueado && !tienePassword) {
+		return json({ error: 'Envía al menos un campo: activo, bloqueado o password.' }, { status: 400 });
+	}
+
+	// Reinicio de contraseña: service role, la cuenta queda confirmada (el domi
+	// entra con la nueva clave, sin correo de confirmación).
+	if (tienePassword) {
+		const password = body.password.trim();
+		if (password.length < 6) {
+			return json({ error: 'La contraseña debe tener al menos 6 caracteres.' }, { status: 400 });
+		}
+		const { data: fila, error: errFila } = await db
+			.from('domiciliarios')
+			.select('user_id, nombre')
+			.eq('id', id)
+			.maybeSingle();
+		if (errFila) return json({ error: errFila.message }, { status: 500 });
+		if (!fila?.user_id) {
+			return json(
+				{ error: 'Este domiciliario no tiene una cuenta de Supabase vinculada.' },
+				{ status: 400 }
+			);
+		}
+		const service = getSupabaseService();
+		if (!service) {
+			return json(
+				{ error: 'Falta SUPABASE_SERVICE_ROLE_KEY en el entorno: no se puede cambiar la contraseña.' },
+				{ status: 500 }
+			);
+		}
+		const { error: errClave } = await service.auth.admin.updateUserById(fila.user_id, {
+			password,
+			email_confirm: true
+		});
+		if (errClave) {
+			return json({ error: `No se pudo cambiar la contraseña: ${errClave.message}` }, { status: 400 });
+		}
 	}
 
 	// Bloqueo: RPC SECURITY DEFINER (solo admin; desbloquear también).

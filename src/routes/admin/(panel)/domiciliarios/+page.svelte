@@ -20,11 +20,13 @@
 	let busqueda = $state('');
 	let estadoRealtime = $state<RealtimeEstado>('conectando');
 
-	// Formulario de enlace: la cuenta de Supabase Auth se crea en el dashboard
-	// de Supabase; aquí solo se enlaza la fila del domiciliario.
+	// Formulario de registro: con contraseña se crea la cuenta de Auth al
+	// instante (sin correo de confirmación); sin contraseña solo se enlaza
+	// una cuenta ya existente creada en el dashboard de Supabase.
 	let nombre = $state('');
 	let email = $state('');
 	let telefono = $state('');
+	let password = $state('');
 	let registrando = $state(false);
 
 	// Bloqueo y acceso: estados de carga independientes por fila
@@ -36,6 +38,12 @@
 	let abonoValor = $state('');
 	let abonoNota = $state('');
 	let registrandoAbono = $state(false);
+
+	// Reinicio de contraseña (modal): el domiciliario entra con la nueva clave,
+	// sin correo de confirmación (service role en el backend).
+	let reiniciandoClave = $state<DomiciliarioFila | null>(null);
+	let claveNueva = $state('');
+	let guardandoClave = $state(false);
 
 	const visibles = $derived(
 		lista.filter(
@@ -88,7 +96,8 @@
 		const r = await api.post<Domiciliario>('/api/domiciliarios', {
 			nombre: nombre.trim(),
 			email: email.trim(),
-			telefono: telefono.trim()
+			telefono: telefono.trim(),
+			...(password ? { password: password.trim() } : {})
 		});
 		registrando = false;
 		if (r.error) {
@@ -96,13 +105,17 @@
 			return;
 		}
 		const emailRegistrado = r.data?.email ?? email.trim();
+		const cuentaCreada = r.meta?.cuentaCreada === true;
 		mensaje = {
 			tipo: 'ok',
-			texto: `${r.data?.nombre ?? nombre.trim()} enlazado con la cuenta ${emailRegistrado}. Puede ingresar al panel con la contraseña definida en Supabase.`
+			texto: cuentaCreada
+				? `${r.data?.nombre ?? nombre.trim()} registrado. Puede ingresar al panel con ${emailRegistrado} y la contraseña definida (sin confirmar correo).`
+				: `${r.data?.nombre ?? nombre.trim()} enlazado con la cuenta ${emailRegistrado}.`
 		};
 		nombre = '';
 		email = '';
 		telefono = '';
+		password = '';
 		await cargar();
 	}
 
@@ -176,6 +189,35 @@
 		await cargar();
 	}
 
+	function abrirReinicioClave(d: DomiciliarioFila) {
+		claveNueva = '';
+		reiniciandoClave = d;
+	}
+
+	async function confirmarReinicioClave() {
+		if (!reiniciandoClave) return;
+		const clave = claveNueva.trim();
+		if (clave.length < 6) {
+			mensaje = { tipo: 'err', texto: 'La contraseña debe tener al menos 6 caracteres.' };
+			return;
+		}
+		const nombre = reiniciandoClave.nombre;
+		guardandoClave = true;
+		mensaje = null;
+		const r = await api.put(`/api/domiciliarios?id=${reiniciandoClave.id}`, { password: clave });
+		guardandoClave = false;
+		if (r.error) {
+			mensaje = { tipo: 'err', texto: r.error };
+			return;
+		}
+		reiniciandoClave = null;
+		claveNueva = '';
+		mensaje = {
+			tipo: 'ok',
+			texto: `Contraseña de ${nombre} reiniciada: entra al panel con la nueva clave (sin confirmar correo).`
+		};
+	}
+
 	async function eliminar(d: DomiciliarioFila) {
 		if (!window.confirm(`¿Eliminar a ${d.nombre}? No podrá acceder a su panel.`)) return;
 		mensaje = null;
@@ -241,13 +283,13 @@
 	<div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-1">
 		<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Alta de domiciliario</h2>
 		<p class="mt-1 text-xs text-slate-400">
-			La cuenta se crea en Supabase; aquí solo se enlaza la fila del repartidor.
+			Define el email y la contraseña: el repartidor entra al panel sin confirmar correo.
 		</p>
 
 		<p class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-800">
-			Crea la cuenta del repartidor en el Dashboard de Supabase
-			(<strong>Authentication → Users → Add user</strong>) y luego enlázala aquí con su email. El repartidor
-			inicia sesión con el email y la contraseña definidos en Supabase.
+			Si escribes una contraseña, la cuenta se crea <strong>automáticamente</strong> y el repartidor ingresa con ese
+			email y esa contraseña, <strong>sin necesidad de correo de confirmación</strong>. Si la dejas vacía, el email
+			debe pertenecer a una cuenta ya creada en Supabase y solo se enlazará la fila.
 		</p>
 
 		<form class="mt-5 space-y-4" onsubmit={registrar}>
@@ -273,7 +315,19 @@
 					class="w-full rounded-xl border border-slate-300 bg-white min-h-11 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
 				/>
 			</div>
-
+			<div>
+				<label for="dom-password" class="mb-1.5 block text-sm font-semibold text-slate-700">
+					Contraseña <span class="font-normal text-slate-400">(mín. 6, crea la cuenta)</span>
+				</label>
+				<input
+					id="dom-password"
+					type="password"
+					minlength="6"
+					bind:value={password}
+					placeholder="Mín. 6 caracteres"
+					class="w-full rounded-xl border border-slate-300 bg-white min-h-11 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
+				/>
+			</div>
 			<div>
 				<label for="dom-tel" class="mb-1.5 block text-sm font-semibold text-slate-700">Teléfono <span class="font-normal text-slate-400">(opcional)</span></label>
 				<input
@@ -291,9 +345,9 @@
 			>
 				{#if registrando}
 					<span class="size-4 animate-spin rounded-full border-2 border-white/50 border-t-white"></span>
-					Enlazando…
+					{password ? 'Creando cuenta…' : 'Enlazando…'}
 				{:else}
-					Enlazar domiciliario
+					{password ? 'Crear cuenta y registrar' : 'Enlazar domiciliario'}
 				{/if}
 			</button>
 		</form>
@@ -392,6 +446,15 @@
 								</button>
 								<button
 									type="button"
+									onclick={() => abrirReinicioClave(d)}
+									class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+									title="Cambiar la contraseña del domiciliario (sin correo de confirmación)"
+								>
+									<Icon name="arrow-rotate-right" class="size-3" />
+									Reiniciar contraseña
+								</button>
+								<button
+									type="button"
 									onclick={() => alternarBloqueo(d)}
 									disabled={guardandoBloqueo[d.id]}
 									class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 {d.bloqueado
@@ -451,6 +514,51 @@
 		{/if}
 	</div>
 </div>
+
+{#if reiniciandoClave}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+			<h2 class="text-lg font-bold text-slate-900">Reiniciar contraseña — {reiniciandoClave.nombre}</h2>
+			<p class="mt-1 text-sm text-slate-500">
+				El domiciliario entrará al panel con la nueva contraseña, <strong>sin correo de confirmación</strong>.
+			</p>
+			<div class="mt-5">
+				<label for="clave-nueva" class="mb-1.5 block text-sm font-semibold text-slate-700">Nueva contraseña</label>
+				<input
+					id="clave-nueva"
+					type="password"
+					minlength="6"
+					required
+					bind:value={claveNueva}
+					placeholder="Mín. 6 caracteres"
+					class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:outline-none"
+				/>
+			</div>
+			<div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+				<button
+					type="button"
+					onclick={() => (reiniciandoClave = null)}
+					disabled={guardandoClave}
+					class="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={confirmarReinicioClave}
+					disabled={guardandoClave || claveNueva.trim().length < 6}
+					class="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-primary-dark disabled:opacity-60"
+				>
+					{guardandoClave ? 'Guardando…' : 'Reiniciar contraseña'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 {#if abonando}
 	<div

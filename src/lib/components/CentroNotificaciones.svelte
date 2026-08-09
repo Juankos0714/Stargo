@@ -78,7 +78,7 @@
 		activandoPush = false;
 		if (r.ok) {
 			pushActivo = true;
-			pushMensaje = 'Notificaciones activadas.';
+			pushMensaje = null;
 		} else {
 			pushMensaje = r.error ?? 'No se pudo activar.';
 		}
@@ -185,7 +185,15 @@
 
 			{#if pushSoportado()}
 				<div class="border-t border-slate-100 bg-slate-50 px-4 py-3">
-					{#if pushActivo === false}
+					{#if pushActivo === true}
+						<p class="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700">
+							<Icon name="circle-check" class="size-3.5" />
+							Notificaciones push activadas
+						</p>
+						<p class="mt-1 text-center text-[10px] text-slate-400">
+							Recibirás avisos de pedidos aunque la app esté cerrada.
+						</p>
+					{:else}
 						<button
 							type="button"
 							onclick={activarPush}
@@ -195,11 +203,16 @@
 							<Icon name="bell" class="size-3.5" />
 							{activandoPush ? 'Activando…' : 'Activar notificaciones push'}
 						</button>
-					{:else if pushActivo === true}
-						<p class="text-center text-xs text-emerald-700">🔔 Notificaciones push activadas.</p>
-					{/if}
-					{#if pushMensaje && pushActivo !== true}
-						<p class="mt-1.5 text-center text-[10px] text-slate-500">{pushMensaje}</p>
+						{#if pushMensaje}
+							<p class="mt-2 flex items-center justify-center gap-1 text-center text-[10px] font-medium text-red-600">
+								<Icon name="triangle-exclamation" class="size-3 shrink-0" />
+								{pushMensaje}
+							</p>
+						{:else if pushActivo === null}
+							<p class="mt-1.5 text-center text-[10px] text-slate-400">
+								Recibe avisos de pedidos nuevos aunque la app esté cerrada.
+							</p>
+						{/if}
 					{/if}
 				</div>
 			{/if}

@@ -36,7 +36,10 @@ export default defineConfig({
 			'$env/static/public': fileURLToPath(new URL('./tests/ui/mocks/env-static-public.ts', import.meta.url)),
 			// $app/state no existe en el alias de vitest: apunta al stub (mismo
 			// patrón que env-static-public), con page.data.domiciliarioId fijo.
-			'$app/state': fileURLToPath(new URL('./tests/ui/mocks/app-state.ts', import.meta.url))
+			'$app/state': fileURLToPath(new URL('./tests/ui/mocks/app-state.ts', import.meta.url)),
+			// $app/navigation tampoco existe en vitest: stub con goto no-op (los
+			// tests que necesiten verificarlo lo espían con vi.mock).
+			'$app/navigation': fileURLToPath(new URL('./tests/ui/mocks/app-navigation.ts', import.meta.url))
 		}
 	},
 	test: {
