@@ -14,6 +14,7 @@
 	} from '$lib/types';
 	import { calcularRecargos } from '$lib/logic/recargos';
 	import { validarPedido } from '$lib/logic/validacion';
+	import { page } from '$app/state';
 	import type { HorarioHoy } from '$lib/types';
 
 	let horario = $state<HorarioHoy | null>(null);
@@ -109,16 +110,25 @@
 		return (id: string) => mapa.get(id) ?? id;
 	});
 
-	// ---------- Recargos (Fase 7) ----------
+	// ---------- Recargos (Fase 7 + 16) ----------
+	// En un Domicilio normal los recargos de tipo «compra» no aplican (son de
+	// compras/diligencias): se ocultan para simplificar el proceso. En
+	// Compra/diligencia se ofrecen todos.
 	const recargosActivos = $derived(
 		recargos
 			.filter((r) => r.activo)
 			.sort((a, b) => a.tipo.localeCompare(b.tipo) || a.nombre.localeCompare(b.nombre, 'es'))
 	);
 
+	const recargosDisponibles = $derived(
+		tipoServicio === 'domicilio'
+			? recargosActivos.filter((r) => r.tipo !== 'compra')
+			: recargosActivos
+	);
+
 	const grupos = $derived.by(() => {
 		const m = new Map<string, Recargo[]>();
-		for (const r of recargosActivos) {
+		for (const r of recargosDisponibles) {
 			const arr = m.get(r.tipo) ?? [];
 			arr.push(r);
 			m.set(r.tipo, arr);
@@ -126,7 +136,7 @@
 		return [...m.entries()].map(([tipo, items]) => ({ tipo, label: etiquetaTipoRecargo(tipo), items }));
 	});
 
-	const calculoRecargos = $derived(calcularRecargos(recargosActivos, recargosSel));
+	const calculoRecargos = $derived(calcularRecargos(recargosDisponibles, recargosSel));
 	const recargosAplicados = $derived(calculoRecargos.aplicados);
 	const recargoTotal = $derived(calculoRecargos.total);
 	const precioDisponible = $derived(precio?.meta?.disponible === true && precio?.valor != null);
@@ -212,6 +222,14 @@
 			origen = null;
 			dirOrigen = '';
 		}
+		// Al volver a Domicilio, se descartan recargos de compra ya elegidos
+		// (quedaron seleccionados del modo compra/diligencia).
+		if (tipo === 'domicilio') {
+			const codigosCompra = new Set(
+				recargosActivos.filter((r) => r.tipo === 'compra').map((r) => r.codigo)
+			);
+			recargosSel = recargosSel.filter((c) => !codigosCompra.has(c));
+		}
 		errores = {};
 	}
 
@@ -258,6 +276,20 @@
 
 	$effect(() => {
 		cargar();
+	});
+
+	// Deep-link desde la calculadora: /nuevo-pedido?origen=<id>&destino=<id>
+	// preselecciona los barrios apenas se cargan (y la tarifa se calcula sola).
+	let deepLinkAplicado = $state(false);
+	$effect(() => {
+		if (cargando || barrios.length === 0 || deepLinkAplicado) return;
+		deepLinkAplicado = true;
+		const q = page.url.searchParams;
+		const o = q.get('origen');
+		const d = q.get('destino');
+		const existe = (id: string | null) => id !== null && barrios.some((b) => b.id === id);
+		if (existe(o)) origen = o;
+		if (existe(d)) destino = d;
 	});
 
 	$effect(() => {
@@ -561,12 +593,13 @@
 							Recargos <span class="font-normal normal-case text-amber-600">(obligatorio)</span>
 						</h2>
 						<p class="mb-4 ml-7 text-xs text-slate-400">
-							Marca lo que aplica a tu pedido: compras, espera, paradas, peso o método de pago — o confirma que
-							no aplica.
+							{tipoServicio === 'domicilio'
+								? 'Marca lo que aplica a tu pedido (peso, espera, paradas o método de pago) o confirma que no aplica.'
+								: 'Marca lo que aplica a tu pedido: compras, espera, paradas, peso o método de pago — o confirma que no aplica.'}
 						</p>
-						{#if recargosActivos.length === 0}
-							<p class="text-sm text-slate-400">No hay recargos configurados por el momento.</p>
-						{:else}
+					{#if recargosDisponibles.length === 0}
+						<p class="text-sm text-slate-400">No hay recargos aplicables a este tipo de pedido.</p>
+					{:else}
 							<label
 								class="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
 							>
@@ -582,7 +615,11 @@
 								/>
 								<span class="min-w-0 flex-1">
 									<span class="block text-sm font-semibold text-slate-800">No aplica</span>
-									<span class="block text-xs text-slate-500">Este pedido no tiene compras, esperas, paradas, peso ni pagos especiales.</span>
+									<span class="block text-xs text-slate-500">
+										{tipoServicio === 'domicilio'
+											? 'Este pedido no tiene peso, esperas, paradas ni pagos especiales.'
+											: 'Este pedido no tiene compras, esperas, paradas, peso ni pagos especiales.'}
+									</span>
 								</span>
 							</label>
 							<div class="grid gap-5 sm:grid-cols-2">

@@ -17,7 +17,8 @@ const ZONAS = [
 	{ id: 'zona-2', nombre: 'Zona Sur', tipo: 'urbana', descripcion: null }
 ];
 const RECARGOS = [
-	{ codigo: 'rc-compra', nombre: 'Compra test', tipo: 'compra', valor: 2000, activo: true, descripcion: null },
+	{ codigo: 'rc-peso', nombre: 'Peso test', tipo: 'peso', valor: 2000, activo: true, descripcion: null },
+	{ codigo: 'rc-compra', nombre: 'Compra test', tipo: 'compra', valor: 3000, activo: true, descripcion: null },
 	{ codigo: 'rc-inactivo', nombre: 'Inactivo test', tipo: 'otro', valor: 999, activo: false, descripcion: null }
 ];
 
@@ -222,7 +223,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		);
 	});
 
-	test('suma los recargos seleccionados al total estimado (solo activos)', async () => {
+	test('suma los recargos seleccionados al total estimado (solo activos y aplicables)', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
@@ -233,8 +234,9 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
 		await waitFor(() => expect(screen.getByText(/6\.000/)).toBeInTheDocument());
 
-		// Dos checkboxes: «No aplica» (Fase 14) + el recargo activo (el inactivo
-		// queda fuera de la lista).
+		// Dos checkboxes: «No aplica» (Fase 14) + el recargo de PESO. El de
+		// compra queda oculto en un Domicilio normal (Fase 16) y el inactivo
+		// fuera de la lista.
 		const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
 		expect(checkboxes).toHaveLength(2);
 
@@ -248,12 +250,31 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		await waitFor(() => expect(screen.getAllByText(/8\.000/).length).toBeGreaterThan(0));
 		expect(screen.getByText('Total estimado')).toBeInTheDocument();
 		// Aparece en el checkbox y en el desglose.
-		expect(screen.getAllByText('Compra test').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Peso test').length).toBeGreaterThan(0);
+		// El recargo de compra no se ofrece en un domicilio normal.
+		expect(screen.queryByText('Compra test')).not.toBeInTheDocument();
 
 		// Al marcar «No aplica» se desmarcan los recargos y baja el total.
 		await user.click(noAplica);
 		expect(noAplica.checked).toBe(true);
 		expect(recargo.checked).toBe(false);
 		await waitFor(() => expect(screen.getAllByText(/6\.000/).length).toBeGreaterThan(0));
+	});
+
+	test('en Compra/diligencia se ofrecen también los recargos de tipo compra', async () => {
+		postMock.mockImplementation((path: string) =>
+			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
+		);
+		const user = userEvent.setup();
+		const { container } = render(Pagina);
+		await formularioListo();
+
+		// Cambia al modo compra/diligencia: el recargo de compra debe aparecer.
+		await user.click(screen.getByRole('button', { name: /Compra \/ diligencia/ }));
+		const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+		// «No aplica» + peso + compra (el inactivo queda fuera).
+		expect(checkboxes).toHaveLength(3);
+		expect(screen.getAllByText('Compra test').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Peso test').length).toBeGreaterThan(0);
 	});
 });

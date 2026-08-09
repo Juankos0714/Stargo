@@ -20,6 +20,31 @@
 	let consultado = $state(false);
 	let estadoRealtime = $state<RealtimeEstado>('conectando');
 	let canalActivo = $state<(() => void) | null>(null);
+	// Ejemplo para probar el flujo sin tener un pedido a la mano. Los códigos
+	// reales son hex (0-9A-F): este ejemplo respeta ese formato (no existe en
+	// la BD, por eso la consulta muestra el estado de «no encontrado»).
+	const CODIGO_EJEMPLO = 'A7F2C1';
+
+	// El código del pedido son 6 caracteres alfanuméricos (MD5 truncado).
+	// Se avisa al instante si el formato no coincide, antes de llamar al API.
+	const formatoValido = $derived(/^[A-Z0-9]{6}$/.test(numero.trim().toUpperCase()));
+
+	async function pegarCodigo() {
+		try {
+			const texto = await navigator.clipboard.readText();
+			if (!texto.trim()) return;
+			numero = texto.trim().toUpperCase();
+			consultar(numero);
+		} catch {
+			// Sin permiso de portapapeles (HTTP o bloqueado): queda el input normal.
+			error = 'No se pudo leer el portapapeles: pega el código manualmente.';
+		}
+	}
+
+	function usarEjemplo() {
+		numero = CODIGO_EJEMPLO;
+		consultar(CODIGO_EJEMPLO);
+	}
 
 	// Cancelación del pedido (Fase 7): solo mientras esté pendiente.
 	const MOTIVOS = [
@@ -29,13 +54,14 @@
 		'Dirección incorrecta',
 		'Otro'
 	];
-	let cancelando = $state(false);
+	let cancelando = $state(false); // modo cancelación abierto
+	let procesandoCancelacion = $state(false); // llamada al API en curso
 	let motivo = $state('');
 	let detalle = $state('');
 	let cancelandoError = $state<string | null>(null);
 
 	async function cancelarPedido() {
-		if (!resultado) return;
+		if (!resultado || procesandoCancelacion) return;
 		const motivoFinal = motivo === 'Otro'
 			? `Otro${detalle.trim() ? ` · ${detalle.trim()}` : ''}`
 			: motivo.trim();
@@ -45,10 +71,12 @@
 			return;
 		}
 		cancelandoError = null;
+		procesandoCancelacion = true;
 		const r = await api.post('/api/pedidos/cancelar', {
 			numero: resultado.pedido.numero,
 			motivo: motivoFinal || null
 		});
+		procesandoCancelacion = false;
 		if (r.error) {
 			cancelandoError = r.error;
 			return;
@@ -81,6 +109,13 @@
 	async function consultar(n?: string, silencioso = false) {
 		const codigo = (n ?? numero).trim().toUpperCase();
 		if (!codigo) return;
+		// Validación local: el código es de 6 caracteres alfanuméricos. Sin ella
+		// el API respondería «pedido no encontrado» para cualquier formato.
+		if (!/^[A-Z0-9]{6}$/.test(codigo)) {
+			error = 'El código tiene 6 caracteres (letras y números). Revisa el código de tu pedido.';
+			consultado = true;
+			return;
+		}
 		numero = codigo;
 		if (!silencioso) {
 			buscando = true;
@@ -151,23 +186,55 @@
 				e.preventDefault();
 				consultar();
 			}}
-			class="mx-auto mt-8 flex max-w-md gap-2"
+			class="mx-auto mt-8 max-w-md"
 		>
-			<input
-				type="text"
-				bind:value={numero}
-				placeholder="Código del pedido (ej: K7F2XM)"
-				autocomplete="off"
-				class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-mono text-lg uppercase tracking-widest text-slate-900 shadow-sm transition placeholder:font-sans placeholder:text-sm placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
-			/>
-			<button
-				type="submit"
-				disabled={buscando || !numero.trim()}
-				class="shrink-0 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				{buscando ? 'Buscando…' : 'Buscar'}
-			</button>
+			<div class="flex gap-2">
+				<div class="relative min-w-0 flex-1">
+					<input
+						type="text"
+						bind:value={numero}
+						placeholder="Código del pedido (ej: K7F2XM)"
+						autocomplete="off"
+						aria-label="Código del pedido"
+						class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-11 font-mono text-lg uppercase tracking-widest text-slate-900 shadow-sm transition placeholder:font-sans placeholder:text-sm placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
+					/>
+					<button
+						type="button"
+						onclick={pegarCodigo}
+						title="Pegar código desde el portapapeles"
+						aria-label="Pegar código desde el portapapeles"
+						class="absolute top-1/2 right-2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-primary"
+					>
+						<Icon name="clipboard-list" class="size-4.5" />
+					</button>
+				</div>
+				<button
+					type="submit"
+					disabled={buscando || !numero.trim() || (numero.trim().length > 0 && !formatoValido)}
+					class="shrink-0 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					{buscando ? 'Buscando…' : 'Buscar'}
+				</button>
+			</div>
+			{#if numero.trim().length > 0 && !formatoValido && !buscando}
+				<p class="mt-2 text-xs text-amber-600">El código tiene 6 caracteres (letras y números), ej: {CODIGO_EJEMPLO}.</p>
+			{/if}
+			{#if numero.trim().length > 0 && formatoValido}
+				<p class="mt-2 text-xs text-slate-400">Busca el código {numero.trim().toUpperCase()} en tus pedidos…</p>
+			{/if}
 		</form>
+
+		<div class="mx-auto mt-3 flex max-w-md items-center justify-center gap-2 text-xs">
+			<span class="text-slate-400">¿Solo probando?</span>
+			<button
+				type="button"
+				onclick={usarEjemplo}
+				disabled={buscando}
+				class="font-semibold text-primary underline-offset-2 transition hover:text-primary-dark hover:underline"
+			>
+				Consulta el pedido de ejemplo {CODIGO_EJEMPLO}
+			</button>
+		</div>
 
 		<div class="mt-8">
 			{#if buscando}
@@ -256,45 +323,53 @@
 								<p class="mt-0.5 text-xs text-red-600">
 									Solo puedes cancelarlo mientras siga pendiente, antes de que se asigne un domiciliario.
 								</p>
-								<select
-									bind:value={motivo}
-									class="mt-3 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-red-400 focus:outline-none"
+							<select
+								bind:value={motivo}
+								disabled={procesandoCancelacion}
+								class="mt-3 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-red-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+							>
+								<option value="">Selecciona un motivo…</option>
+								{#each MOTIVOS as m (m)}
+									<option value={m}>{m}</option>
+								{/each}
+							</select>
+							<textarea
+								bind:value={detalle}
+								rows="2"
+								maxlength="300"
+								placeholder="Detalle (opcional)"
+								disabled={procesandoCancelacion}
+								class="mt-2 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-red-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+							></textarea>
+							{#if cancelandoError}
+								<p class="mt-2 text-xs font-medium text-red-700">{cancelandoError}</p>
+							{/if}
+							<div class="mt-3 flex gap-2">
+								<button
+									type="button"
+									onclick={cancelarPedido}
+									disabled={!motivo.trim() || procesandoCancelacion}
+									class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
 								>
-									<option value="">Selecciona un motivo…</option>
-									{#each MOTIVOS as m (m)}
-										<option value={m}>{m}</option>
-									{/each}
-								</select>
-								<textarea
-									bind:value={detalle}
-									rows="2"
-									maxlength="300"
-									placeholder="Detalle (opcional)"
-									class="mt-2 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-red-400 focus:outline-none"
-								></textarea>
-								{#if cancelandoError}
-									<p class="mt-2 text-xs font-medium text-red-700">{cancelandoError}</p>
-								{/if}
-								<div class="mt-3 flex gap-2">
-									<button
-										type="button"
-										onclick={cancelarPedido}
-										disabled={!motivo.trim()}
-										class="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
-									>
+									{#if procesandoCancelacion}
+										<span class="size-3.5 animate-spin rounded-full border-2 border-white/50 border-t-white"></span>
+										Cancelando…
+									{:else}
 										Confirmar cancelación
-									</button>
-									<button
-										type="button"
-										onclick={() => {
-											cancelando = false;
-											cancelandoError = null;
-										}}
-										class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-									>
-										Volver
-									</button>
-								</div>
+									{/if}
+								</button>
+								<button
+									type="button"
+									onclick={() => {
+										cancelando = false;
+										cancelandoError = null;
+									}}
+									disabled={procesandoCancelacion}
+									class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+								>
+									Volver
+								</button>
+							</div>
 							</div>
 						{/if}
 					{/if}
@@ -303,9 +378,17 @@
 					<HistorialTimeline historial={resultado.historial} />
 				</div>
 			{:else}
-				<p class="py-16 text-center text-sm text-slate-400">
-					Tu pedido y su historial de estados aparecerán aquí.
-				</p>
+				<div class="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-10 text-center">
+					<div class="mx-auto flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+						<Icon name="magnifying-glass" class="size-5" />
+					</div>
+					<h2 class="mt-4 text-sm font-bold text-slate-700">¿Dónde encuentro el código?</h2>
+					<ol class="mx-auto mt-3 max-w-sm space-y-1.5 text-left text-sm text-slate-500">
+						<li><span class="font-bold text-primary-dark">1.</span> Haz tu pedido desde la app o <a href="/nuevo-pedido" class="font-semibold text-primary underline-offset-2 hover:underline">aquí</a>.</li>
+						<li><span class="font-bold text-primary-dark">2.</span> Al confirmarlo se muestra un <strong class="font-mono">código de 6 letras y números</strong>.</li>
+						<li><span class="font-bold text-primary-dark">3.</span> Escríbelo o pégalo arriba para seguir el estado en tiempo real.</li>
+					</ol>
+				</div>
 			{/if}
 		</div>
 	</main>

@@ -3,6 +3,8 @@
 	import { api } from '$lib/api';
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { formatearPeso, type Barrio, type Zona } from '$lib/types';
 
 	let barrios = $state<Barrio[]>([]);
@@ -16,6 +18,9 @@
 	let resultado = $state<{ valor: number | null; meta: Record<string, unknown> } | null>(null);
 	let calculado = $state(false);
 	let calcId = 0;
+	// El deep-link comparte la selección: /calculadora?origen=<id>&destino=<id>.
+	// `deepLinkAplicado` evita que la primera pasada vuelva a escribir la URL.
+	let deepLinkAplicado = $state(false);
 
 	const itemsBarrios = $derived<SearchItem[]>(
 		barrios.map((b) => ({
@@ -82,6 +87,52 @@
 		if (origen && destino) calcular();
 	});
 
+	// Deep-link: aplica ?origen=&destino= una vez cargados los barrios (solo si
+	// los ids existen) y mantiene la URL sincronizada al cambiar la selección,
+	// para que el enlace sea compartible y sobreviva al refresco.
+	$effect(() => {
+		if (cargando || barrios.length === 0) return;
+		const q = page.url.searchParams;
+		const o = q.get('origen');
+		const d = q.get('destino');
+		const existe = (id: string | null) => id !== null && barrios.some((b) => b.id === id);
+
+		if (!deepLinkAplicado && (o || d)) {
+			// Primera pasada con deep-link: aplicar los ids de la URL (si existen)
+			// o limpiarla si son inválidos. Tras esto se sincroniza normal.
+			deepLinkAplicado = true;
+			if (!existe(o) && !existe(d)) {
+				goto(page.url.pathname, { replaceState: true, keepFocus: true, noScroll: true });
+			} else {
+				origen = existe(o) ? o : null;
+				destino = existe(d) ? d : null;
+			}
+			return;
+		}
+		deepLinkAplicado = true;
+		// Reflejar la selección del usuario en la URL (shareable) y evitar
+		// el loop cuando la URL ya coincide con la selección.
+		const params = new URLSearchParams();
+		if (origen) params.set('origen', origen);
+		if (destino) params.set('destino', destino);
+		const qs = params.toString();
+		if (page.url.searchParams.toString() !== qs) {
+			goto(qs ? `${page.url.pathname}?${qs}` : page.url.pathname, {
+				replaceState: true,
+				keepFocus: true,
+				noScroll: true
+			});
+		}
+	});
+
+	function solicitarPedido() {
+		if (!origen || !destino) return;
+		const params = new URLSearchParams();
+		params.set('origen', origen);
+		params.set('destino', destino);
+		goto(`/nuevo-pedido?${params.toString()}`);
+	}
+
 	const meta = $derived(resultado?.meta ?? {});
 	const disponible = $derived(meta.disponible === true);
 	const motivo = $derived(String(meta.motivo ?? ''));
@@ -97,7 +148,10 @@
 			<a href="/" class="flex items-center">
 				<Logo type="full" surface="light" height={32} priority />
 			</a>
-			<a href="/admin" class="text-sm font-medium text-slate-500 transition hover:text-primary">Admin →</a>
+			<nav class="flex items-center gap-3 text-sm">
+				<a href="/nuevo-pedido" class="font-medium text-slate-500 transition hover:text-primary">Hacer un pedido →</a>
+				<a href="/consultar-estado" class="font-medium text-slate-500 transition hover:text-primary">Consultar estado</a>
+			</nav>
 		</div>
 	</header>
 
@@ -171,6 +225,13 @@
 								<br />
 								{String(meta.barrio_destino)} <span class="text-slate-300">·</span> {nombreZona(String(meta.zona_destino))}
 							</p>
+							<a
+								href="/nuevo-pedido?origen={origen}&destino={destino}"
+								class="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:bg-primary-dark"
+							>
+								Solicitar este domicilio
+								<Icon name="arrow-right" class="size-4" />
+							</a>
 						</div>
 					{:else}
 						<div class="flex flex-col items-center gap-1.5 text-center">

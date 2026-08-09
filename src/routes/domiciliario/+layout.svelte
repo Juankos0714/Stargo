@@ -44,11 +44,13 @@
 			<div class="mb-3 flex items-center justify-between gap-2">
 				<div class="flex min-w-0 items-center gap-3">
 					<div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-[#8BB4FF]">
-						{page.data.email?.charAt(0).toUpperCase()}
+						{page.data.nombre?.charAt(0).toUpperCase()}
 					</div>
 					<div class="min-w-0">
-						<div class="truncate text-xs font-semibold text-white">{page.data.email}</div>
-						<div class="text-[10px] text-[#8BB4FF]">Repartidor</div>
+						<div class="truncate text-xs font-semibold text-white">{page.data.nombre}</div>
+						<div class="truncate text-[10px] text-[#8BB4FF]">
+							Repartidor{page.data.username ? ` · ${page.data.username}` : ''}
+						</div>
 					</div>
 				</div>
 				<CentroNotificaciones urlBase="/domiciliario" tono="oscuro" soloSonarEn="desktop" />

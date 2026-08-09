@@ -30,6 +30,10 @@
 	let prevValue: string | null = null;
 	let inicializado = false;
 
+	// Id base del combobox: el del consumidor si lo dio, o uno interno para
+	// que aria-controls/activedescendant/ids de opciones siempre existan.
+	const idBase = $derived(id ?? 'sel-autogen');
+
 	const seleccionado = $derived(items.find((i) => i.id === value) ?? null);
 
 	const filtrados = $derived.by(() => {
@@ -104,7 +108,8 @@
 			autocomplete="off"
 			role="combobox"
 			aria-expanded={abierto}
-			aria-controls={id ? `${id}-list` : undefined}
+			aria-controls={`${idBase}-list`}
+			aria-activedescendant={abierto && filtrados[activo] ? `${idBase}-opt-${activo}` : undefined}
 			onfocus={() => (abierto = true)}
 			oninput={() => {
 				abierto = true;
@@ -127,7 +132,7 @@
 
 	{#if abierto}
 		<ul
-			id={id ? `${id}-list` : undefined}
+			id={`${idBase}-list`}
 			role="listbox"
 			class="absolute z-30 mt-1.5 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl shadow-slate-900/10"
 		>
@@ -136,8 +141,9 @@
 			{:else}
 				{#each filtrados as item, i (item.id)}
 					<li
+						id={`${idBase}-opt-${i}`}
 						role="option"
-						aria-selected={item.id === value}
+						aria-selected={i === activo}
 						class="cursor-pointer px-4 py-2 text-sm transition {i === activo ? 'bg-primary-light text-primary-dark' : 'text-slate-700 hover:bg-slate-50'}"
 						onpointerdown={(e) => {
 							e.preventDefault();

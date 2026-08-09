@@ -24,6 +24,7 @@
 
 let contexto: AudioContext | null = null;
 let ultimoToque = 0;
+let desbloqueado = false;
 
 // Misma firma que scripts/generar_sonido_notificacion.py (mantener en sintonía).
 // Se exportan para que tests/sonido.test.ts verifique la sintonía con el script.
@@ -53,6 +54,35 @@ function obtenerContexto(): AudioContext | null {
 	return contexto;
 }
 
+/**
+ * Desbloquea el AudioContext dentro de un GESTO del usuario.
+ *
+ * iOS Safari y Chrome Android crean el AudioContext en estado `suspended` y
+ * SOLO permiten `resume()` dentro de un gesto (tap/touch). Como las
+ * notificaciones llegan por Realtime (sin gesto), sin este paso la campana
+ * nunca sonaría en el móvil: `ctx.resume()` queda pendiente para siempre.
+ * Se registra el primer pointerdown/touchstart/keydown y se reutiliza el
+ * mismo contexto compartido; es idempotente.
+ */
+export function desbloquearAudio(): void {
+	if (desbloqueado) return;
+	desbloqueado = true;
+	try {
+		const ctx = obtenerContexto();
+		if (ctx && ctx.state === 'suspended') void ctx.resume();
+	} catch {
+		// Sin soporte de audio: silencio.
+	}
+}
+
+// En el navegador, el primer gesto desbloquea el audio del móvil. El guard
+// de `window` permite importar el módulo en node (tests) sin efectos.
+if (typeof window !== 'undefined') {
+	const GESTOS = ['pointerdown', 'touchstart', 'keydown'] as const;
+	const alGesto = () => desbloquearAudio();
+	GESTOS.forEach((g) => window.addEventListener(g, alGesto, { once: true, passive: true }));
+}
+
 /** Reproduce la campana ding-dong. No lanza: falla silencioso. */
 export function sonarNotificacion(): void {
 	try {
@@ -63,7 +93,17 @@ export function sonarNotificacion(): void {
 
 		const ctx = obtenerContexto();
 		if (!ctx) return;
-		void ctx.resume();
+		// Si aún está suspended (p. ej. la notificación llegó antes del primer
+		// gesto), se reanuda: en iOS/Android se completará en cuanto el usuario
+		// toque la pantalla; si ya hubo gesto, ya está running.
+		if (ctx.state === 'suspended') void ctx.resume();
+
+		// Refuerzo háptico SOLO en táctiles: la campana se acompaña de una
+		// vibración corta (el usuario pidió un aviso fuerte; iOS no la soporta,
+		// Android sí). En desktop es no-op, así que no molesta.
+		if ('ontouchstart' in window && 'vibrate' in navigator) {
+			navigator.vibrate(120);
+		}
 
 		// Ganancia maestra: normaliza la mezcla al pico del WAV (0.92).
 		const master = ctx.createGain();

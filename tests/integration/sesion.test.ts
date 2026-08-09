@@ -59,7 +59,7 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Sesión y sincronización cliente-serv
 				cuerpo: { email: '', password: '' }
 			});
 			expect(r.status).toBe(400);
-			expect(r.data?.error).toMatch(/Faltan email o password/);
+			expect(r.data?.error).toMatch(/Faltan usuario o password/);
 		});
 
 		test('usuario sin rol registrado → 403 y sin cookies de sesión', async () => {

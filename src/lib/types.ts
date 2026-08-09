@@ -87,6 +87,9 @@ export interface Domiciliario {
 	id: string;
 	user_id: string;
 	nombre: string;
+	/** Usuario de acceso sin correo («movil1»); null si solo usa email (Fase 16). */
+	username?: string | null;
+	/** Email real o sintético interno (movil1@stargo.local); nunca se muestra al repartidor. */
 	email: string | null;
 	telefono: string | null;
 	activo: boolean;
@@ -439,3 +442,4 @@ export {
 	horarioAbierto,
 	validarHoras
 } from './logic/horario';
+export { DOMINIO_EMAIL_SINTETICO, emailSinteticoDe, esEmail, normalizarUsername, usernameValido } from './logic/usuario';

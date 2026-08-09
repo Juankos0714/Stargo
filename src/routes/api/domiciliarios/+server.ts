@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getSupabaseAsUser, getSupabaseService } from '$lib/server/supabase';
 import { requireAdmin } from '$lib/server/auth';
 import { obtenerResumenes } from '$lib/server/cuenta';
+import { DOMINIO_EMAIL_SINTETICO, emailSinteticoDe, normalizarUsername, usernameValido } from '$lib/logic/usuario';
 import type { Domiciliario } from '$lib/types';
 
 // ---------- GET: listar domiciliarios (solo admin) ----------
@@ -42,13 +43,16 @@ export const GET: RequestHandler = async (event) => {
 //
 //   Con `password` → el servidor CREA la cuenta de Supabase Auth con
 //   email_confirm: true (service role). El domiciliario entra de inmediato
-//   con ese email y esa contraseña: NO necesita correo de confirmación ni
-//   invitación.
+//   con sus credenciales: NO necesita correo de confirmación ni invitación.
 //   Sin `password` → la cuenta debe existir (creada en el dashboard de
 //   Supabase) y solo se enlaza la fila del domiciliario.
 //
-// Ambos terminan en registrar_domiciliario (SECURITY DEFINER) para crear o
-// reactivar la fila de la tabla domiciliarios.
+// Identidad de acceso:
+//   * Con `username` («movil1») → la cuenta se crea con un EMAIL SINTÉTICO
+//     interno derivado del username (movil1@stargo.local); el repartidor
+//     entra al panel con su usuario + contraseña, sin correo.
+//   * Con `email` → flujo clásico: crea o enlaza la cuenta por ese correo.
+//   * Ambos terminan en registrar_domiciliario (SECURITY DEFINER).
 export const POST: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
 	const db = getSupabaseAsUser(sesion.accessToken);
@@ -60,12 +64,36 @@ export const POST: RequestHandler = async (event) => {
 	// Se recorta la contraseña: evita claves de solo espacios y espacios
 	// accidentales alrededor.
 	const password = String(body?.password ?? '').trim();
+	const username = String(body?.username ?? '').trim();
 
 	if (!nombre) return json({ error: 'El nombre es obligatorio.' }, { status: 400 });
-	if (!email) return json({ error: 'El email es obligatorio.' }, { status: 400 });
-	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+
+	// Identidad: se exige username O email (alternativas, no combinables).
+	// Con username la cuenta de Auth se crea con un email sintético interno
+	// derivado del username (movil1@stargo.local): así el login por usuario es
+	// determinista. Si se dieran ambos, el login por usuario derivaría el
+	// sintético pero la cuenta estaría con el email real → no entraría.
+	const tieneUsername = username.length > 0;
+	const tieneEmail = email.length > 0;
+	if (!tieneUsername && !tieneEmail) {
+		return json({ error: 'Indica el usuario («movil1») o el email del domiciliario.' }, { status: 400 });
+	}
+	if (tieneUsername && tieneEmail) {
+		return json({ error: 'Elige el usuario o el email, no ambos.' }, { status: 400 });
+	}
+	if (tieneUsername && !usernameValido(username)) {
+		return json({ error: 'El usuario debe tener entre 2 y 30 caracteres (letras y números).' }, { status: 400 });
+	}
+	if (tieneEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
 		return json({ error: 'El email no es válido.' }, { status: 400 });
 	}
+	// El dominio sintético es interno: no se acepta por la vía email-solo
+	// (evita que un admin relinkee manualmente una cuenta de un username).
+	if (tieneEmail && email.endsWith(`@${DOMINIO_EMAIL_SINTETICO}`)) {
+		return json({ error: 'Ese email es interno del sistema: usa el usuario correspondiente.' }, { status: 400 });
+	}
+	// email final para la cuenta de Auth: el real si se dio, o el sintético.
+	const emailCuenta = tieneEmail ? email : emailSinteticoDe(normalizarUsername(username));
 
 	// 1) Si viene password, crea la cuenta de Auth (email confirmado: el domi
 	//    entra sin correo de confirmación). Si el email ya existe, NO se toca
@@ -83,9 +111,10 @@ export const POST: RequestHandler = async (event) => {
 			);
 		}
 		const { error: errUser } = await service.auth.admin.createUser({
-			email,
+			email: emailCuenta,
 			password,
-			email_confirm: true
+			email_confirm: true,
+			...(tieneUsername ? { user_metadata: { username: normalizarUsername(username) } } : {})
 		});
 		if (errUser) {
 			// Si el email ya tiene cuenta, NO se resetea su contraseña: solo se enlaza.
@@ -101,11 +130,12 @@ export const POST: RequestHandler = async (event) => {
 		}
 	}
 
-	// 2) Enlaza (o reactiva) la fila del domiciliario con ese email.
+	// 2) Enlaza (o reactiva) la fila del domiciliario con ese email (y username).
 	const { data, error: err } = await db.rpc('registrar_domiciliario', {
 		p_nombre: nombre,
 		p_telefono: telefono,
-		p_email: email
+		p_email: emailCuenta,
+		...(tieneUsername ? { p_username: normalizarUsername(username) } : {})
 	});
 	if (err) return json({ error: err.message }, { status: 400 });
 	return json({ data, meta: { cuentaCreada } });

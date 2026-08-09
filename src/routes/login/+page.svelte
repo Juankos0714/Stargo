@@ -28,13 +28,13 @@
 	async function entrar(e: SubmitEvent) {
 		e.preventDefault();
 		if (!email || !password) {
-			error = 'Ingresa tu email y contraseña';
+			error = 'Ingresa tu usuario o email y contraseña';
 			return;
 		}
 		cargando = true;
 		error = null;
 		const r = await api.post<{ email: string; esAdmin: boolean; esDomiciliario: boolean }>('/api/login', {
-			email,
+			identificador: email,
 			password
 		});
 		cargando = false;
@@ -91,7 +91,7 @@
 		<div class="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
 			<h1 class="text-lg font-bold text-white">Acceso a los paneles</h1>
 			<p class="mt-1 text-sm text-slate-400">
-				Ingresa con tu correo y contraseña. El sistema detecta tu rol y te lleva a tu panel.
+				Ingresa con tu usuario (ej. «movil1») o tu email y tu contraseña. El sistema detecta tu rol y te lleva a tu panel.
 			</p>
 
 			{#if aviso}
@@ -162,14 +162,14 @@
 			{:else}
 				<form class="mt-6 space-y-4" onsubmit={entrar}>
 					<div>
-						<label for="email" class="mb-1.5 block text-sm font-medium text-slate-300">Email</label>
+						<label for="email" class="mb-1.5 block text-sm font-medium text-slate-300">Usuario o email</label>
 						<input
 							id="email"
-							type="email"
+							type="text"
 							required
-							autocomplete="email"
+							autocomplete="username"
 							bind:value={email}
-							placeholder="tucuenta@correo.com"
+							placeholder="movil1 o tucuenta@correo.com"
 							class="w-full rounded-xl border border-white/10 bg-slate-900/60 min-h-11 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
 						/>
 					</div>
@@ -222,8 +222,8 @@
 		<div class="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 text-xs leading-relaxed text-slate-400">
 			<p class="mb-1 font-semibold text-slate-300">¿Primera vez?</p>
 			<p>
-				Tu cuenta de acceso (admin o domiciliario) la crea tu administrador directamente en el panel de Supabase.
-				Una vez creada, inicia sesión aquí con el email y la contraseña que te entregaron.
+				Tu cuenta de acceso (admin o domiciliario) la crea tu administrador en el panel de administración de la
+				app. Una vez creada, inicia sesión aquí con el usuario o email y la contraseña que te entregaron.
 			</p>
 		</div>
 	</div>

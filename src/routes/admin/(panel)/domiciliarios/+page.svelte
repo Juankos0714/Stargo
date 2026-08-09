@@ -20,10 +20,15 @@
 	let busqueda = $state('');
 	let estadoRealtime = $state<RealtimeEstado>('conectando');
 
-	// Formulario de registro: con contraseña se crea la cuenta de Auth al
+	// Formulario de registro: el repartidor entra con su USUARIO («movil1») o
+	// con su email + contraseña. Con contraseña se crea la cuenta de Auth al
 	// instante (sin correo de confirmación); sin contraseña solo se enlaza
-	// una cuenta ya existente creada en el dashboard de Supabase.
+	// una cuenta ya existente (Fase 16: username sin correo). Usuario y email
+	// son ALTERNATIVAS (no combinables): el tipo de identidad lo decide el admin.
+	type IdentidadAlta = 'usuario' | 'email';
+	let identidadAlta = $state<IdentidadAlta>('usuario');
 	let nombre = $state('');
+	let username = $state('');
 	let email = $state('');
 	let telefono = $state('');
 	let password = $state('');
@@ -50,6 +55,7 @@
 			(d) =>
 				!busqueda.trim() ||
 				d.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()) ||
+				(d.username ?? '').toLowerCase().includes(busqueda.trim().toLowerCase()) ||
 				(d.email ?? '').toLowerCase().includes(busqueda.trim().toLowerCase())
 		)
 	);
@@ -87,15 +93,19 @@
 
 	async function registrar(e: SubmitEvent) {
 		e.preventDefault();
-		if (!nombre.trim() || !email.trim()) {
-			mensaje = { tipo: 'err', texto: 'Nombre y email son obligatorios.' };
+		const valorIdentidad = identidadAlta === 'usuario' ? username.trim() : email.trim();
+		if (!nombre.trim() || !valorIdentidad) {
+			mensaje = {
+				tipo: 'err',
+				texto: identidadAlta === 'usuario' ? 'El nombre y el usuario son obligatorios.' : 'El nombre y el email son obligatorios.'
+			};
 			return;
 		}
 		registrando = true;
 		mensaje = null;
 		const r = await api.post<Domiciliario>('/api/domiciliarios', {
 			nombre: nombre.trim(),
-			email: email.trim(),
+			...(identidadAlta === 'usuario' ? { username: username.trim() } : { email: email.trim() }),
 			telefono: telefono.trim(),
 			...(password ? { password: password.trim() } : {})
 		});
@@ -104,15 +114,16 @@
 			mensaje = { tipo: 'err', texto: r.error };
 			return;
 		}
-		const emailRegistrado = r.data?.email ?? email.trim();
+		const credencial = r.data?.username ?? r.data?.email ?? valorIdentidad;
 		const cuentaCreada = r.meta?.cuentaCreada === true;
 		mensaje = {
 			tipo: 'ok',
 			texto: cuentaCreada
-				? `${r.data?.nombre ?? nombre.trim()} registrado. Puede ingresar al panel con ${emailRegistrado} y la contraseña definida (sin confirmar correo).`
-				: `${r.data?.nombre ?? nombre.trim()} enlazado con la cuenta ${emailRegistrado}.`
+				? `${r.data?.nombre ?? nombre.trim()} registrado. Ingresa al panel con «${credencial}» y la contraseña definida (sin confirmar correo).`
+				: `${r.data?.nombre ?? nombre.trim()} enlazado con «${credencial}».`
 		};
 		nombre = '';
+		username = '';
 		email = '';
 		telefono = '';
 		password = '';
@@ -283,13 +294,13 @@
 	<div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-1">
 		<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Alta de domiciliario</h2>
 		<p class="mt-1 text-xs text-slate-400">
-			Define el email y la contraseña: el repartidor entra al panel sin confirmar correo.
+			Crea el repartidor con un usuario («movil1», «movil2»…) y contraseña: entra sin correo.
 		</p>
 
 		<p class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-800">
-			Si escribes una contraseña, la cuenta se crea <strong>automáticamente</strong> y el repartidor ingresa con ese
-			email y esa contraseña, <strong>sin necesidad de correo de confirmación</strong>. Si la dejas vacía, el email
-			debe pertenecer a una cuenta ya creada en Supabase y solo se enlazará la fila.
+			Con contraseña se crea la cuenta <strong>automáticamente</strong> y el repartidor ingresa con el
+			<strong>usuario</strong> o <strong>email</strong> que definas, <strong>sin correo ni confirmación</strong>.
+			Sin contraseña, la cuenta debe existir y solo se enlaza la fila.
 		</p>
 
 		<form class="mt-5 space-y-4" onsubmit={registrar}>
@@ -305,15 +316,49 @@
 				/>
 			</div>
 			<div>
-				<label for="dom-email" class="mb-1.5 block text-sm font-semibold text-slate-700">Email</label>
-				<input
-					id="dom-email"
-					type="email"
-					required
-					bind:value={email}
-					placeholder="repartidor@correo.com"
-					class="w-full rounded-xl border border-slate-300 bg-white min-h-11 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
-				/>
+				<div class="mb-1.5 flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+					<button
+						type="button"
+						onclick={() => (identidadAlta = 'usuario')}
+						class="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition {identidadAlta === 'usuario'
+							? 'bg-white text-primary-dark shadow-sm'
+							: 'text-slate-500 hover:text-slate-700'}"
+					>
+						Usuario
+					</button>
+					<button
+						type="button"
+						onclick={() => (identidadAlta = 'email')}
+						class="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition {identidadAlta === 'email'
+							? 'bg-white text-primary-dark shadow-sm'
+							: 'text-slate-500 hover:text-slate-700'}"
+					>
+						Email
+					</button>
+				</div>
+				{#if identidadAlta === 'usuario'}
+					<label for="dom-username" class="mb-1.5 block text-sm font-semibold text-slate-700">
+						Usuario <span class="font-normal text-slate-400">(ej. movil1)</span>
+					</label>
+					<input
+						id="dom-username"
+						type="text"
+						minlength="2"
+						maxlength="30"
+						bind:value={username}
+						placeholder="movil1"
+						class="w-full rounded-xl border border-slate-300 bg-white min-h-11 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
+					/>
+				{:else}
+					<label for="dom-email" class="mb-1.5 block text-sm font-semibold text-slate-700">Email</label>
+					<input
+						id="dom-email"
+						type="email"
+						bind:value={email}
+						placeholder="repartidor@correo.com"
+						class="w-full rounded-xl border border-slate-300 bg-white min-h-11 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
+					/>
+				{/if}
 			</div>
 			<div>
 				<label for="dom-password" class="mb-1.5 block text-sm font-semibold text-slate-700">
@@ -369,7 +414,7 @@
 			<input
 				type="search"
 				bind:value={busqueda}
-				placeholder="Buscar por nombre o email…"
+				placeholder="Buscar por nombre, usuario o email…"
 				class="w-full max-w-xs rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition placeholder:text-slate-400 focus:border-primary focus:bg-white focus:outline-none"
 			/>
 			<span class="ml-auto text-xs text-slate-400">{visibles.length} de {lista.length}</span>
@@ -394,12 +439,13 @@
 							<div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary">
 								{d.nombre.charAt(0).toUpperCase()}
 							</div>
-							<div class="min-w-0 flex-1">
-								<p class="font-semibold text-slate-900">{d.nombre}</p>
-								<p class="truncate text-xs text-slate-500">
-									{d.email ?? '—'}{d.telefono ? ` · ${d.telefono}` : ''} · desde {formatearFecha(d.created_at ?? '')}
-								</p>
-							</div>
+						<div class="min-w-0 flex-1">
+							<p class="font-semibold text-slate-900">{d.nombre}</p>
+							<p class="truncate text-xs text-slate-500">
+								{d.username ? `@${d.username}` : d.email ?? '—'}{d.telefono ? ` · ${d.telefono}` : ''} · desde{' '}
+								{formatearFecha(d.created_at ?? '')}
+							</p>
+						</div>
 							<span
 								class="inline-flex shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold {d.activo
 									? 'border-primary/30 bg-primary-light text-primary-dark'
