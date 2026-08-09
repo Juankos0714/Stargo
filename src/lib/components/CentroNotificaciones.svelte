@@ -44,6 +44,9 @@
 	let pushActivo = $state<boolean | null>(null);
 	let activandoPush = $state(false);
 	let pushMensaje = $state<string | null>(null);
+	// Diagnóstico de Web Push: probando = en curso; resultado = último test.
+	let probandoPush = $state(false);
+	let pruebaPush = $state<{ ok: boolean; diagnostico?: string; detalle?: string; suscripciones?: number } | null>(null);
 	// Volumen de la campana local (0..1), persistido en localStorage.
 	let volumen = $state(obtenerVolumenSonido());
 	// Último volumen no nulo, para que silenciar/activar sea reversible.
@@ -98,6 +101,27 @@
 			pushMensaje = null;
 		} else {
 			pushMensaje = r.error ?? 'No se pudo activar.';
+		}
+	}
+
+	/** Envía un push de prueba real para diagnosticar la cadena de Web Push. */
+	async function probarPush() {
+		probandoPush = true;
+		pruebaPush = null;
+		try {
+			const res = await fetch('/api/push/probar', { method: 'POST' });
+			const body = await res.json().catch(() => ({}));
+			const data = body?.data;
+			pruebaPush = {
+				ok: res.ok && Boolean(data?.ok),
+				diagnostico: data?.diagnostico,
+				detalle: data?.detalle ?? body?.error ?? 'No se pudo completar la prueba.',
+				suscripciones: data?.suscripciones ?? 0
+			};
+		} catch {
+			pruebaPush = { ok: false, detalle: 'Error de red al probar las notificaciones.' };
+		} finally {
+			probandoPush = false;
 		}
 	}
 
@@ -317,6 +341,36 @@
 								Recibe avisos de pedidos nuevos aunque la app esté cerrada.
 							</p>
 						{/if}
+					{/if}
+
+					<!-- Diagnóstico: prueba real de la cadena de Web Push (útil
+					     cuando el push no llega con la app cerrada). -->
+					<button
+						type="button"
+						onclick={probarPush}
+						disabled={probandoPush}
+						class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-60"
+					>
+						<Icon name="arrow-rotate-right" class="size-3" />
+						{probandoPush ? 'Enviando prueba…' : 'Enviar notificación de prueba'}
+					</button>
+					{#if pruebaPush}
+						{#if pruebaPush.diagnostico}
+							<p
+								class="mt-2 flex items-center justify-center gap-1 rounded-md bg-white/60 px-2 py-1 text-center text-[11px] font-bold {pruebaPush.ok
+									? 'text-emerald-700'
+									: 'text-red-600'}"
+							>
+								{pruebaPush.ok ? '✓ ' : '✗ '}{pruebaPush.diagnostico}
+							</p>
+						{/if}
+						<p
+							class="mt-1.5 text-center text-[10px] leading-relaxed font-medium whitespace-pre-line {pruebaPush.ok
+								? 'text-emerald-700'
+								: 'text-amber-700'}"
+						>
+							{pruebaPush.detalle}
+						</p>
 					{/if}
 				</div>
 			{:else if esIOS()}

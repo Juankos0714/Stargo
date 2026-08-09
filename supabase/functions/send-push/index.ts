@@ -55,11 +55,49 @@ function urlDe(notificacion: Notificacion): string {
 	return '/admin/pedidos';
 }
 
+/**
+ * Huella de la clave VAPID pública (SHA-256 en base64url).
+ *
+ * El endpoint /api/push/probar la compara con la huella de
+ * PUBLIC_VAPID_PUBLIC_KEY (la clave pública del CLIENTE en Vercel): si no
+ * coinciden, la pareja de claves está DESPAREJADA (la privada que firma en
+ * la Edge Function no corresponde con la pública con la que el navegador se
+ * suscribió) y TODOS los push fallan con 401/403 en silencio. Es la causa
+ * nº 1 de «el push no llega aunque todo parece configurado».
+ */
+async function huellaVapid(): Promise<string> {
+	// .trim(): las secrets pegadas en dashboards suelen traer saltos de línea
+	// finales; sin trim daría falsos «desparejados» si una de las dos copias
+	// (Vercel vs Supabase) trae \n y la otra no.
+	const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(VAPID_PUBLIC.trim()));
+	return btoa(String.fromCharCode(...new Uint8Array(digest)))
+		.replace(/\+/g, '-')
+		.replace(/\//g, '_')
+		.replace(/=+$/, '');
+}
+
 Deno.serve(async (req) => {
 	if (req.method !== 'POST') return new Response('Método no permitido', { status: 405 });
 
 	// Payload del webhook de Supabase: { type, table, record, old_record }.
 	const payload = await req.json().catch(() => null);
+
+	// --- Modo diagnóstico (lo llama /api/push/probar): NO envía nada, solo
+	// reporta si las secrets VAPID están configuradas y la huella de la clave
+	// pública, para que el cliente verifique el pareado. ---
+	if (payload?.diagnostico === true) {
+		const configurado = vapidListo();
+		return new Response(
+			JSON.stringify({
+				diagnostico: {
+					vapid_configurado: configurado,
+					huella: configurado ? await huellaVapid() : null
+				}
+			}),
+			{ headers: { 'Content-Type': 'application/json' } }
+		);
+	}
+
 	const record = payload?.record as Notificacion | undefined;
 	if (!record?.destinatario_id || !record?.titulo) {
 		// Sin destinatario no hay nada que enviar (p. ej. webhook de prueba).

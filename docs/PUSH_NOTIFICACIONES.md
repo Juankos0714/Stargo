@@ -109,6 +109,73 @@ Apple limita el sonido de las notificaciones web en iOS:
   vuelve de segundo plano, el siguiente toque lo vuelve a desbloquear
   (los gestos se registran de forma persistente, no con `once`).
 
+## Diagnóstico: «el push no llega con la app cerrada»
+
+Si la notificación SOLO suena al entrar a la app (campana local vía Realtime),
+pero NO llega con la app cerrada, el problema está en la cadena del Web Push
+(webhook → Edge Function → suscripción). El diagnóstico prueba TODOS los
+eslabones de una vez y dice cuál está roto.
+
+### Antes de diagnosticar: aplicar la migración y redesplegar la función
+
+Dos piezas del diagnóstico requieren actualizar el proyecto en Supabase
+(no están desplegadas automáticamente):
+
+1. **Ejecutar la migración fase 17** en el SQL Editor de Supabase:
+   `supabase/migrations/20260816000000_fase17_diagnostico_push.sql`
+   (permite que el endpoint de prueba inserte una notificación dirigida al
+   propio usuario para ejercitar el webhook real).
+2. **Redesplegar la Edge Function** con la CLI (aplica además
+   `verify_jwt = false` del `config.toml`, que si la desplegaste desde el
+   dashboard puede no haberse aplicado):
+
+   ```bash
+   supabase login
+   supabase functions deploy send-push
+   ```
+
+   (Las secrets `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` se
+   conservan al redesplegar.)
+
+### Cómo diagnosticar
+
+**Opción A — desde el panel (recomendada):** abre la campanita → pulsa
+«Enviar notificación de prueba». El servidor verifica las suscripciones,
+comprueba el pareado VAPID, inserta una notificación de prueba (flujo real
+webhook → send-push) y envía un push directo. Con la app CERRADA deberían
+llegar DOS banners: «Prueba (directo)» y «Prueba (webhook)».
+
+**Opción B — desde la terminal:**
+
+```bash
+BASE_URL=https://tu-app.vercel.app ADMIN_EMAIL=... ADMIN_PASSWORD=... bun run test:push
+```
+
+Hace login real, llama a `POST /api/push/probar` y reporta cada eslabón.
+
+### Árbol de decisión
+
+| Diagnóstico | Eslabón roto | Qué hacer |
+|---|---|---|
+| `SIN SUSCRIPCIÓN` | El navegador nunca guardó su suscripción | Activar el push desde la campanita; en iOS requiere la app instalada en pantalla de inicio |
+| `EDGE FUNCTION INALCANZABLE` | send-push no está desplegada o no responde | `supabase functions deploy send-push`; si está desplegada, revisa la URL del proyecto (`PUBLIC_SUPABASE_URL`) |
+| `VAPID SIN CONFIGURAR` | Faltan las secrets VAPID | Supabase → Edge Functions → Secrets de `send-push`: añade `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
+| `FALTA PUBLIC_VAPID_PUBLIC_KEY` | La variable no está en el entorno de la app | Vercel → Settings → Environment Variables: añadir `PUBLIC_VAPID_PUBLIC_KEY` con el `publicKey` del par |
+| `CLAVE VAPID INVÁLIDA` | `PUBLIC_VAPID_PUBLIC_KEY` es un PEM/JWK o está truncada | Pegar el `publicKey` DESNUDO (base64url, 65 bytes) generado con `npx web-push generate-vapid-keys --json` |
+| `VAPID DESPAREJADO` | La clave pública de Vercel y la privada de Supabase NO son la misma pareja (fallo silencioso 401/403: la causa nº 1) | Copia el MISMO `publicKey` a Vercel y a send-push, o regenera el par con `npx web-push generate-vapid-keys --json` y distribúyelo bien (privateKey SOLO en Supabase) |
+| `MIGRACIÓN NO EJECUTADA` | El INSERT de prueba falló por permisos | Ejecutar `20260816000000_fase17_diagnostico_push.sql` en el SQL Editor |
+| `EDGE INALCANZABLE EN ENVÍO` | El diagnóstico VAPID fue OK pero el envío directo falló por red/error | Reintentar; si persiste, revisar los logs de `send-push` en Supabase |
+| `ENVÍO FALLIDO` | VAPID OK pero la Edge Function no envió (suscripciones expiradas) | Reabrir la campanita y pulsar «Activar notificaciones push» para regenerar la suscripción |
+| `TODO OK` pero no llega el «(webhook)» | El WEBHOOK no dispara | Supabase → Database → Webhooks: evento `INSERT`, tabla `public.notificaciones`, URL `https://<ref>.functions.supabase.co/send-push`, método POST, `Content-Type: application/json` |
+| `TODO OK` y llegan ambos | Cadena completa funcionando | El problema era la plataforma/dispositivo: revisa el sonido por plataforma (tabla de arriba) |
+
+> El banner «(directo)» viaja por la Edge Function sin pasar por el webhook;
+> el «(webhook)» pasa por el flujo real (INSERT → webhook → send-push). Si
+> llega el primero pero no el segundo, el webhook del dashboard es el eslabón
+> roto. Si el diagnóstico marca `VAPID DESPAREJADO`, ese es casi con
+> seguridad el motivo por el que «no llega nada»: la clave pública con la que
+> el navegador se suscribió no corresponde con la privada que firma.
+
 ### Volumen y silencio de la campana local
 
 El panel de notificaciones (campanita) incluye un control de volumen de la

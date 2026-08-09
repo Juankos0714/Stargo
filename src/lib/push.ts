@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/public';
 import { browser } from '$app/environment';
+import { esClaveVapidValida } from '$lib/push-vapid';
 
 /**
  * Web Push (Fase 15).
@@ -62,14 +63,25 @@ export async function suscribirPush(): Promise<{ ok: boolean; error?: string }> 
 			return { ok: false, error: 'Permiso de notificaciones denegado. Actívalo desde los ajustes del navegador.' };
 		}
 
-		const reg = await navigator.serviceWorker.ready;
-		let sub = await reg.pushManager.getSubscription();
-		if (!sub) {
-			sub = await reg.pushManager.subscribe({
-				userVisibleOnly: true,
-				applicationServerKey: env.PUBLIC_VAPID_PUBLIC_KEY
-			});
-		}
+	// Validar el formato de la clave ANTES de suscribirse: un PEM o JWK pegado
+	// en PUBLIC_VAPID_PUBLIC_KEY rompe la suscripción con un error confuso.
+	const clave = env.PUBLIC_VAPID_PUBLIC_KEY ?? '';
+	if (!esClaveVapidValida(clave)) {
+		return {
+			ok: false,
+			error:
+				'La clave VAPID (PUBLIC_VAPID_PUBLIC_KEY) no tiene formato válido: debe ser base64url (65 bytes), no un PEM ni JSON. Regenera el par con «npx web-push generate-vapid-keys --json».'
+		};
+	}
+
+	const reg = await navigator.serviceWorker.ready;
+	let sub = await reg.pushManager.getSubscription();
+	if (!sub) {
+		sub = await reg.pushManager.subscribe({
+			userVisibleOnly: true,
+			applicationServerKey: clave
+		});
+	}
 		const datos = sub.toJSON();
 		const endpoint = datos.endpoint;
 		const p256dh = datos.keys?.p256dh;

@@ -24,6 +24,7 @@
 		"test:e2e:headed": "bun --env-file=.env.test E2E_HEADED=1 scripts/e2e-run.mjs",
 		"test:smoke": "bun scripts/smoke-test.mjs",
 		"test:alertas": "bun scripts/probar-alertas.mjs",
+		"test:push": "bun scripts/probar-push.mjs",
 		"bundle:budget": "bun scripts/bundle-budget.mjs",
 		"perf:lighthouse": "bun scripts/lighthouse.mjs",
 		"go-no-go": "bun scripts/go-no-go.mjs"
