@@ -9,8 +9,10 @@
  * mobile) EN PARALELO con el mismo prefijo E2E. Si todos usaran el
  * domiciliario sembrado, los totales de su cuenta (comisión, deuda, abonos)
  * se mezclarían entre corridas y los asserts serían frágiles. Por eso este
- * spec registra un DOMICILIARIO DEDICADO por invocación (email único) vía la
- * API del admin, lo usa para el flujo completo y lo elimina al final.
+ * spec crea un DOMICILIARIO DEDICADO por invocación (email único): crea la
+ * cuenta de Auth directamente con service role (igual que se haría en el
+ * dashboard de Supabase) y la enlaza vía la API del admin. Lo usa para el
+ * flujo completo y lo elimina al final.
  *
  * Usa DOS contextos de navegador (admin y domiciliario) para que cada sesión
  * tenga sus propias cookies (igual que realtime.spec.ts).
@@ -94,21 +96,31 @@ test('comisiones: configurar en admin → entregar → deuda → abono', async (
 			timeout: 15_000
 		});
 
-		// ---- 2. Registra el domiciliario dedicado (API con sesión admin). ----
+		// ---- 2. Crea la cuenta en Supabase Auth (como se haría en el dashboard)
+		// y enlaza el domiciliario dedicado (API con sesión admin). ----
+		const s = clienteService();
+		const { data: creado, error: errCrea } = await s.auth.admin.createUser({
+			email: emailDomi,
+			password: e.password,
+			email_confirm: true
+		});
+		if (errCrea || !creado.user) {
+			throw new Error(`E2E: no se pudo crear la cuenta del domi dedicado: ${errCrea?.message}`);
+		}
+		domiUserId = creado.user.id;
 		const admin = await loginEnApp(e.usuarios.admin.email, e.password);
 		const rReg = await peticion<{
 			data?: { id: string; user_id: string; email: string };
 			error?: string;
 		}>('/api/domiciliarios', {
 			metodo: 'POST',
-			cuerpo: { op: 'registrar', nombre: nombreDomi, email: emailDomi, password: e.password },
+			cuerpo: { nombre: nombreDomi, email: emailDomi },
 			jar: admin.jar
 		});
 		if (!rReg.ok || !rReg.data?.data?.id) {
-			throw new Error(`E2E: no se pudo registrar el domi dedicado: ${rReg.data?.error ?? rReg.status}`);
+			throw new Error(`E2E: no se pudo enlazar el domi dedicado: ${rReg.data?.error ?? rReg.status}`);
 		}
 		domiId = rReg.data.data.id;
-		domiUserId = rReg.data.data.user_id;
 
 		// ---- 3. El cliente crea el pedido y el admin lo asigna (por API). ----
 		const codigo = await crearPedidoAPI(e);

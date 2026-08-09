@@ -1,9 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSupabaseAsUser, getSupabaseService } from '$lib/server/supabase';
+import { getSupabaseAsUser } from '$lib/server/supabase';
 import { requireAdmin } from '$lib/server/auth';
 import { obtenerResumenes } from '$lib/server/cuenta';
-import { esErrorEnvioEmail, esErrorUsuarioExistente } from '$lib/logic/auth-errores';
 import type { Domiciliario } from '$lib/types';
 
 // ---------- GET: listar domiciliarios (solo admin) ----------
@@ -38,34 +37,20 @@ export const GET: RequestHandler = async (event) => {
 	return json({ data: filas });
 };
 
-// ---------- POST: registrar o invitar un domiciliario (solo admin) ----------
-// Dos operaciones, ninguna requiere tocar el dashboard de Supabase:
-//
-//   op: 'invitar'  → Envía un correo de invitación (inviteUserByEmail). El
-//                    domiciliario define SU propia contraseña con el enlace
-//                    del correo y luego inicia sesión. (Flujo recomendado.)
-//   op: 'registrar' → El admin define la contraseña: el servidor crea la
-//                    cuenta de Supabase Auth (service role, email confirmado)
-//                    y enlaza la fila vía RPC. Sin password, el email debe
-//                    pertenecer a una cuenta existente.
-//
-// Ambas terminan en registrar_domiciliario (SECURITY DEFINER) para crear o
-// reactivar la fila de la tabla domiciliarios.
+// ---------- POST: enlazar un domiciliario (solo admin) ----------
+// El registro de la cuenta de Supabase Auth se hace MANUALMENTE en el
+// dashboard de Supabase (Authentication → Users → Add user). Este endpoint
+// solo enlaza la fila del domiciliario con el email de esa cuenta vía el RPC
+// registrar_domiciliario (SECURITY DEFINER): si el email no tiene cuenta,
+// el RPC lo rechaza con un mensaje claro.
 export const POST: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
 	const db = getSupabaseAsUser(sesion.accessToken);
 
 	const body = await event.request.json().catch(() => ({}));
-	const op = String(body?.op ?? '').trim();
-	if (op !== 'registrar' && op !== 'invitar') {
-		return json({ error: 'Operación no soportada.' }, { status: 400 });
-	}
 	const nombre = String(body?.nombre ?? '').trim();
 	const email = String(body?.email ?? '').trim().toLowerCase();
 	const telefono = String(body?.telefono ?? '').trim() || null;
-	// Se recorta la contraseña: evita claves de solo espacios y espacios
-	// accidentales alrededor.
-	const password = String(body?.password ?? '').trim();
 
 	if (!nombre) return json({ error: 'El nombre es obligatorio.' }, { status: 400 });
 	if (!email) return json({ error: 'El email es obligatorio.' }, { status: 400 });
@@ -73,82 +58,16 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'El email no es válido.' }, { status: 400 });
 	}
 
-	const service = getSupabaseService();
-	if (!service) {
-		return json(
-			{ error: 'Falta SUPABASE_SERVICE_ROLE_KEY en el entorno: no se puede gestionar la cuenta de Auth.' },
-			{ status: 500 }
-		);
-	}
-
-	let cuentaCreada = false;
-	let invitacionEnviada = false;
-
-	if (op === 'invitar') {
-		// 1) Correo de invitación: el usuario define su propia contraseña.
-		const { error: errInv } = await service.auth.admin.inviteUserByEmail(email, {
-			redirectTo: `${event.url.origin}/login`
-		});
-		if (errInv) {
-			// El mailer de Supabase no pudo entregar el correo (SMTP/plantilla):
-			// la cuenta NO se crea (GoTrue revierte) y el mensaje debe orientar al
-			// admin a revisar Auth → Settings → Email, no a mostrar texto crudo.
-			if (esErrorEnvioEmail(errInv)) {
-				return json(
-					{
-						error:
-							'Supabase no pudo enviar el correo de invitación. Revisa la configuración de email (Auth → Settings → Email / SMTP) en el Dashboard de Supabase e inténtalo de nuevo.'
-					},
-					{ status: 400 }
-				);
-			}
-			// Si la cuenta YA existe (o ya fue invitada sin aceptar), no se reenvía
-			// invitación: se enlaza/reactiva la fila igual (el domiciliario entra
-			// con la contraseña que ya tiene o con la del enlace pendiente).
-			// esErrorUsuarioExistente cubre todas las variantes del mensaje/código
-			// de GoTrue ("User already registered", "User already been invited",…)
-			if (!esErrorUsuarioExistente(errInv)) {
-				return json({ error: `No se pudo enviar la invitación: ${errInv.message}` }, { status: 400 });
-			}
-		} else {
-			invitacionEnviada = true;
-		}
-	} else if (password) {
-		// 2) op: 'registrar' con contraseña: crea la cuenta (no la resetea si ya existe).
-		if (password.length < 6) {
-			return json({ error: 'La contraseña debe tener al menos 6 caracteres.' }, { status: 400 });
-		}
-		const { error: errUser } = await service.auth.admin.createUser({
-			email,
-			password,
-			email_confirm: true
-		});
-		if (errUser) {
-			if (esErrorEnvioEmail(errUser)) {
-				return json(
-					{
-						error:
-							'Supabase no pudo crear la cuenta ni enviar el correo. Revisa la configuración de email (Auth → Settings → Email / SMTP) en el Dashboard de Supabase e inténtalo de nuevo.'
-					},
-					{ status: 400 }
-				);
-			}
-			if (!esErrorUsuarioExistente(errUser)) {
-				return json({ error: `No se pudo crear la cuenta: ${errUser.message}` }, { status: 400 });
-			}
-		} else {
-			cuentaCreada = true;
-		}
-	}
-
-	// 3) Enlaza (o reactiva) la fila del domiciliario con ese email.
+	// Enlaza (o reactiva) la fila del domiciliario con ese email. La cuenta de
+	// Supabase Auth debe existir (creada en el dashboard); si no, el RPC lo
+	// reporta y el 400 llega a la UI como mensaje legible.
 	const { data, error: err } = await db.rpc('registrar_domiciliario', {
 		p_nombre: nombre,
 		p_telefono: telefono,
 		p_email: email
 	});
 	if (err) return json({ error: err.message }, { status: 400 });
-	return json({ data, meta: { cuentaCreada, invitacionEnviada } });
+	return json({ data });
 };
 
 // ---------- PUT: actualizar (solo admin) ----------

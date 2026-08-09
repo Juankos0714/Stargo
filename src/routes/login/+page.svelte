@@ -10,28 +10,6 @@
 	let cargando = $state(false);
 	let error = $state<string | null>(null);
 
-	// Email sin confirmar (Tarea 1): se ofrece reenviar el correo de confirmación.
-	let emailNoConfirmado = $state(false);
-	let reenviando = $state(false);
-	let reenviado = $state(false);
-	let errorReenviar = $state<string | null>(null);
-
-	async function reenviarConfirmacion() {
-		if (!email.trim()) return;
-		reenviando = true;
-		errorReenviar = null;
-		reenviado = false;
-		const r = await api.post<{ enviado: boolean }>('/api/auth/reenviar-confirmacion', {
-			email: email.trim()
-		});
-		reenviando = false;
-		if (r.error) {
-			errorReenviar = r.error;
-			return;
-		}
-		reenviado = true;
-	}
-
 	// Recuperación de contraseña desde el correo.
 	let modoRecuperar = $state(false);
 	let enviandoEnlace = $state(false);
@@ -55,9 +33,6 @@
 		}
 		cargando = true;
 		error = null;
-		emailNoConfirmado = false;
-		reenviado = false;
-		errorReenviar = null;
 		const r = await api.post<{ email: string; esAdmin: boolean; esDomiciliario: boolean }>('/api/login', {
 			email,
 			password
@@ -65,9 +40,6 @@
 		cargando = false;
 		if (r.error) {
 			error = r.error;
-			// El endpoint /api/login traduce el error de Supabase a este mensaje;
-			// se compara con .includes() para no depender de la redacción exacta.
-			emailNoConfirmado = (r.error ?? '').toLowerCase().includes('confirma tu email');
 			return;
 		}
 		if (r.data?.esAdmin) goto('/admin');
@@ -218,43 +190,6 @@
 						<div class="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>
 					{/if}
 
-					{#if emailNoConfirmado}
-						<div class="rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm">
-							<p class="font-semibold text-amber-300">¿No recibiste el correo?</p>
-							<p class="mt-1 leading-relaxed text-amber-200/80">
-								Te lo podemos reenviar ahora mismo a <span class="font-semibold">{email.trim()}</span>. Revisa también la carpeta de spam.
-							</p>
-							{#if reenviado}
-								<p class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
-									Correo reenviado. Cuando lo confirmes, podrás iniciar sesión.
-								</p>
-								<button
-									type="submit"
-									class="mt-2 block text-xs font-semibold text-slate-300 underline-offset-4 transition hover:text-white hover:underline"
-								>
-									Ya confirmé mi correo — intentar de nuevo
-								</button>
-							{:else}
-								<button
-									type="button"
-									onclick={reenviarConfirmacion}
-									disabled={reenviando || !email.trim()}
-									class="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-								>
-									{#if reenviando}
-										<span class="size-3 animate-spin rounded-full border-2 border-amber-300/40 border-t-amber-300"></span>
-										Enviando…
-									{:else}
-										Reenviar correo de confirmación
-									{/if}
-								</button>
-							{/if}
-							{#if errorReenviar}
-								<p class="mt-2 text-xs text-red-300">{errorReenviar}</p>
-							{/if}
-						</div>
-					{/if}
-
 					<button
 						type="submit"
 						disabled={cargando}
@@ -287,8 +222,8 @@
 		<div class="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 text-xs leading-relaxed text-slate-400">
 			<p class="mb-1 font-semibold text-slate-300">¿Primera vez?</p>
 			<p>
-				Pide a tu administrador que te envíe una invitación: te llegará un correo para crear tu contraseña. Si ya la
-				creaste pero no la confirmaste, usa el botón de reenviar el correo.
+				Tu cuenta de acceso (admin o domiciliario) la crea tu administrador directamente en el panel de Supabase.
+				Una vez creada, inicia sesión aquí con el email y la contraseña que te entregaron.
 			</p>
 		</div>
 	</div>

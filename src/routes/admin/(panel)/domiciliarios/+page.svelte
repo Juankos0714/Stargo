@@ -20,15 +20,12 @@
 	let busqueda = $state('');
 	let estadoRealtime = $state<RealtimeEstado>('conectando');
 
-	// Formulario de registro
+	// Formulario de enlace: la cuenta de Supabase Auth se crea en el dashboard
+	// de Supabase; aquí solo se enlaza la fila del domiciliario.
 	let nombre = $state('');
 	let email = $state('');
 	let telefono = $state('');
-	let password = $state('');
 	let registrando = $state(false);
-	// Modo de alta: 'invitacion' (correo con enlace para definir contraseña) o
-	// 'directo' (el admin define la contraseña). Ninguno toca Supabase.
-	let modoRegistro = $state<'invitacion' | 'directo'>('invitacion');
 
 	// Bloqueo y acceso: estados de carga independientes por fila
 	let guardandoBloqueo = $state<Record<string, boolean>>({});
@@ -89,11 +86,9 @@
 		registrando = true;
 		mensaje = null;
 		const r = await api.post<Domiciliario>('/api/domiciliarios', {
-			op: modoRegistro === 'invitacion' ? 'invitar' : 'registrar',
 			nombre: nombre.trim(),
 			email: email.trim(),
-			telefono: telefono.trim(),
-			...(modoRegistro === 'directo' && password ? { password: password.trim() } : {})
+			telefono: telefono.trim()
 		});
 		registrando = false;
 		if (r.error) {
@@ -101,27 +96,13 @@
 			return;
 		}
 		const emailRegistrado = r.data?.email ?? email.trim();
-		const cuentaCreada = r.meta?.cuentaCreada === true;
-		const invitacionEnviada = r.meta?.invitacionEnviada === true;
-		if (modoRegistro === 'invitacion') {
-			mensaje = {
-				tipo: 'ok',
-				texto: invitacionEnviada
-					? `Invitación enviada a ${emailRegistrado}: recibirá un correo para crear su contraseña y entrar al panel.`
-					: `${r.data?.nombre ?? nombre.trim()} enlazado con la cuenta existente ${emailRegistrado}.`
-			};
-		} else {
-			mensaje = {
-				tipo: 'ok',
-				texto: cuentaCreada
-					? `${r.data?.nombre ?? nombre.trim()} registrado: cuenta creada. Puede ingresar al panel con ${emailRegistrado} y la contraseña que definiste.`
-					: `${r.data?.nombre ?? nombre.trim()} enlazado con la cuenta existente ${emailRegistrado}.`
-			};
-		}
+		mensaje = {
+			tipo: 'ok',
+			texto: `${r.data?.nombre ?? nombre.trim()} enlazado con la cuenta ${emailRegistrado}. Puede ingresar al panel con la contraseña definida en Supabase.`
+		};
 		nombre = '';
 		email = '';
 		telefono = '';
-		password = '';
 		await cargar();
 	}
 
@@ -260,42 +241,14 @@
 	<div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-1">
 		<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Alta de domiciliario</h2>
 		<p class="mt-1 text-xs text-slate-400">
-			Sin tocar Supabase: el repartidor recibe un correo y crea su propia contraseña.
+			La cuenta se crea en Supabase; aquí solo se enlaza la fila del repartidor.
 		</p>
 
-		<!-- Selector de modo de alta -->
-		<div class="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
-			<button
-				type="button"
-				onclick={() => (modoRegistro = 'invitacion')}
-				class="rounded-lg px-3 py-2 text-xs font-semibold transition {modoRegistro === 'invitacion'
-					? 'bg-white text-slate-900 shadow-sm'
-					: 'text-slate-500 hover:text-slate-700'}"
-			>
-				Correo de invitación
-			</button>
-			<button
-				type="button"
-				onclick={() => (modoRegistro = 'directo')}
-				class="rounded-lg px-3 py-2 text-xs font-semibold transition {modoRegistro === 'directo'
-					? 'bg-white text-slate-900 shadow-sm'
-					: 'text-slate-500 hover:text-slate-700'}"
-			>
-				Cuenta con contraseña
-			</button>
-		</div>
-
-		{#if modoRegistro === 'invitacion'}
-			<p class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-800">
-				Se enviará un correo con un enlace para que <strong>el propio repartidor</strong> defina su contraseña.
-				Cuando la cree, podrá iniciar sesión en su panel.
-			</p>
-		{:else}
-			<p class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
-				Tú defines la contraseña (mín. 6 caracteres). Sin contraseña, el email debe pertenecer a una cuenta ya
-				existente.
-			</p>
-		{/if}
+		<p class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-800">
+			Crea la cuenta del repartidor en el Dashboard de Supabase
+			(<strong>Authentication → Users → Add user</strong>) y luego enlázala aquí con su email. El repartidor
+			inicia sesión con el email y la contraseña definidos en Supabase.
+		</p>
 
 		<form class="mt-5 space-y-4" onsubmit={registrar}>
 			<div>
@@ -320,21 +273,7 @@
 					class="w-full rounded-xl border border-slate-300 bg-white min-h-11 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
 				/>
 			</div>
-			{#if modoRegistro === 'directo'}
-				<div>
-					<label for="dom-password" class="mb-1.5 block text-sm font-semibold text-slate-700">
-						Contraseña <span class="font-normal text-slate-400">(para crear la cuenta, opcional)</span>
-					</label>
-					<input
-						id="dom-password"
-						type="password"
-						minlength="6"
-						bind:value={password}
-						placeholder="Mín. 6 caracteres"
-						class="w-full rounded-xl border border-slate-300 bg-white min-h-11 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
-					/>
-				</div>
-			{/if}
+
 			<div>
 				<label for="dom-tel" class="mb-1.5 block text-sm font-semibold text-slate-700">Teléfono <span class="font-normal text-slate-400">(opcional)</span></label>
 				<input
@@ -352,9 +291,9 @@
 			>
 				{#if registrando}
 					<span class="size-4 animate-spin rounded-full border-2 border-white/50 border-t-white"></span>
-					{modoRegistro === 'invitacion' ? 'Enviando invitación…' : 'Registrando…'}
+					Enlazando…
 				{:else}
-					{modoRegistro === 'invitacion' ? 'Enviar invitación por correo' : 'Registrar domiciliario'}
+					Enlazar domiciliario
 				{/if}
 			</button>
 		</form>
