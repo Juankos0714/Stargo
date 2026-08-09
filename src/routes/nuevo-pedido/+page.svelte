@@ -3,7 +3,15 @@
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
 	import Logo from '$lib/components/Logo.svelte';
-	import { etiquetaTipoRecargo, formatearPeso, type Barrio, type Recargo, type Zona } from '$lib/types';
+	import {
+		etiquetaTipoRecargo,
+		etiquetaTipoServicio,
+		formatearPeso,
+		type Barrio,
+		type Recargo,
+		type TipoServicio,
+		type Zona
+	} from '$lib/types';
 	import { calcularRecargos } from '$lib/logic/recargos';
 	import { validarPedido } from '$lib/logic/validacion';
 	import type { HorarioHoy } from '$lib/types';
@@ -15,12 +23,46 @@
 	let cargando = $state(true);
 	let errorCarga = $state<string | null>(null);
 
+	// ---------- Tipo de servicio (Fase 14) ----------
+	let tipoServicio = $state<TipoServicio>('domicilio');
+	// Preguntas guiadas de compra/diligencia: qué diligencia y si se recoge antes.
+	const TIPOS_DILIGENCIA = [
+		{
+			valor: 'pago',
+			label: 'Pago de factura o servicio',
+			desc: 'Pagar un recibo, factura o servicio en un punto de pago.'
+		},
+		{
+			valor: 'banco',
+			label: 'Pago bancario o corresponsal',
+			desc: 'Consignar o pagar en el banco o corresponsal.'
+		},
+		{
+			valor: 'compra',
+			label: 'Compra de productos',
+			desc: 'Mercado, medicamentos, encargos en tiendas.'
+		},
+		{
+			valor: 'tramite',
+			label: 'Trámite o documento',
+			desc: 'Radicar, reclamar o entregar papeles.'
+		},
+		{
+			valor: 'otro',
+			label: 'Otra diligencia',
+			desc: 'Cualquier otro encargo.'
+		}
+	];
+	let tipoDiligencia = $state('');
+	let necesitaRecoger = $state<boolean | null>(null);
+
 	let origen = $state<string | null>(null);
 	let dirOrigen = $state('');
 	let destino = $state<string | null>(null);
 	let dirDestino = $state('');
 	let observaciones = $state('');
 	let recargosSel = $state<string[]>([]);
+	let recargosConfirmadosNoAplica = $state(false);
 	let errores = $state<Record<string, string>>({});
 
 	let precio = $state<{ valor: number | null; meta: Record<string, unknown> } | null>(null);
@@ -39,7 +81,20 @@
 		estado: string;
 		zona_origen?: string | null;
 		zona_destino?: string | null;
+		tipo_servicio?: TipoServicio;
 	} | null>(null);
+
+	// En compra/diligencia el origen se pide solo si se debe recoger algo antes.
+	const mostrarOrigen = $derived(tipoServicio === 'domicilio' || necesitaRecoger === true);
+	const origenRequerido = $derived(tipoServicio === 'domicilio' || necesitaRecoger === true);
+
+	// Decisión explícita de recargos: elegir alguno o marcar «No aplica».
+	const recargosDecididos = $derived(recargosSel.length > 0 || recargosConfirmadosNoAplica);
+
+	// Marcar un recargo desmarca «No aplica» (y al revés en el onchange propio).
+	function desmarcarNoAplica() {
+		recargosConfirmadosNoAplica = false;
+	}
 
 	const itemsBarrios = $derived<SearchItem[]>(
 		barrios.map((b) => ({
@@ -74,22 +129,32 @@
 	const calculoRecargos = $derived(calcularRecargos(recargosActivos, recargosSel));
 	const recargosAplicados = $derived(calculoRecargos.aplicados);
 	const recargoTotal = $derived(calculoRecargos.total);
-	const totalEstimado = $derived(
-		precio?.meta?.disponible === true && precio?.valor != null ? precio.valor + recargoTotal : null
-	);
+	const precioDisponible = $derived(precio?.meta?.disponible === true && precio?.valor != null);
+	// Con ruta completa (origen+destino) el estimado incluye la tarifa; sin
+	// ella (compra/diligencia solo con destino) va solo el total de recargos.
+	const totalEstimado = $derived(precioDisponible ? (precio?.valor ?? 0) + recargoTotal : recargoTotal);
+	const tieneRutaCompleta = $derived(Boolean(origen && destino));
 
-	// El botón se habilita con la tarifa disponible; la validación de campos
-	// se dispara al confirmar y muestra errores por campo (Fase 7).
-	const puedeConfirmar = $derived(precio?.meta?.disponible === true && !confirmando);
+	// El botón se habilita con la tarifa disponible (domicilio) o con destino y
+	// decisión de recargos (compra/diligencia); la validación de campos se
+	// dispara al confirmar y muestra errores por campo.
+	const puedeConfirmar = $derived(
+		!confirmando &&
+			(tipoServicio === 'domicilio'
+				? precioDisponible
+				: Boolean(destino) && recargosDecididos)
+	);
 
 	function validar(): boolean {
 		errores = validarPedido({
-			barrioOrigen: origen,
+			barrioOrigen: origenRequerido ? origen : null,
 			barrioDestino: destino,
-			direccionOrigen: dirOrigen,
+			direccionOrigen: origenRequerido ? dirOrigen : '',
 			direccionDestino: dirDestino,
 			observaciones,
-			recargos: recargosSel
+			recargos: recargosSel,
+			tipoServicio,
+			recargosConfirmadosNoAplica
 		});
 		return Object.keys(errores).length === 0;
 	}
@@ -134,9 +199,25 @@
 		error = null;
 	}
 
+	function elegirTipo(tipo: TipoServicio) {
+		tipoServicio = tipo;
+		// Al cambiar de tipo se limpian los campos que ya no aplican y el precio.
+		precio = null;
+		error = null;
+		if (tipo === 'domicilio') {
+			tipoDiligencia = '';
+			necesitaRecoger = null;
+		}
+		if (tipo === 'compra_diligencia' && !mostrarOrigen) {
+			origen = null;
+			dirOrigen = '';
+		}
+		errores = {};
+	}
+
 	async function confirmar(e: SubmitEvent) {
 		e.preventDefault();
-		if (!puedeConfirmar || !origen || !destino) return;
+		if (!puedeConfirmar) return;
 		if (!validar()) return;
 		confirmando = true;
 		error = null;
@@ -146,7 +227,9 @@
 			barrio_destino: destino,
 			direccion_destino: dirDestino,
 			observaciones: observaciones || undefined,
-			recargos: recargosSel
+			tipo_servicio: tipoServicio,
+			recargos: recargosSel,
+			recargos_confirmados_no_aplica: recargosConfirmadosNoAplica
 		});
 		confirmando = false;
 		if (r.error) {
@@ -158,12 +241,16 @@
 
 	function reiniciar() {
 		creado = null;
+		tipoServicio = 'domicilio';
+		tipoDiligencia = '';
+		necesitaRecoger = null;
 		origen = null;
 		destino = null;
 		dirOrigen = '';
 		dirDestino = '';
 		observaciones = '';
 		recargosSel = [];
+		recargosConfirmadosNoAplica = false;
 		errores = {};
 		precio = null;
 		error = null;
@@ -211,7 +298,13 @@
 				</p>
 				<div class="mt-6 space-y-2 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
 					<p class="flex justify-between">
-						<span>Tarifa base</span>
+						<span>Tipo de servicio</span>
+						<span class="inline-flex rounded-full border border-primary/30 bg-primary-light px-2.5 py-0.5 text-xs font-semibold text-primary-dark">
+							{etiquetaTipoServicio(creado.tipo_servicio)}
+						</span>
+					</p>
+					<p class="flex justify-between">
+						<span>{creado.tipo_servicio === 'compra_diligencia' && creado.tarifa_base === 0 ? 'Tarifa (la confirma el domiciliario)' : 'Tarifa base'}</span>
 						<span class="font-bold text-slate-900">{formatearPeso(creado.tarifa_base)}</span>
 					</p>
 					{#each creado.recargos ?? [] as r (r.codigo)}
@@ -296,41 +389,137 @@
 				</div>
 			{:else}
 				<form class="mt-8 space-y-6" onsubmit={confirmar} novalidate>
+					<!-- Paso 0: tipo de servicio (Fase 14) -->
+					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+						<h2 class="mb-1 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
+							<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">0</span>
+							¿Qué necesitas?
+						</h2>
+						<div class="mt-4 grid gap-3 sm:grid-cols-2">
+							<button
+								type="button"
+								onclick={() => elegirTipo('domicilio')}
+								class="rounded-xl border-2 p-4 text-left transition {tipoServicio === 'domicilio'
+									? 'border-primary bg-primary-light/40 shadow-sm'
+									: 'border-slate-200 hover:border-primary/50'}"
+							>
+								<span class="flex items-center gap-2 text-sm font-bold text-slate-900">
+									<Icon name="truck-fast" class="size-4 text-primary" />
+									Domicilio normal
+								</span>
+								<span class="mt-1 block text-xs text-slate-500">Recoger y entregar entre dos puntos.</span>
+							</button>
+							<button
+								type="button"
+									onclick={() => elegirTipo('compra_diligencia')}
+								class="rounded-xl border-2 p-4 text-left transition {tipoServicio === 'compra_diligencia'
+									? 'border-primary bg-primary-light/40 shadow-sm'
+									: 'border-slate-200 hover:border-primary/50'}"
+							>
+								<span class="flex items-center gap-2 text-sm font-bold text-slate-900">
+									<Icon name="cart-shopping" class="size-4 text-primary" />
+									Compra / diligencia
+								</span>
+								<span class="mt-1 block text-xs text-slate-500">Comprar, pagar facturas o hacer trámites.</span>
+							</button>
+						</div>
+
+						{#if tipoServicio === 'compra_diligencia'}
+							<div class="mt-5 rounded-xl border border-primary/20 bg-primary-light/30 p-4">
+								<p class="text-xs font-bold tracking-wide text-primary-dark uppercase">Cuéntanos sobre la diligencia</p>
+
+								<fieldset class="mt-3">
+									<legend class="text-sm font-semibold text-slate-800">¿Qué tipo de diligencia necesitas?</legend>
+									<div class="mt-2 grid gap-2 sm:grid-cols-2">
+										{#each TIPOS_DILIGENCIA as td (td.valor)}
+											<label
+												class="flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 transition has-[:checked]:border-primary has-[:checked]:bg-white {tipoDiligencia === td.valor ? 'border-primary bg-white' : 'border-slate-200 hover:border-primary/50'}"
+											>
+												<input
+													type="radio"
+													name="tipo-diligencia"
+													value={td.valor}
+													bind:group={tipoDiligencia}
+													class="mt-1 size-4 accent-[#1768FF]"
+												/>
+												<span class="min-w-0">
+													<span class="block text-sm font-semibold text-slate-800">{td.label}</span>
+													<span class="block text-xs text-slate-500">{td.desc}</span>
+												</span>
+											</label>
+										{/each}
+									</div>
+								</fieldset>
+
+								<fieldset class="mt-4">
+									<legend class="text-sm font-semibold text-slate-800">¿Se debe recoger algo o a alguien antes?</legend>
+									<div class="mt-2 flex gap-2">
+										<button
+											type="button"
+											onclick={() => {
+												necesitaRecoger = true;
+												error = null;
+											}}
+											class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {necesitaRecoger === true ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
+										>
+											Sí, hay recogida
+										</button>
+										<button
+											type="button"
+												onclick={() => {
+													necesitaRecoger = false;
+													origen = null;
+													dirOrigen = '';
+													errores.origen = '';
+													errores.dirOrigen = '';
+													error = null;
+												}}
+											class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {necesitaRecoger === false ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
+										>
+											No, solo el destino
+										</button>
+									</div>
+								</fieldset>
+							</div>
+						{/if}
+					</div>
+
+					{#if mostrarOrigen}
 					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 						<h2 class="mb-4 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
 							<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">1</span>
-							Origen
+							{#if tipoServicio === 'compra_diligencia'}Recogida{:else}Origen{/if}
 						</h2>
-						<div class="grid gap-4 sm:grid-cols-2">
-							<div>
-								<label for="ped-origen" class="mb-1.5 block text-sm font-semibold text-slate-700">Barrio de origen</label>
-								<SearchSelect
-									id="ped-origen"
-									items={itemsBarrios}
-									value={origen}
-									onchange={(id) => (origen = id)}
-									placeholder="Ej: Barrio La Rivera…"
-								/>
+						<div class="grid gap-4 sm:grid-cols-2">								<div>
+									<label for="ped-origen" class="mb-1.5 block text-sm font-semibold text-slate-700">
+										{#if tipoServicio === 'compra_diligencia'}Barrio de recogida{:else}Barrio de origen{/if}
+									</label>
+									<SearchSelect
+										id="ped-origen"
+										items={itemsBarrios}
+										value={origen}
+										onchange={(id) => (origen = id)}
+										placeholder="Ej: Barrio La Rivera…"
+									/>
 								{#if errores.origen}
 									<p class="mt-1 text-xs text-red-600">{errores.origen}</p>
 								{/if}
-							</div>
-							<div>
-								<label for="dir-origen" class="mb-1.5 block text-sm font-semibold text-slate-700">Dirección</label>
-								<input
-									id="dir-origen"
-									type="text"
-									bind:value={dirOrigen}
-									maxlength="300"
-									placeholder="Calle 10 # 15-20, Apto 301"
-									class="w-full rounded-xl border px-4 py-2.5 text-sm shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 bg-white text-slate-900 {errores.dirOrigen ? 'border-red-400' : 'border-slate-300'}"
-								/>
-								{#if errores.dirOrigen}
-									<p class="mt-1 text-xs text-red-600">{errores.dirOrigen}</p>
-								{/if}
-							</div>
+							</div>									<div>
+										<label for="dir-origen" class="mb-1.5 block text-sm font-semibold text-slate-700">Dirección</label>
+										<input
+											id="dir-origen"
+											type="text"
+											bind:value={dirOrigen}
+											maxlength="300"
+											placeholder="Calle 10 # 15-20, Apto 301"
+											class="w-full rounded-xl border px-4 py-2.5 text-sm shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 bg-white text-slate-900 {errores.dirOrigen ? 'border-red-400' : 'border-slate-300'}"
+										/>
+										{#if errores.dirOrigen}
+											<p class="mt-1 text-xs text-red-600">{errores.dirOrigen}</p>
+										{/if}
+									</div>						</div>
 						</div>
-					</div>
+					{/if}
 
 					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 						<h2 class="mb-4 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
@@ -366,19 +555,36 @@
 								{/if}
 							</div>
 						</div>
-					</div>
-
-					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+					</div>					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 						<h2 class="mb-1 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
 							<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">3</span>
-							Recargos <span class="font-normal normal-case text-slate-400">(opcional)</span>
+							Recargos <span class="font-normal normal-case text-amber-600">(obligatorio)</span>
 						</h2>
 						<p class="mb-4 ml-7 text-xs text-slate-400">
-							Marca lo que aplica a tu pedido: compras, espera, paradas, peso o método de pago.
+							Marca lo que aplica a tu pedido: compras, espera, paradas, peso o método de pago — o confirma que
+							no aplica.
 						</p>
 						{#if recargosActivos.length === 0}
 							<p class="text-sm text-slate-400">No hay recargos configurados por el momento.</p>
 						{:else}
+							<label
+								class="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
+							>
+								<input
+									type="checkbox"
+									checked={recargosConfirmadosNoAplica}
+									onchange={(e) => {
+										const marcado = e.currentTarget.checked;
+										recargosConfirmadosNoAplica = marcado;
+										if (marcado) recargosSel = [];
+									}}
+									class="mt-1 size-4 accent-[#1768FF]"
+								/>
+								<span class="min-w-0 flex-1">
+									<span class="block text-sm font-semibold text-slate-800">No aplica</span>
+									<span class="block text-xs text-slate-500">Este pedido no tiene compras, esperas, paradas, peso ni pagos especiales.</span>
+								</span>
+							</label>
 							<div class="grid gap-5 sm:grid-cols-2">
 								{#each grupos as g (g.tipo)}
 									<fieldset>
@@ -388,7 +594,13 @@
 												<label
 													class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
 												>
-													<input type="checkbox" value={r.codigo} bind:group={recargosSel} class="mt-1 size-4 accent-[#1768FF]" />
+													<input
+														type="checkbox"
+														value={r.codigo}
+														bind:group={recargosSel}
+														onchange={desmarcarNoAplica}
+														class="mt-1 size-4 accent-[#1768FF]"
+													/>
 													<span class="min-w-0 flex-1">
 														<span class="block text-sm font-semibold text-slate-800">{r.nombre}</span>
 														{#if r.descripcion}
@@ -396,13 +608,13 @@
 														{/if}
 													</span>
 													<span class="shrink-0 text-sm font-bold text-slate-900">{formatearPeso(r.valor)}</span>
-												</label>
-											{/each}
+													</label>
+												{/each}
+												</div>
+											</fieldset>
+										{/each}
 										</div>
-									</fieldset>
-								{/each}
-							</div>
-						{/if}
+									{/if}
 						{#if errores.recargos}
 							<p class="mt-2 text-xs text-red-600">{errores.recargos}</p>
 						{/if}
@@ -425,18 +637,31 @@
 					<div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
 						<div class="flex items-center justify-between gap-4">
 							<div>
-								<p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Tarifa del trayecto</p>
-								{#if !origen || !destino}
-									<p class="mt-1 text-sm text-slate-400">Selecciona ambos barrios para ver el precio.</p>
+								<p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+									{tipoServicio === 'compra_diligencia' ? 'Valor del servicio' : 'Tarifa del trayecto'}
+								</p>
+								{#if !destino}
+									<p class="mt-1 text-sm text-slate-400">Selecciona el barrio de destino para continuar.</p>
 								{:else if calculando}
 									<p class="mt-1 flex items-center gap-2 text-sm text-slate-500">
 										<span class="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></span>
 										Calculando…
 									</p>
-								{:else if precio?.meta?.disponible}
+								{:else if precioDisponible}
 									<p class="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">{formatearPeso(totalEstimado)}</p>
 									<p class="mt-0.5 text-xs text-slate-500">
 										{nombreZona(String(precio?.meta?.zona_origen))} → {nombreZona(String(precio?.meta?.zona_destino))}
+									</p>
+								{:else if tipoServicio === 'compra_diligencia' && !origenRequerido && !tieneRutaCompleta}
+									<p class="mt-1 text-xl font-extrabold tracking-tight text-slate-900">Sin tarifa automática</p>
+									<p class="mt-0.5 text-xs text-slate-500">
+										El domiciliario confirma el precio final al realizar la diligencia{recargoTotal > 0
+											? ` (recargos: ${formatearPeso(recargoTotal)})`
+											: ''}.
+									</p>
+								{:else if !tieneRutaCompleta}
+									<p class="mt-1 text-sm text-slate-400">
+										Selecciona {tipoServicio === 'compra_diligencia' ? 'el barrio de recogida y el de destino' : 'ambos barrios'} para ver el precio.
 									</p>
 								{:else}
 									<p class="mt-1 text-sm font-medium text-red-600">
@@ -449,12 +674,14 @@
 							{/if}
 						</div>
 
-						{#if precio?.meta?.disponible && recargosAplicados.length > 0}
+						{#if recargosAplicados.length > 0}
 							<div class="mt-4 space-y-1.5 rounded-xl bg-white p-4 text-sm shadow-sm">
-								<p class="flex justify-between text-slate-600">
-									<span>Tarifa base</span>
-									<span class="font-semibold text-slate-900">{formatearPeso(precio?.valor)}</span>
-								</p>
+								{#if precioDisponible}
+									<p class="flex justify-between text-slate-600">
+										<span>Tarifa base</span>
+										<span class="font-semibold text-slate-900">{formatearPeso(precio?.valor)}</span>
+									</p>
+								{/if}
 								{#each recargosAplicados as r (r.codigo)}
 									<p class="flex justify-between text-slate-600">
 										<span>{r.nombre}</span>
@@ -468,12 +695,13 @@
 							</div>
 						{/if}
 
-						{#if precio?.meta?.disponible}
+						{#if precioDisponible || (tipoServicio === 'compra_diligencia' && !origenRequerido && !tieneRutaCompleta)}
 							<div class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
 								<Icon name="triangle-exclamation" class="mt-0.5 size-3.5 shrink-0" />
 								<span>
-									Este es un <strong>estimado</strong>: el precio final lo confirma el domiciliario según el servicio real que realice
-									(compras, peso, paradas, espera, método de pago, etc.).
+									{tipoServicio === 'compra_diligencia' && !tieneRutaCompleta
+										? 'El precio final lo confirma el <strong>domiciliario</strong> al realizar la diligencia según lo que realmente se haga.'
+										: 'Este es un <strong>estimado</strong>: el precio final lo confirma el domiciliario según el servicio real que realice (compras, peso, paradas, espera, método de pago, etc.).'}
 								</span>
 							</div>
 						{/if}
@@ -494,8 +722,18 @@
 								Confirmar pedido
 							{/if}
 						</button>
-						{#if !precio?.meta?.disponible && origen && destino}
-							<p class="mt-2 text-center text-xs text-slate-400">No se puede confirmar sin una tarifa disponible.</p>
+						{#if !puedeConfirmar && !confirmando}
+							<p class="mt-2 text-center text-xs text-slate-400">
+								{tipoServicio === 'domicilio'
+									? tieneRutaCompleta && !precioDisponible
+										? 'No se puede confirmar sin una tarifa disponible.'
+										: 'Completa los campos para confirmar el pedido.'
+									: !destino
+											? 'Selecciona el barrio de destino.'
+											: !recargosDecididos
+													? 'Marca los recargos que aplican o «No aplica» para confirmar.'
+													: 'Completa los campos para confirmar el pedido.'}
+							</p>
 						{/if}
 					</div>
 				</form>

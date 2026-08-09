@@ -5,6 +5,7 @@
 	import { supabaseBrowser } from '$lib/supabase-browser';
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import CentroNotificaciones from '$lib/components/CentroNotificaciones.svelte';
 
 	let { children } = $props();
 
@@ -40,14 +41,17 @@
 		</nav>
 
 		<div class="border-t border-white/10 p-4">
-			<div class="mb-3 flex items-center gap-3">
-				<div class="flex size-9 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-[#8BB4FF]">
-					{page.data.email?.charAt(0).toUpperCase()}
+			<div class="mb-3 flex items-center justify-between gap-2">
+				<div class="flex min-w-0 items-center gap-3">
+					<div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-[#8BB4FF]">
+						{page.data.email?.charAt(0).toUpperCase()}
+					</div>
+					<div class="min-w-0">
+						<div class="truncate text-xs font-semibold text-white">{page.data.email}</div>
+						<div class="text-[10px] text-[#8BB4FF]">Repartidor</div>
+					</div>
 				</div>
-				<div class="min-w-0">
-					<div class="truncate text-xs font-semibold text-white">{page.data.email}</div>
-					<div class="text-[10px] text-[#8BB4FF]">Repartidor</div>
-				</div>
+				<CentroNotificaciones urlBase="/domiciliario" tono="oscuro" />
 			</div>
 			<button
 				type="button"
@@ -68,13 +72,16 @@
 				<a href="/" class="flex items-center">
 					<Logo type="mark" surface="light" height={28} />
 				</a>
-				<button
-					type="button"
-					onclick={salir}
-					class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-				>
-					Salir
-				</button>
+				<div class="flex items-center gap-1.5">
+					<CentroNotificaciones urlBase="/domiciliario" tono="claro" />
+					<button
+						type="button"
+						onclick={salir}
+						class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+					>
+						Salir
+					</button>
+				</div>
 			</div>
 		</header>
 

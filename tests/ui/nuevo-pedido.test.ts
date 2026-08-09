@@ -175,6 +175,10 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 
 		await waitFor(() => expect(screen.getByText('La dirección de origen es obligatoria.')).toBeInTheDocument());
 		expect(screen.getByText('La dirección de destino es obligatoria.')).toBeInTheDocument();
+		// Fase 14: sin recargos ni «No aplica» también bloquea el envío.
+		expect(
+			screen.getByText('Indica si aplican recargos a tu pedido o marca «No aplica».')
+		).toBeInTheDocument();
 		expect(postMock).not.toHaveBeenCalledWith('/api/pedidos', expect.anything());
 	});
 
@@ -198,6 +202,8 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 
 		await user.type(screen.getByPlaceholderText('Calle 10 # 15-20, Apto 301'), 'Calle 1 # 2-3');
 		await user.type(screen.getByPlaceholderText('Carrera 19 # 20-30'), 'Carrera 4 # 5-6');
+		// Fase 14: decisión explícita de recargos (marcar «No aplica»).
+		await user.click(screen.getByText('No aplica'));
 		await user.click(screen.getByRole('button', { name: 'Confirmar pedido' }));
 
 		await waitFor(() => expect(screen.getByText('¡Pedido confirmado!')).toBeInTheDocument());
@@ -209,7 +215,9 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 				barrio_destino: 'barrio-b',
 				direccion_origen: 'Calle 1 # 2-3',
 				direccion_destino: 'Carrera 4 # 5-6',
-				recargos: []
+				tipo_servicio: 'domicilio',
+				recargos: [],
+				recargos_confirmados_no_aplica: true
 			})
 		);
 	});
@@ -225,17 +233,27 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
 		await waitFor(() => expect(screen.getByText(/6\.000/)).toBeInTheDocument());
 
-		// Solo el recargo activo se muestra (el inactivo queda fuera).
+		// Dos checkboxes: «No aplica» (Fase 14) + el recargo activo (el inactivo
+		// queda fuera de la lista).
 		const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-		expect(checkboxes).toHaveLength(1);
+		expect(checkboxes).toHaveLength(2);
 
-		const recargo = checkboxes[0];
+		const noAplica = checkboxes[0];
+		const recargo = checkboxes[1];
+		// Al marcar un recargo se desmarca «No aplica».
 		await user.click(recargo);
 		expect(recargo.checked).toBe(true);
+		expect(noAplica.checked).toBe(false);
 		// El total aparece en el precio grande y en el desglose «Total estimado».
 		await waitFor(() => expect(screen.getAllByText(/8\.000/).length).toBeGreaterThan(0));
 		expect(screen.getByText('Total estimado')).toBeInTheDocument();
 		// Aparece en el checkbox y en el desglose.
 		expect(screen.getAllByText('Compra test').length).toBeGreaterThan(0);
+
+		// Al marcar «No aplica» se desmarcan los recargos y baja el total.
+		await user.click(noAplica);
+		expect(noAplica.checked).toBe(true);
+		expect(recargo.checked).toBe(false);
+		await waitFor(() => expect(screen.getAllByText(/6\.000/).length).toBeGreaterThan(0));
 	});
 });

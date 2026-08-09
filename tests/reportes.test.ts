@@ -14,6 +14,8 @@ function pedido(overrides: Partial<Pedido> = {}): Pedido {
 	return {
 		id: 'id-1',
 		numero: 'ABC123',
+		tipo_servicio: 'domicilio',
+		recargos_confirmados_no_aplica: false,
 		barrio_origen_id: 'b1',
 		direccion_origen: 'Calle 1',
 		barrio_destino_id: 'b2',
@@ -152,8 +154,17 @@ describe('pedidosACsv', () => {
 	test('incluye cabecera y usa fecha/hora de Bogotá', () => {
 		const csv = pedidosACsv([fila]);
 		const lineas = csv.split('\r\n');
-		expect(lineas[0]).toBe('numero,fecha (Bogotá),estado,tarifa,total,origen,destino,domiciliario,observaciones');
+		expect(lineas[0]).toBe(
+			'numero,fecha (Bogotá),estado,tarifa,total,comision,origen,destino,domiciliario,observaciones'
+		);
 		expect(lineas[1]).toContain('ABC123,2026-08-06 00:30');
+	});
+
+	test('la comisión congelada del pedido viaja en el CSV', () => {
+		const conComision = pedidosACsv([{ ...fila, comision: 1300 }]);
+		expect(conComision.split('\r\n')[1]).toContain(',6000,6000,1300,');
+		// Sin comisión (pedido previo a Fase 10) la celda queda vacía.
+		expect(pedidosACsv([fila]).split('\r\n')[1]).toContain(',6000,6000,,');
 	});
 
 	test('el total del CSV incluye los recargos (total ?? tarifa_base)', () => {

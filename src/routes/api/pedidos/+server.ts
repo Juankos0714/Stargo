@@ -8,7 +8,12 @@ import type { Domiciliario, HistorialEstado, Pedido } from '$lib/types';
 // La tarifa se recalcula en la BD dentro de crear_pedido() (SECURITY DEFINER).
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json().catch(() => ({}));
-	const barrioOrigen = String(body?.barrio_origen ?? '').trim();
+	// Fase 14: 'domicilio' (default) o 'compra_diligencia'.
+	const tipoServicio = String(body?.tipo_servicio ?? 'domicilio').trim();
+	if (tipoServicio !== 'domicilio' && tipoServicio !== 'compra_diligencia') {
+		return json({ error: 'Tipo de servicio no válido.' }, { status: 400 });
+	}
+	const barrioOrigen = String(body?.barrio_origen ?? '').trim() || null;
 	const direccionOrigen = String(body?.direccion_origen ?? '').trim();
 	const barrioDestino = String(body?.barrio_destino ?? '').trim();
 	const direccionDestino = String(body?.direccion_destino ?? '').trim();
@@ -22,12 +27,29 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (recargos.length > 15) {
 		return json({ error: 'Demasiados recargos (máx. 15).' }, { status: 400 });
 	}
-
-	if (!barrioOrigen || !barrioDestino) {
-		return json({ error: 'Faltan el barrio de origen o destino.' }, { status: 400 });
+	// Decisión explícita de recargos: elegir o marcar «No aplica» (Fase 14).
+	const recargosConfirmadosNoAplica = body?.recargos_confirmados_no_aplica === true;
+	if (recargos.length === 0 && !recargosConfirmadosNoAplica) {
+		return json(
+			{ error: 'Indica si aplican recargos a tu pedido o marca «No aplica».' },
+			{ status: 400 }
+		);
 	}
-	if (!direccionOrigen || !direccionDestino) {
-		return json({ error: 'Las direcciones de origen y destino son obligatorias.' }, { status: 400 });
+
+	// Domicilio: origen y destino obligatorios. Compra/diligencia: solo destino.
+	if (!barrioDestino) {
+		return json({ error: 'Falta el barrio de destino.' }, { status: 400 });
+	}
+	if (!direccionDestino) {
+		return json({ error: 'La dirección de destino es obligatoria.' }, { status: 400 });
+	}
+	if (tipoServicio === 'domicilio') {
+		if (!barrioOrigen) {
+			return json({ error: 'Falta el barrio de origen.' }, { status: 400 });
+		}
+		if (!direccionOrigen) {
+			return json({ error: 'La dirección de origen es obligatoria.' }, { status: 400 });
+		}
 	}
 	if (direccionOrigen.length > 300 || direccionDestino.length > 300) {
 		return json({ error: 'Las direcciones son demasiado largas (máx. 300 caracteres).' }, { status: 400 });
@@ -38,11 +60,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	const { data, error: err } = await getSupabaseAnon().rpc('crear_pedido', {
 		p_barrio_origen_id: barrioOrigen,
-		p_direccion_origen: direccionOrigen,
+		p_direccion_origen: direccionOrigen || null,
 		p_barrio_destino_id: barrioDestino,
 		p_direccion_destino: direccionDestino,
 		p_observaciones: observaciones,
-		p_recargos: recargos.length > 0 ? recargos : null
+		p_recargos: recargos.length > 0 ? recargos : null,
+		p_tipo_servicio: tipoServicio,
+		p_recargos_confirmados_no_aplica: recargosConfirmadosNoAplica
 	});
 
 	if (err) {
@@ -118,7 +142,9 @@ export const GET: RequestHandler = async (event) => {
 
 	// Nombres de barrios (lectura pública)
 	const nombres = new Map<string, string>();
-	const idsBarrios = [...new Set([...filas.map((p) => p.barrio_origen_id), ...filas.map((p) => p.barrio_destino_id)])];
+	const idsBarrios = [...new Set([...filas.map((p) => p.barrio_origen_id), ...filas.map((p) => p.barrio_destino_id)])].filter(
+		Boolean
+	) as string[];
 	if (idsBarrios.length > 0) {
 		const r = await getSupabaseAnon().from('barrios').select('id, nombre').in('id', idsBarrios);
 		for (const b of r.data ?? []) nombres.set(b.id, b.nombre);
@@ -135,7 +161,7 @@ export const GET: RequestHandler = async (event) => {
 	return json({
 		data: filas.map((p) => ({
 			...p,
-			barrio_origen_nombre: nombres.get(p.barrio_origen_id) ?? null,
+			barrio_origen_nombre: p.barrio_origen_id ? (nombres.get(p.barrio_origen_id) ?? null) : null,
 			barrio_destino_nombre: nombres.get(p.barrio_destino_id) ?? null,
 			domiciliario_nombre: p.domiciliario_id ? (nombresDom.get(p.domiciliario_id) ?? null) : null,
 			historial: historialPorPedido.get(p.id) ?? []

@@ -9,7 +9,8 @@ export type RealtimeEstado = 'conectando' | 'conectado' | 'desconectado';	export
 		| 'comision_niveles'
 		| 'comision_config'
 		| 'horario_operacion'
-		| 'horario_excepcion';
+		| 'horario_excepcion'
+		| 'notificaciones';
 	evento?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
 	filtro?: Record<string, string>;
 	/** Se llama con cada evento de cambio (payload de Realtime). */

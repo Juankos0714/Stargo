@@ -20,20 +20,36 @@ export interface DatosPedido {
 	direccionDestino: string;
 	observaciones: string;
 	recargos?: string[];
+	/** 'domicilio' (default) o 'compra_diligencia' (Fase 14). */
+	tipoServicio?: string;
+	/** El usuario marcó explícitamente que no aplican recargos (Fase 14). */
+	recargosConfirmadosNoAplica?: boolean;
 }
 
 /**
  * Valida el formulario de pedido. Devuelve un mapa de errores por campo
  * (vacío = formulario válido).
+ *
+ * Reglas por tipo de servicio (Fase 14):
+ *   - domicilio:         origen Y destino obligatorios (como siempre).
+ *   - compra_diligencia: destino obligatorio; origen OPCIONAL (p. ej. un pago
+ *     bancario solo va al banco).
+ * Recargos: se exige una decisión explícita — elegir recargos o marcar
+ * «No aplica» (recargosConfirmadosNoAplica) — antes de poder enviar.
  */
 export function validarPedido(d: DatosPedido): Record<string, string> {
 	const errores: Record<string, string> = {};
+	const tipoServicio = d.tipoServicio === 'compra_diligencia' ? 'compra_diligencia' : 'domicilio';
 
-	if (!d.barrioOrigen) errores.origen = 'Selecciona el barrio de origen.';
+	if (tipoServicio === 'domicilio' && !d.barrioOrigen) errores.origen = 'Selecciona el barrio de origen.';
 	if (!d.barrioDestino) errores.destino = 'Selecciona el barrio de destino.';
 
-	if (!d.direccionOrigen.trim()) errores.dirOrigen = 'La dirección de origen es obligatoria.';
-	else if (d.direccionOrigen.length > LIMITES.direccion) {
+	if (tipoServicio === 'domicilio') {
+		if (!d.direccionOrigen.trim()) errores.dirOrigen = 'La dirección de origen es obligatoria.';
+		else if (d.direccionOrigen.length > LIMITES.direccion) {
+			errores.dirOrigen = `Máximo ${LIMITES.direccion} caracteres.`;
+		}
+	} else if (d.direccionOrigen.length > LIMITES.direccion) {
 		errores.dirOrigen = `Máximo ${LIMITES.direccion} caracteres.`;
 	}
 
@@ -48,6 +64,9 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 
 	if ((d.recargos?.length ?? 0) > LIMITES.recargos) {
 		errores.recargos = `Selecciona máximo ${LIMITES.recargos} recargos.`;
+	} else if ((d.recargos?.length ?? 0) === 0 && d.recargosConfirmadosNoAplica !== true) {
+		// Decisión explícita de recargos: elegir o marcar «No aplica».
+		errores.recargos = 'Indica si aplican recargos a tu pedido o marca «No aplica».';
 	}
 
 	return errores;

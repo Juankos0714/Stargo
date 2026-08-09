@@ -12,7 +12,9 @@ const pedidoValido: DatosPedido = {
 	barrioDestino: 'b-destino',
 	direccionOrigen: 'Calle 10 # 15-20',
 	direccionDestino: 'Carrera 19 # 20-30',
-	observaciones: ''
+	observaciones: '',
+	// Decisión explícita de recargos: se marca «No aplica» (Fase 14).
+	recargosConfirmadosNoAplica: true
 };
 
 describe('validarPedido (formulario de pedido)', () => {
@@ -65,8 +67,74 @@ describe('validarPedido (formulario de pedido)', () => {
 		expect(e.recargos).toBe(`Selecciona máximo ${LIMITES.recargos} recargos.`);
 	});
 
-	test('recargos sin seleccionar (undefined) no genera error', () => {
-		expect(validarPedido({ ...pedidoValido, recargos: undefined })).toEqual({});
+	test('sin recargos y sin «No aplica» el pedido NO se puede enviar (Fase 14)', () => {
+		const e = validarPedido({ ...pedidoValido, recargos: undefined, recargosConfirmadosNoAplica: false });
+		expect(e.recargos).toBe('Indica si aplican recargos a tu pedido o marca «No aplica».');
+
+		const e2 = validarPedido({ ...pedidoValido, recargos: [], recargosConfirmadosNoAplica: false });
+		expect(e2.recargos).toBe('Indica si aplican recargos a tu pedido o marca «No aplica».');
+	});
+
+	test('marcar «No aplica» habilita el envío aunque no haya recargos', () => {
+		expect(validarPedido({ ...pedidoValido, recargos: [], recargosConfirmadosNoAplica: true })).toEqual({});
+	});
+
+	test('elegir recargos habilita el envío aunque no se marque «No aplica»', () => {
+		expect(
+			validarPedido({ ...pedidoValido, recargos: ['rc-compra'], recargosConfirmadosNoAplica: false })
+		).toEqual({});
+	});
+});
+
+describe('validarPedido — compra/diligencia (Fase 14)', () => {
+	test('compra/diligencia sin origen y sin dirección de origen es válido (solo destino)', () => {
+		const e = validarPedido({
+			...pedidoValido,
+			tipoServicio: 'compra_diligencia',
+			barrioOrigen: null,
+			direccionOrigen: '',
+			recargosConfirmadosNoAplica: true
+		});
+		expect(e).toEqual({});
+	});
+
+	test('compra/diligencia con origen también es válido (diligencia con recogida)', () => {
+		const e = validarPedido({
+			...pedidoValido,
+			tipoServicio: 'compra_diligencia',
+			barrioOrigen: 'b-origen',
+			direccionOrigen: 'Calle 10 # 15-20',
+			recargosConfirmadosNoAplica: true
+		});
+		expect(e).toEqual({});
+	});
+
+	test('compra/diligencia sigue exigiendo destino', () => {
+		const e = validarPedido({
+			...pedidoValido,
+			tipoServicio: 'compra_diligencia',
+			barrioOrigen: null,
+			barrioDestino: null,
+			direccionOrigen: '',
+			direccionDestino: '',
+			recargosConfirmadosNoAplica: true
+		});
+		expect(e.destino).toBe('Selecciona el barrio de destino.');
+		expect(e.dirDestino).toBe('La dirección de destino es obligatoria.');
+		// El origen NO genera error en compra/diligencia.
+		expect(e.origen).toBeUndefined();
+		expect(e.dirOrigen).toBeUndefined();
+	});
+
+	test('domicilio normal sigue exigiendo origen y dirección de origen', () => {
+		const e = validarPedido({
+			...pedidoValido,
+			tipoServicio: 'domicilio',
+			barrioOrigen: null,
+			direccionOrigen: ''
+		});
+		expect(e.origen).toBe('Selecciona el barrio de origen.');
+		expect(e.dirOrigen).toBe('La dirección de origen es obligatoria.');
 	});
 });
 

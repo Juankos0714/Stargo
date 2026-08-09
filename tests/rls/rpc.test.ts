@@ -183,6 +183,50 @@ describe.skipIf(!RLS_DISPONIBLE)('RPCs (base real)', () => {
 			expect(error).toBeNull();
 			expect(data).toBeNull();
 		});
+
+		test('compra/diligencia sin origen: tarifa_base 0 y guarda el tipo (Fase 14)', async () => {
+			const { data, error } = await anon.rpc('crear_pedido', {
+				p_barrio_origen_id: null,
+				p_direccion_origen: null,
+				p_barrio_destino_id: cat.barrioB,
+				p_direccion_destino: 'Banco, Calle 10',
+				p_observaciones: null,
+				p_recargos: null,
+				p_tipo_servicio: 'compra_diligencia',
+				p_recargos_confirmados_no_aplica: true
+			});
+			expect(error, `crear_pedido compra falló: ${error?.message}`).toBeNull();
+			expect(data?.tarifa_base).toBe(0);
+			expect(data?.total).toBe(0);
+			expect(data?.tipo_servicio).toBe('compra_diligencia');
+		});
+
+		test('domicilio sin origen es un error en la BD (Fase 14)', async () => {
+			const r = await anon.rpc('crear_pedido', {
+				p_barrio_origen_id: null,
+				p_direccion_origen: null,
+				p_barrio_destino_id: cat.barrioB,
+				p_direccion_destino: 'y',
+				p_observaciones: null,
+				p_recargos: null
+			});
+			expect(r.error, 'se esperaba error por falta de origen').not.toBeNull();
+			expect(r.error?.message ?? '').toMatch(/Selecciona el barrio de origen/);
+		});
+
+		test('tipo_servicio inválido es un error en la BD (Fase 14)', async () => {
+			const r = await anon.rpc('crear_pedido', {
+				p_barrio_origen_id: cat.barrioA,
+				p_direccion_origen: 'x',
+				p_barrio_destino_id: cat.barrioB,
+				p_direccion_destino: 'y',
+				p_observaciones: null,
+				p_recargos: null,
+				p_tipo_servicio: 'inventado'
+			});
+			expect(r.error, 'se esperaba error por tipo de servicio inválido').not.toBeNull();
+			expect(r.error?.message ?? '').toMatch(/Tipo de servicio no válido/);
+		});
 	});
 
 	describe('consultar_pedido (público, por código)', () => {

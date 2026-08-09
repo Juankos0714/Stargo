@@ -7,6 +7,7 @@
 	import {
 		ESTADOS_PEDIDO,
 		etiquetaEstado,
+		etiquetaTipoServicio,
 		formatearPeso,
 		type Domiciliario,
 		type EstadoPedido,
@@ -250,7 +251,16 @@
 						{@const recs = p.recargos ?? []}
 						<tr class="border-b border-slate-100 align-top transition hover:bg-slate-50/60">
 							<td class="px-4 py-3">
-								<p class="font-mono text-sm font-bold text-slate-900">{p.numero}</p>
+								<div class="flex flex-wrap items-center gap-1.5">
+									<p class="font-mono text-sm font-bold text-slate-900">{p.numero}</p>
+									<span
+										class="inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold {p.tipo_servicio === 'compra_diligencia'
+											? 'border-violet-200 bg-violet-50 text-violet-700'
+											: 'border-sky-200 bg-sky-50 text-sky-700'}"
+									>
+										{etiquetaTipoServicio(p.tipo_servicio)}
+									</span>
+								</div>
 								<p class="text-xs text-slate-400">{formatearFecha(p.created_at)}</p>
 								<details class="mt-1">
 									<summary class="cursor-pointer text-xs font-medium text-primary-dark hover:underline">

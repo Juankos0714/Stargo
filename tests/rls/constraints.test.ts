@@ -135,6 +135,41 @@ describe.skipIf(!RLS_DISPONIBLE)('Constraints e integridad', () => {
 				/foreign key|violat/i
 			);
 		});
+
+		test('tipo_servicio fuera de la lista del CHECK es rechazado (Fase 14)', async () => {
+			esperaError(
+				await insercion(servicio, 'pedidos', {
+					numero: `X${Math.random().toString(36).slice(2, 8)}`,
+					barrio_origen_id: cat.barrioA,
+					direccion_origen: 'x',
+					barrio_destino_id: cat.barrioB,
+					direccion_destino: 'y',
+					tarifa_base: 5000,
+					estado: 'pendiente',
+					tipo_servicio: 'inventado'
+				}),
+				'tipo_servicio inválido',
+				/check|violat/i
+			);
+		});
+
+		test('recargos_confirmados_no_aplica acepta solo booleano (Fase 14)', async () => {
+			esperaError(
+				await insercion(servicio, 'pedidos', {
+					numero: `X${Math.random().toString(36).slice(2, 8)}`,
+					barrio_origen_id: cat.barrioA,
+					direccion_origen: 'x',
+					barrio_destino_id: cat.barrioB,
+					direccion_destino: 'y',
+					tarifa_base: 5000,
+					estado: 'pendiente',
+					tipo_servicio: 'domicilio',
+					recargos_confirmados_no_aplica: 'si'
+				}),
+				'flag no booleano',
+				/datatype|boolean|invalid/i
+			);
+		});
 	});
 
 	describe('RPC crear_pedido: validación de recargos en la BD', () => {

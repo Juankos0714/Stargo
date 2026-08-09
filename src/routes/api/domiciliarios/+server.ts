@@ -37,19 +37,26 @@ export const GET: RequestHandler = async (event) => {
 	return json({ data: filas });
 };
 
-// ---------- POST: registrar (o reactivar) un domiciliario (solo admin) ----------
-// El registro puede ser COMPLETO desde el panel: si el admin envía un
-// `password`, el servidor crea la cuenta de Supabase Auth (service role,
-// email confirmado) y luego enlaza la fila del domiciliario vía RPC. Sin
-// password, el email debe pertenecer a una cuenta existente (la verificación
-// la hace el RPC registrar_domiciliario, SECURITY DEFINER).
+// ---------- POST: registrar o invitar un domiciliario (solo admin) ----------
+// Dos operaciones, ninguna requiere tocar el dashboard de Supabase:
+//
+//   op: 'invitar'  → Envía un correo de invitación (inviteUserByEmail). El
+//                    domiciliario define SU propia contraseña con el enlace
+//                    del correo y luego inicia sesión. (Flujo recomendado.)
+//   op: 'registrar' → El admin define la contraseña: el servidor crea la
+//                    cuenta de Supabase Auth (service role, email confirmado)
+//                    y enlaza la fila vía RPC. Sin password, el email debe
+//                    pertenecer a una cuenta existente.
+//
+// Ambas terminan en registrar_domiciliario (SECURITY DEFINER) para crear o
+// reactivar la fila de la tabla domiciliarios.
 export const POST: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
 	const db = getSupabaseAsUser(sesion.accessToken);
 
 	const body = await event.request.json().catch(() => ({}));
 	const op = String(body?.op ?? '').trim();
-	if (op !== 'registrar') {
+	if (op !== 'registrar' && op !== 'invitar') {
 		return json({ error: 'Operación no soportada.' }, { status: 400 });
 	}
 	const nombre = String(body?.nombre ?? '').trim();
@@ -65,18 +72,40 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'El email no es válido.' }, { status: 400 });
 	}
 
-	// 1) Si viene password, crea la cuenta de Auth (no la resetea si ya existe).
+	const service = getSupabaseService();
+	if (!service) {
+		return json(
+			{ error: 'Falta SUPABASE_SERVICE_ROLE_KEY en el entorno: no se puede gestionar la cuenta de Auth.' },
+			{ status: 500 }
+		);
+	}
+
 	let cuentaCreada = false;
-	if (password) {
+	let invitacionEnviada = false;
+
+	if (op === 'invitar') {
+		// 1) Correo de invitación: el usuario define su propia contraseña.
+		const { error: errInv } = await service.auth.admin.inviteUserByEmail(email, {
+			redirectTo: `${event.url.origin}/login`
+		});
+		if (errInv) {
+			// Si la cuenta YA existe (o ya fue invitada sin aceptar), no se reenvía
+			// invitación: se enlaza/reactiva la fila igual (el domiciliario entra
+			// con la contraseña que ya tiene o con la del enlace pendiente).
+			const yaExiste =
+				errInv.code === 'email_exists' ||
+				errInv.code === 'user_already_exists' ||
+				/already (been )?(registered|invited)|already exists/i.test(errInv.message);
+			if (!yaExiste) {
+				return json({ error: `No se pudo enviar la invitación: ${errInv.message}` }, { status: 400 });
+			}
+		} else {
+			invitacionEnviada = true;
+		}
+	} else if (password) {
+		// 2) op: 'registrar' con contraseña: crea la cuenta (no la resetea si ya existe).
 		if (password.length < 6) {
 			return json({ error: 'La contraseña debe tener al menos 6 caracteres.' }, { status: 400 });
-		}
-		const service = getSupabaseService();
-		if (!service) {
-			return json(
-				{ error: 'Falta SUPABASE_SERVICE_ROLE_KEY en el entorno: no se puede crear la cuenta.' },
-				{ status: 500 }
-			);
 		}
 		const { error: errUser } = await service.auth.admin.createUser({
 			email,
@@ -84,9 +113,6 @@ export const POST: RequestHandler = async (event) => {
 			email_confirm: true
 		});
 		if (errUser) {
-			// Si el email ya tiene cuenta, NO se toca su contraseña: solo se enlaza.
-			// (El error real de Auth es code 'email_exists' — p. ej. “already been
-			// registered”—; se cubren también variantes de versiones anteriores.)
 			const yaExiste =
 				errUser.code === 'email_exists' ||
 				errUser.code === 'user_already_exists' ||
@@ -99,14 +125,14 @@ export const POST: RequestHandler = async (event) => {
 		}
 	}
 
-	// 2) Enlaza (o reactiva) la fila del domiciliario con ese email.
+	// 3) Enlaza (o reactiva) la fila del domiciliario con ese email.
 	const { data, error: err } = await db.rpc('registrar_domiciliario', {
 		p_nombre: nombre,
 		p_telefono: telefono,
 		p_email: email
 	});
 	if (err) return json({ error: err.message }, { status: 400 });
-	return json({ data, meta: { cuentaCreada } });
+	return json({ data, meta: { cuentaCreada, invitacionEnviada } });
 };
 
 // ---------- PUT: actualizar (solo admin) ----------

@@ -54,5 +54,11 @@ enabled = false
 [realtime]
 enabled = true
 
+# Edge Function send-push (Fase 15): la llama el Database Webhook de Supabase
+# SIN JWT de usuario (el webhook solo puede autenticarse con la firma del
+# servicio, que no lleva token de usuario), así que verify_jwt = false.
+[functions.send-push]
+verify_jwt = false
+
 # Los keys por defecto (anon/service_role) de Supabase local son públicos y
 # fijos; se documentan en .env.test.example para la suite de RLS.

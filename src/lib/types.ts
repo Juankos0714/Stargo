@@ -65,6 +65,24 @@ export type EstadoPedido =
 	| 'entregado'
 	| 'cancelado';
 
+// ---------- Tipo de servicio (Fase 14) ----------
+
+/**
+ * Tipo de servicio de un pedido: 'domicilio' (recoger y entregar) o
+ * 'compra_diligencia' (diligencia con destino, recogida opcional).
+ */
+export type TipoServicio = 'domicilio' | 'compra_diligencia';
+
+export const TIPOS_SERVICIO: { valor: TipoServicio; label: string; corta: string }[] = [
+	{ valor: 'domicilio', label: 'Domicilio normal', corta: 'Domicilio' },
+	{ valor: 'compra_diligencia', label: 'Compra / diligencia', corta: 'Compra-diligencia' }
+];
+
+export function etiquetaTipoServicio(tipo: TipoServicio | string | null | undefined): string {
+	if (tipo === 'compra_diligencia') return 'Compra-diligencia';
+	return 'Domicilio';
+}
+
 export interface Domiciliario {
 	id: string;
 	user_id: string;
@@ -180,8 +198,13 @@ export interface HorarioHoy {
 export interface Pedido {
 	id: string;
 	numero: string;
-	barrio_origen_id: string;
-	direccion_origen: string;
+	/** 'domicilio' (default) o 'compra_diligencia' (Fase 14). */
+	tipo_servicio: TipoServicio;
+	/** El cliente confirmó explícitamente que no aplican recargos (Fase 14). */
+	recargos_confirmados_no_aplica: boolean;
+	/** NULL en compra/diligencia sin recogida (Fase 14). */
+	barrio_origen_id: string | null;
+	direccion_origen: string | null;
 	barrio_destino_id: string;
 	direccion_destino: string;
 	observaciones: string | null;
@@ -225,8 +248,12 @@ export interface ReporteResumen {
 	en_proceso: number;
 	entregados: number;
 	cancelados: number;
-	/** Suma de tarifa_base de los pedidos entregados. */
+	/** Ganancia BRUTA: suma del total (tarifa + recargos) de los entregados. */
 	ingresos: number;
+	/** Comisiones que la app cobra a los domiciliarios por las entregas del rango (Fase 13: comisión diaria acumulada). */
+	comisiones_pagadas: number;
+	/** ingresos − comisiones_pagadas (ganancia neta). */
+	ingresos_netos: number;
 	/** ingresos / entregados (0 si no hay entregados). */
 	ticket_promedio: number;
 	domiciliarios_activos: number;

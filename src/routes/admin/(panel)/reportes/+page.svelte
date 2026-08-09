@@ -142,8 +142,34 @@
 			{ label: 'Total pedidos', valor: resumen.total, icon: 'clipboard-list', hint: 'en el rango', color: 'bg-primary-light text-primary' },
 			{ label: 'Entregados', valor: resumen.entregados, icon: 'circle-check', hint: 'completados', color: 'bg-green-50 text-green-600' },
 			{ label: 'Cancelados', valor: resumen.cancelados, icon: 'ban', hint: 'anulados', color: 'bg-red-50 text-red-500' },
-			{ label: 'Ingresos', valor: formatearPeso(resumen.ingresos), icon: 'coins', hint: 'solo entregados', color: 'bg-emerald-50 text-emerald-600' },
-			{ label: 'Ticket promedio', valor: formatearPeso(resumen.ticket_promedio), icon: 'arrow-trend-up', hint: 'por entrega', color: 'bg-violet-50 text-violet-600' }
+			{
+				label: 'Ganancia bruta',
+				valor: formatearPeso(resumen.ingresos),
+				icon: 'coins',
+				hint: 'total de los entregados',
+				color: 'bg-emerald-50 text-emerald-600'
+			},
+			{
+				label: 'Comisiones a pagar',
+				valor: formatearPeso(resumen.comisiones_pagadas),
+				icon: 'receipt',
+				hint: 'comisión diaria de domiciliarios',
+				color: 'bg-amber-50 text-amber-600'
+			},
+			{
+				label: 'Ganancia neta',
+				valor: formatearPeso(resumen.ingresos_netos),
+				icon: 'arrow-trend-up',
+				hint: 'bruta − comisiones',
+				color: 'bg-violet-50 text-violet-600'
+			},
+			{
+				label: 'Ticket promedio',
+				valor: formatearPeso(resumen.ticket_promedio),
+				icon: 'ticket',
+				hint: 'por entrega',
+				color: 'bg-sky-50 text-sky-600'
+			}
 		];
 	});
 
@@ -248,7 +274,7 @@
 	</div>
 {:else if resumen}
 	<!-- Tarjetas de resumen -->
-	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 		{#each tarjetas as tarjeta (tarjeta.label)}
 			<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 				<div class="flex items-center justify-between">

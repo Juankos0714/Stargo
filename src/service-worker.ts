@@ -81,3 +81,52 @@ self.addEventListener('fetch', (event) => {
 
 	event.respondWith(cacheFirst(req));
 });
+
+// ---------- Web Push (Fase 15) ----------
+// La Edge Function send-push envía { title, body, icon, badge, data:{url} }.
+interface DatosPush {
+	title?: string;
+	body?: string;
+	icon?: string;
+	badge?: string;
+	data?: { url?: string; pedidoId?: string | null };
+}
+
+self.addEventListener('push', (event) => {
+	let datos: DatosPush = {};
+	try {
+		datos = event.data ? (event.data.json() as DatosPush) : {};
+	} catch {
+		datos = { body: event.data?.text() };
+	}
+
+	event.waitUntil(
+		self.registration.showNotification(datos.title ?? 'StarGo', {
+			body: datos.body ?? 'Tienes una nueva notificación de StarGo.',
+			icon: datos.icon ?? '/icons/icon-192.png',
+			badge: datos.badge ?? '/icons/icon-192.png',
+			data: datos.data ?? {}
+		})
+	);
+});
+
+self.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const url = event.notification.data?.url ?? '/';
+
+	event.waitUntil(
+		(async () => {
+			const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+			for (const win of wins) {
+				try {
+					await win.navigate(url);
+					await win.focus();
+					return;
+				} catch {
+					// La ventana pudo no estar controlada por este SW: seguir.
+				}
+			}
+			await self.clients.openWindow(url);
+		})()
+	);
+});

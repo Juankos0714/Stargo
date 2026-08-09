@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
+	ComisionNivel,
 	EstadoPedido,
 	Pedido,
 	Reporte,
@@ -8,6 +9,7 @@ import type {
 	ReporteResumen,
 	ReporteSerie
 } from '$lib/types';
+import { comisionDiaria, totalesDiarios as totalesDiariosComision } from '$lib/logic/comisiones';
 
 /** Estados que cuentan como pedido «en proceso» (tiene un repartidor activo). */
 export const EN_CURSO: EstadoPedido[] = ['asignado', 'aceptado', 'recogido', 'en_camino'];
@@ -147,6 +149,7 @@ export function pedidosACsv(pedidos: ReportePedidoFila[]): string {
 		'estado',
 		'tarifa',
 		'total',
+		'comision',
 		'origen',
 		'destino',
 		'domiciliario',
@@ -158,6 +161,7 @@ export function pedidosACsv(pedidos: ReportePedidoFila[]): string {
 		p.estado,
 		p.tarifa_base,
 		p.total ?? p.tarifa_base,
+		p.comision ?? '',
 		`${p.barrio_origen_nombre ?? ''}${p.direccion_origen ? ` · ${p.direccion_origen}` : ''}`,
 		`${p.barrio_destino_nombre ?? ''}${p.direccion_destino ? ` · ${p.direccion_destino}` : ''}`,
 		p.domiciliario_nombre ?? '',
@@ -244,7 +248,7 @@ export async function obtenerPedidosReporte(
 	if (!rango) throw new Error('Rango de fechas inválido.');
 	const pedidos = await obtenerPedidos(db, rango.desdeUTC, rango.hastaExclUTC);
 
-	const idsBarrios = [...new Set(pedidos.flatMap((p) => [p.barrio_origen_id, p.barrio_destino_id]))];
+	const idsBarrios = [...new Set(pedidos.flatMap((p) => [p.barrio_origen_id, p.barrio_destino_id]))].filter(Boolean) as string[];
 	const nombresBarrios = idsBarrios.length > 0 ? await resolverNombres(anon, 'barrios', idsBarrios) : new Map<string, string>();
 
 	const idsDom = [...new Set(pedidos.map((p) => p.domiciliario_id).filter(Boolean))] as string[];
@@ -252,7 +256,7 @@ export async function obtenerPedidosReporte(
 
 	const filas: ReportePedidoFila[] = pedidos.map((p) => ({
 		...p,
-		barrio_origen_nombre: nombresBarrios.get(p.barrio_origen_id) ?? null,
+		barrio_origen_nombre: p.barrio_origen_id ? (nombresBarrios.get(p.barrio_origen_id) ?? null) : null,
 		barrio_destino_nombre: nombresBarrios.get(p.barrio_destino_id) ?? null,
 		domiciliario_nombre: p.domiciliario_id ? (nombresDom.get(p.domiciliario_id) ?? null) : null
 	}));
@@ -294,6 +298,34 @@ export async function obtenerReporte(
 	const ocupados = await obtenerOcupados(db);
 	const ocupadosActivos = activos.filter((d) => ocupados.has(d.id)).length;
 
+	// Comisiones a pagar en el rango (Fase 13): la comisión es DIARIA y
+	// acumulada por domiciliario — se agrupan los entregados del rango por día
+	// (hora de Bogotá) y se aplica la escalera VIGENTE de comision_niveles.
+	// Esto es lo que la app efectivamente cobra a los domiciliarios por las
+	// entregas del período (no el snapshot informativo pedidos.comision).
+	let comisiones_pagadas = 0;
+	const { data: niveles, error: errNiv } = await db.from('comision_niveles').select('*').order('nivel');
+	if (errNiv) throw new Error(errNiv.message);
+	const escalera = (niveles ?? []) as ComisionNivel[];
+	if (escalera.length > 0) {
+		const porDia = totalesDiariosComision(
+			pedidos
+				.filter((p) => p.estado === 'entregado')
+				.map((p) => ({
+					domiciliario_id: p.domiciliario_id,
+					total: p.total,
+					tarifa_base: p.tarifa_base,
+					recargo_total: p.recargo_total,
+					updated_at: p.updated_at
+				}))
+		);
+		for (const dias of porDia.values()) {
+			for (const [, totalDia] of dias) {
+				comisiones_pagadas += comisionDiaria(escalera, totalDia);
+			}
+		}
+	}
+
 	const resumen: ReporteResumen = {
 		total: pedidos.length,
 		por_estado,
@@ -301,6 +333,8 @@ export async function obtenerReporte(
 		entregados,
 		cancelados,
 		ingresos,
+		comisiones_pagadas,
+		ingresos_netos: ingresos - comisiones_pagadas,
 		ticket_promedio: entregados > 0 ? Math.round(ingresos / entregados) : 0,
 		domiciliarios_activos: activos.length,
 		domiciliarios_ocupados: ocupadosActivos,

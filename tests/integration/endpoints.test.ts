@@ -59,6 +59,8 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Endpoints de pedidos (SvelteKit ↔ Su
 				barrio_destino: cat.barrioB,
 				direccion_origen: direccionOrigenTest(),
 				direccion_destino: direccionDestinoTest(),
+				// Fase 14: decisión explícita de recargos.
+				recargos_confirmados_no_aplica: true,
 				...extra
 			}
 		});
@@ -112,7 +114,46 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Endpoints de pedidos (SvelteKit ↔ Su
 			const antes = await contarPedidosEndpoint();
 			const r = await crearPedidoHttp({ direccion_destino: '' });
 			expect(r.status).toBe(400);
-			expect(mensaje(r)).toMatch(/Las direcciones de origen y destino son obligatorias/);
+			expect(mensaje(r)).toMatch(/dirección de destino es obligatoria/);
+			expect(await contarPedidosEndpoint()).toBe(antes);
+		});
+
+		test('sin recargos y sin «No aplica» → 400 (decisión obligatoria, Fase 14)', async () => {
+			const antes = await contarPedidosEndpoint();
+			const r = await crearPedidoHttp({ recargos_confirmados_no_aplica: false });
+			expect(r.status).toBe(400);
+			expect(mensaje(r)).toMatch(/No aplica/);
+			expect(await contarPedidosEndpoint()).toBe(antes);
+		});
+
+		test('compra/diligencia sin origen → 200 con tarifa_base 0 (sin tarifa automática)', async () => {
+			const r = await crearPedidoHttp({
+				tipo_servicio: 'compra_diligencia',
+				barrio_origen: '',
+				direccion_origen: ''
+			});
+			expect(r.status, mensaje(r)).toBe(200);
+			expect(r.data?.data).toMatchObject({ tarifa_base: 0, estado: 'pendiente' });
+
+			const { data: fila, error } = await clienteService()
+				.from('pedidos')
+				.select('tipo_servicio, tarifa_base, barrio_origen_id, recargos_confirmados_no_aplica')
+				.eq('numero', r.data?.data?.numero)
+				.single();
+			expect(error).toBeNull();
+			expect(fila).toMatchObject({
+				tipo_servicio: 'compra_diligencia',
+				tarifa_base: 0,
+				barrio_origen_id: null,
+				recargos_confirmados_no_aplica: true
+			});
+		});
+
+		test('domicilio sin origen → 400 (el origen sigue siendo obligatorio)', async () => {
+			const antes = await contarPedidosEndpoint();
+			const r = await crearPedidoHttp({ barrio_origen: '', direccion_origen: '' });
+			expect(r.status).toBe(400);
+			expect(mensaje(r)).toMatch(/barrio de origen/);
 			expect(await contarPedidosEndpoint()).toBe(antes);
 		});
 
@@ -140,7 +181,8 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Endpoints de pedidos (SvelteKit ↔ Su
 						barrio_origen: barrio,
 						barrio_destino: cat.barrioB,
 						direccion_origen: direccionOrigenTest(),
-						direccion_destino: direccionDestinoTest()
+						direccion_destino: direccionDestinoTest(),
+						recargos_confirmados_no_aplica: true
 					}
 				});
 				expect(r.status).toBe(400);
