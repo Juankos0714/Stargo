@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/public';
 import { browser } from '$app/environment';
-import { esClaveVapidValida } from '$lib/push-vapid';
+import { esClaveVapidValida, base64UrlABytes } from '$lib/push-vapid';
 
 /**
  * Web Push (Fase 15).
@@ -35,6 +35,28 @@ export function pushSoportado(): boolean {
 		'Notification' in window &&
 		Boolean(env.PUBLIC_VAPID_PUBLIC_KEY)
 	);
+}
+
+/**
+ * ¿La suscripción se creó con la clave VAPID actual?
+ *
+ * Tras regenerar las claves VAPID, las suscripciones viejas siguen en el
+ * navegador pero el servicio de push las rechaza siempre (403
+ * VapidPkHashMismatch): la applicationServerKey embebida no coincide con la
+ * pública que firma. Al activar, esto detecta el desajuste para poder
+ * regenerar la suscripción. Si el navegador no expone `options` (navegadores
+ * viejos) no se puede saber → se conserva la suscripción (no tocar).
+ */
+function suscripcionUsaLlaveActual(sub: PushSubscription, claveBase64Url: string): boolean {		try {
+			const serverKey = (sub.options as { applicationServerKey?: ArrayBuffer | null } | null)
+				?.applicationServerKey;
+			if (!serverKey) return true;
+			const actual = new Uint8Array(serverKey);
+			const esperado = base64UrlABytes(claveBase64Url);
+			return actual.length === esperado.length && actual.every((b, i) => b === esperado[i]);
+		} catch {
+			return true;
+		}
 }
 
 /** ¿Ya está suscrito en este navegador? (null si no se puede saber). */
@@ -76,6 +98,13 @@ export async function suscribirPush(): Promise<{ ok: boolean; error?: string }> 
 
 	const reg = await navigator.serviceWorker.ready;
 	let sub = await reg.pushManager.getSubscription();
+	// Si ya hay suscripción pero fue creada con OTRA clave VAPID (p. ej. después
+	// de regenerar el par), reutilizarla es inútil: el push falla siempre con
+	// 403 VapidPkHashMismatch. Se regenera la suscripción en ese caso.
+	if (sub && !suscripcionUsaLlaveActual(sub, clave)) {
+		await sub.unsubscribe().catch(() => undefined);
+		sub = null;
+	}
 	if (!sub) {
 		sub = await reg.pushManager.subscribe({
 			userVisibleOnly: true,

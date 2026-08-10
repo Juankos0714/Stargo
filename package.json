@@ -25,6 +25,8 @@
 		"test:smoke": "bun scripts/smoke-test.mjs",
 		"test:alertas": "bun scripts/probar-alertas.mjs",
 		"test:push": "bun scripts/probar-push.mjs",
+		"check:vapid": "bun scripts/verificar-vapid.mjs",
+		"check:deploy": "bun scripts/check-despliegue-push.mjs",
 		"bundle:budget": "bun scripts/bundle-budget.mjs",
 		"perf:lighthouse": "bun scripts/lighthouse.mjs",
 		"go-no-go": "bun scripts/go-no-go.mjs"

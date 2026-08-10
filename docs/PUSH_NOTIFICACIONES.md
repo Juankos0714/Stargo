@@ -116,6 +116,24 @@ pero NO llega con la app cerrada, el problema está en la cadena del Web Push
 (webhook → Edge Function → suscripción). El diagnóstico prueba TODOS los
 eslabones de una vez y dice cuál está roto.
 
+### Verificación previa sin credenciales
+
+Dos scripts comprueban el estado real del despliegue SIN necesidad de login
+(la Edge Function es `verify_jwt = false` y su modo diagnóstico no envía nada):
+
+```bash
+bun run check:vapid   # ¿send-push desplegada? ¿secrets VAPID existen? ¿la pública
+                      # del cliente y la de Supabase son la MISMA pareja (huella)?
+bun run check:deploy  # ¿la app desplegada en Vercel trae el código más reciente
+                      # (botón de diagnóstico, validación VAPID, respaldo SW)?
+```
+
+> **Hallazgo típico de `check:vapid`:** `404 Requested function was not found`
+> significa que la Edge Function **no está desplegada en el proyecto real** de
+> Supabase (o está en otro proyecto/ref). Es la causa de que «no llegue nada»
+> aunque el webhook y las secrets existan: cada llamada del webhook recibe
+> 404. La solución es desplegarla con la CLI (sección siguiente).
+
 ### Antes de diagnosticar: aplicar la migración y redesplegar la función
 
 Dos piezas del diagnóstico requieren actualizar el proyecto en Supabase

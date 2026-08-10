@@ -140,8 +140,17 @@ Deno.serve(async (req) => {
 			enviadas++;
 		} catch (e) {
 			// 404/410: la suscripción ya no existe → se limpia para no reintentar.
+			// 403 VapidPkHashMismatch: se creó con otra clave VAPID (se regeneró
+			// el par) → se limpia: la reactivación desde la campanita crea una
+			// nueva con la clave correcta. Otros 403 se conservan (pueden ser
+			// temporales del proveedor de push).
 			const status = (e as { statusCode?: number })?.statusCode;
-			if (status === 404 || status === 410) {
+			const cuerpo = String((e as { body?: unknown })?.body ?? '');
+			if (
+				status === 404 ||
+				status === 410 ||
+				(status === 403 && /VapidPkHashMismatch|ExpiredSubscription/i.test(cuerpo))
+			) {
 				await supabase.from('push_subscriptions').delete().eq('id', sub.id);
 			} else {
 				console.error('Push fallido para', sub.endpoint, (e as Error)?.message);

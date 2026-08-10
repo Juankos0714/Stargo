@@ -248,7 +248,7 @@ export const POST: RequestHandler = async (event) => {
 			diagnostico: 'ENVÍO FALLIDO',
 			ok: false,
 			detalle:
-				'VAPID pareado y webhook OK, pero la Edge Function no envió ningún push.\nLas suscripciones guardadas están probablemente expiradas (se limpian solas).\nReabre la campanita y pulsa «Activar notificaciones push» para regenerarlas.'
+				'VAPID pareado y webhook OK, pero la Edge Function no envió ningún push.\nCausa más probable: las suscripciones guardadas se crearon con la clave VAPID ANTERIOR (si regeneraste el par) o están expiradas — el servicio de push las rechaza en silencio (403) y send-push ya las va limpiando.\nSolución: en la campanita pulsa «Activar notificaciones push»: ahora regenera la suscripción automáticamente si detecta la clave vieja.'
 		}
 	});
 };
