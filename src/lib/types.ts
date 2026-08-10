@@ -140,6 +140,12 @@ export interface ComisionHistorico {
 	niveles: ComisionNivel[];
 	/** Paso de la escalera congelada (referencia). */
 	paso: number;
+	/**
+	 * true si la fila la generó el BACKFILL de la Fase 18 (escalera ACTUAL
+	 * aplicada a días pasados, aproximación documentada). Las filas congeladas
+	 * en tiempo real por congelar_comisiones_dia() nacen con false.
+	 */
+	es_backfill?: boolean;
 	creado_en?: string;
 }
 
@@ -233,6 +239,10 @@ export interface Pedido {
 	barrio_destino_id: string | null;
 	direccion_destino: string;
 	observaciones: string | null;
+	/** Celular del cliente (10 dígitos, normalizado) para coordinar por WhatsApp (Fase 19). NULL en pedidos previos a la Fase 19. */
+	telefono: string | null;
+	/** Nombre del cliente, opcional (Fase 19): el mensaje de WhatsApp lo saluda solo cuando existe. */
+	nombre_cliente: string | null;
 	tarifa_base: number;
 	/** Snapshot de recargos aplicados (Fase 7). */
 	recargos: RecargoAplicado[] | null;
@@ -467,3 +477,11 @@ export {
 	validarHoras
 } from './logic/horario';
 export { DOMINIO_EMAIL_SINTETICO, emailSinteticoDe, esEmail, normalizarUsername, usernameValido } from './logic/usuario';
+export {
+	INDICATIVO_COLOMBIA,
+	NOMBRE_EMPRESA,
+	mensajeWhatsAppAdmin,
+	mensajeWhatsAppDomiciliario,
+	normalizarTelefonoWhatsApp,
+	urlWhatsApp
+} from './logic/whatsapp';

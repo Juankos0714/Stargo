@@ -309,7 +309,9 @@ export async function crearPedidoAPI(
 			barrio_destino: e.catalogo.barrioB,
 			direccion_destino: `Dir e2e ${e.prefijo} destino API`,
 			observaciones: 'creado por API E2E',
-			recargos: opts.recargos ?? []
+			recargos: opts.recargos ?? [],
+			// Fase 19: el teléfono es obligatorio.
+			telefono: '3001234567'
 		}
 	});
 	const creado = r.data?.data;
@@ -388,6 +390,9 @@ export async function crearPedidoUI(
 		// El único recargo activo del catálogo es "E2E Compra".
 		await page.getByText('E2E Compra', { exact: true }).click();
 	}
+	// Fase 19: contacto del cliente (nombre opcional + celular obligatorio).
+	await page.locator('#cli-nombre').fill('Ana E2E');
+	await page.locator('#cli-telefono').fill('3001234567');
 	// La tarifa calculada aparece al tener ambos barrios (A→B = 6000).
 	await page.getByText(/6\.000/).first().waitFor({ timeout: 15_000 });
 	await page.getByRole('button', { name: 'Confirmar pedido' }).click();

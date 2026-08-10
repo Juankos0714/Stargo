@@ -14,7 +14,9 @@ const pedidoValido: DatosPedido = {
 	direccionDestino: 'Carrera 19 # 20-30',
 	observaciones: '',
 	// Decisión explícita de recargos: se marca «No aplica» (Fase 14).
-	recargosConfirmadosNoAplica: true
+	recargosConfirmadosNoAplica: true,
+	// Teléfono del cliente (Fase 19): obligatorio.
+	telefono: '3001234567'
 };
 
 describe('validarPedido (formulario de pedido)', () => {
@@ -83,6 +85,33 @@ describe('validarPedido (formulario de pedido)', () => {
 		expect(
 			validarPedido({ ...pedidoValido, recargos: ['rc-compra'], recargosConfirmadosNoAplica: false })
 		).toEqual({});
+	});
+
+	test('el teléfono es obligatorio para coordinar la entrega (Fase 19)', () => {
+		const e = validarPedido({ ...pedidoValido, telefono: '' });
+		expect(e.telefono).toBe('El teléfono es obligatorio para coordinar la entrega.');
+
+		const e2 = validarPedido({ ...pedidoValido, telefono: '   ' });
+		expect(e2.telefono).toBe('El teléfono es obligatorio para coordinar la entrega.');
+	});
+
+	test('un teléfono que no es móvil colombiano se rechaza (Fase 19)', () => {
+		const e = validarPedido({ ...pedidoValido, telefono: '4001234567' });
+		expect(e.telefono).toBe('Ingresa un número de celular colombiano válido (10 dígitos).');
+
+		const e2 = validarPedido({ ...pedidoValido, telefono: '300123456' }); // 9 dígitos
+		expect(e2.telefono).toBe('Ingresa un número de celular colombiano válido (10 dígitos).');
+	});
+
+	test('el teléfono acepta formato con espacios/guiones y prefijo +57 (Fase 19)', () => {
+		expect(validarPedido({ ...pedidoValido, telefono: '+57 300 123 4567' })).toEqual({});
+	});
+
+	test(`el nombre del cliente opcional se rechaza si pasa de ${LIMITES.nombreCliente} caracteres`, () => {
+		const e = validarPedido({ ...pedidoValido, nombreCliente: 'x'.repeat(LIMITES.nombreCliente + 1) });
+		expect(e.nombreCliente).toBe(`Máximo ${LIMITES.nombreCliente} caracteres.`);
+
+		expect(validarPedido({ ...pedidoValido, nombreCliente: '' })).toEqual({});
 	});
 });
 

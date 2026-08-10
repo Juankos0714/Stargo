@@ -121,23 +121,40 @@ describe.skipIf(!RLS_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase 11)', (
 		return pedido;
 	}
 
-	describe('comision_niveles: solo el admin escribe', () => {
-		test('el admin actualiza el valor de un nivel', async () => {
-			const { error } = await clienteComo(admin.token)
-				.from('comision_niveles')
-				.update({ valor: 2200 })
-				.eq('nivel', 2);
-			expect(error, `update admin falló: ${error?.message}`).toBeNull();
+	describe('comision_niveles: solo el admin escribe (y solo vía RPC, Fase 18)', () => {
+		test('el admin actualiza el valor de un nivel vía el RPC actualizar_nivel_comision', async () => {
+			const { data: fila } = await servicio.from('comision_niveles').select('id').eq('nivel', 2).single();
+			expect(fila, 'debería existir el nivel 2 sembrado').not.toBeNull();
+			const { error } = await clienteComo(admin.token).rpc('actualizar_nivel_comision', {
+				p_id: fila!.id,
+				p_valor: 2200
+			});
+			expect(error, `RPC actualizar falló: ${error?.message}`).toBeNull();
 			expect(await valorNivel(2)).toBe(2200);
 		});
 
-		test('un domiciliario o cliente NO pueden escribir (0 filas y valor intacto)', async () => {
-			const r1 = await clienteComo(domA.token).from('comision_niveles').update({ valor: 999 }).eq('nivel', 2);
-			expect(r1.error).toBeNull();
-			expect((r1.data ?? []).length).toBe(0);
-			const r2 = await clienteComo(cliente.token).from('comision_niveles').update({ valor: 999 }).eq('nivel', 2);
-			expect(r2.error).toBeNull();
-			expect((r2.data ?? []).length).toBe(0);
+		test('el admin NO puede escribir DIRECTO (sin RPC): el trigger lo bloquea (Fase 18)', async () => {
+			// Es admin (es_admin() = true), pero la escritura no pasa por el RPC
+			// que congela el día: el trigger trg_bloquear_escritura_directa debe
+			// rechazarla (la transacción no lleva el flag app.commission_write_allowed).
+			const r = await clienteComo(admin.token)
+				.from('comision_niveles')
+				.update({ valor: 777 })
+				.eq('nivel', 2);
+			expect(r.error, 'UPDATE directo de admin debería estar bloqueado por el trigger').not.toBeNull();
+			expect((r.error?.message ?? '').toLowerCase()).toMatch(/no permitida|42501/);
+			expect(await valorNivel(2)).toBe(2200); // el valor quedó intacto
+		});
+
+		test('un domiciliario o cliente NO pueden escribir (denegado: error u 0 filas)', async () => {
+			esperaDenegado(
+				await actualizacion(clienteComo(domA.token), 'comision_niveles', 'nivel', 2, { valor: 999 }),
+				'domiciliario UPDATE niveles'
+			);
+			esperaDenegado(
+				await actualizacion(clienteComo(cliente.token), 'comision_niveles', 'nivel', 2, { valor: 999 }),
+				'cliente UPDATE niveles'
+			);
 			expect(await valorNivel(2)).toBe(2200);
 		});
 
@@ -186,11 +203,15 @@ describe.skipIf(!RLS_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase 11)', (
 			const porId = new Map((filas ?? []).map((f) => [f.id, f.comision]));
 			expect(porId.get(barato.id)).toBe(1300);
 			expect(porId.get(caro.id)).toBe(2200);
-		});
-
-		test('cambiar un nivel después no altera los pedidos ya entregados', async () => {
-			// Sube el nivel 2 a 9999 después de las entregas.
-			await clienteComo(admin.token).from('comision_niveles').update({ valor: 9999 }).eq('nivel', 2);
+		});			test('cambiar un nivel después no altera los pedidos ya entregados', async () => {
+			// Sube el nivel 2 a 9999 después de las entregas (vía el RPC autorizado).
+			const { data: fila } = await servicio.from('comision_niveles').select('id').eq('nivel', 2).single();
+			expect(fila, 'debería existir el nivel 2 sembrado').not.toBeNull();
+			const { error } = await clienteComo(admin.token).rpc('actualizar_nivel_comision', {
+				p_id: fila!.id,
+				p_valor: 9999
+			});
+			expect(error, `RPC actualizar falló: ${error?.message}`).toBeNull();
 			expect(await valorNivel(2)).toBe(9999);
 
 			const { data: entregados } = await servicio

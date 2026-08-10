@@ -141,7 +141,8 @@ describe.skipIf(!RLS_DISPONIBLE)('RPCs (base real)', () => {
 				p_barrio_destino_id: cat.barrioB,
 				p_direccion_destino: 'Carrera 19 # 20-30',
 				p_observaciones: null,
-				p_recargos: null
+				p_recargos: null,
+				p_telefono: '3001234567'
 			});
 			expect(error, `crear_pedido falló: ${error?.message}`).toBeNull();
 			expect(data?.numero).toBeTruthy();
@@ -159,7 +160,8 @@ describe.skipIf(!RLS_DISPONIBLE)('RPCs (base real)', () => {
 				p_barrio_destino_id: cat.barrioB,
 				p_direccion_destino: 'y',
 				p_observaciones: null,
-				p_recargos: [cat.recargoCompra.codigo, cat.recargoPeso.codigo]
+				p_recargos: [cat.recargoCompra.codigo, cat.recargoPeso.codigo],
+				p_telefono: '3001234567'
 			});
 			expect(error, `crear_pedido falló: ${error?.message}`).toBeNull();
 			expect(data?.tarifa_base).toBe(6000);
@@ -178,7 +180,8 @@ describe.skipIf(!RLS_DISPONIBLE)('RPCs (base real)', () => {
 				p_barrio_destino_id: barrioE,
 				p_direccion_destino: 'y',
 				p_observaciones: null,
-				p_recargos: null
+				p_recargos: null,
+				p_telefono: '3001234567'
 			});
 			expect(error).toBeNull();
 			expect(data).toBeNull();
@@ -193,7 +196,8 @@ describe.skipIf(!RLS_DISPONIBLE)('RPCs (base real)', () => {
 				p_observaciones: null,
 				p_recargos: null,
 				p_tipo_servicio: 'compra_diligencia',
-				p_recargos_confirmados_no_aplica: true
+				p_recargos_confirmados_no_aplica: true,
+				p_telefono: '3001234567'
 			});
 			expect(error, `crear_pedido compra falló: ${error?.message}`).toBeNull();
 			expect(data?.tarifa_base).toBe(0);
@@ -208,7 +212,8 @@ describe.skipIf(!RLS_DISPONIBLE)('RPCs (base real)', () => {
 				p_barrio_destino_id: cat.barrioB,
 				p_direccion_destino: 'y',
 				p_observaciones: null,
-				p_recargos: null
+				p_recargos: null,
+				p_telefono: '3001234567'
 			});
 			expect(r.error, 'se esperaba error por falta de origen').not.toBeNull();
 			expect(r.error?.message ?? '').toMatch(/Selecciona el barrio de origen/);
@@ -222,10 +227,62 @@ describe.skipIf(!RLS_DISPONIBLE)('RPCs (base real)', () => {
 				p_direccion_destino: 'y',
 				p_observaciones: null,
 				p_recargos: null,
-				p_tipo_servicio: 'inventado'
+				p_tipo_servicio: 'inventado',
+				p_telefono: '3001234567'
 			});
 			expect(r.error, 'se esperaba error por tipo de servicio inválido').not.toBeNull();
 			expect(r.error?.message ?? '').toMatch(/Tipo de servicio no válido/);
+		});
+
+		test('sin teléfono el pedido NO se crea (Fase 19: obligatorio en la BD)', async () => {
+			const r = await anon.rpc('crear_pedido', {
+				p_barrio_origen_id: cat.barrioA,
+				p_direccion_origen: 'x',
+				p_barrio_destino_id: cat.barrioB,
+				p_direccion_destino: 'y',
+				p_observaciones: null,
+				p_recargos: null
+			});
+			expect(r.data).toBeNull();
+			expect(r.error?.message ?? '').toMatch(/El teléfono es obligatorio/);
+		});
+
+		test('teléfono que no es móvil colombiano es un error en la BD (Fase 19)', async () => {
+			const r = await anon.rpc('crear_pedido', {
+				p_barrio_origen_id: cat.barrioA,
+				p_direccion_origen: 'x',
+				p_barrio_destino_id: cat.barrioB,
+				p_direccion_destino: 'y',
+				p_observaciones: null,
+				p_recargos: null,
+				p_telefono: '4001234567'
+			});
+			expect(r.data).toBeNull();
+			expect(r.error?.message ?? '').toMatch(/celular colombiano válido/);
+		});
+
+		test('guarda el teléfono NORMALIZADO (10 dígitos) y el nombre opcional (Fase 19)', async () => {
+			const { data, error } = await anon.rpc('crear_pedido', {
+				p_barrio_origen_id: cat.barrioA,
+				p_direccion_origen: 'x',
+				p_barrio_destino_id: cat.barrioB,
+				p_direccion_destino: 'y',
+				p_observaciones: null,
+				p_recargos: null,
+				p_tipo_servicio: 'domicilio',
+				p_recargos_confirmados_no_aplica: true,
+				p_telefono: '+57 300 123 4567',
+				p_nombre_cliente: '  Ana María  '
+			});
+			expect(error, `crear_pedido falló: ${error?.message}`).toBeNull();
+
+			const { data: fila } = await servicio
+				.from('pedidos')
+				.select('telefono, nombre_cliente')
+				.eq('id', data.pedido_id)
+				.single();
+			expect(fila?.telefono).toBe('3001234567');
+			expect(fila?.nombre_cliente).toBe('Ana María');
 		});
 	});
 
@@ -248,6 +305,21 @@ describe.skipIf(!RLS_DISPONIBLE)('RPCs (base real)', () => {
 			});
 			expect(error).toBeNull();
 			expect(data).toBeNull();
+		});
+
+		test('NO expone el teléfono ni el nombre del cliente (público, Fase 19)', async () => {
+			const pedido = await sembrarPedido({
+				barrioOrigenId: cat.barrioA,
+				barrioDestinoId: cat.barrioB,
+				estado: 'pendiente'
+			});
+			// Siembra el teléfono como lo haría crear_pedido (columna nueva).
+			await servicio.from('pedidos').update({ telefono: '3001234567', nombre_cliente: 'Ana' }).eq('id', pedido.id);
+
+			const { data, error } = await anon.rpc('consultar_pedido', { p_numero: pedido.numero });
+			expect(error).toBeNull();
+			expect(data?.pedido?.telefono).toBeUndefined();
+			expect(data?.pedido?.nombre_cliente).toBeUndefined();
 		});
 	});
 

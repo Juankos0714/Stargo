@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
 	import BadgeEstado from '$lib/components/BadgeEstado.svelte';
+	import BotonWhatsApp from '$lib/components/BotonWhatsApp.svelte';
 	import TablaNiveles from '$lib/components/TablaNiveles.svelte';
 	import { hidratarSesionRealtime } from '$lib/supabase-browser';
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
@@ -13,6 +14,7 @@
 		accionDomiciliario,
 		etiquetaEstado,
 		formatearPeso,
+		mensajeWhatsAppDomiciliario,
 		rangoDeNiveles,
 		type CuentaDomiciliario,
 		type HistorialEstado,
@@ -418,6 +420,18 @@
 						>
 							{guardando[p.id] ? 'Guardando…' : accion.etiqueta}
 						</button>
+					{/if}
+					{#if p.telefono}
+						<!-- Teléfono del cliente visible (Tarea 2): solo en los pedidos asignados a este domiciliario. -->
+						<span class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+							<Icon name="phone" class="size-3.5 text-primary" />
+							{p.nombre_cliente ? `${p.nombre_cliente} · ` : ''}{p.telefono}
+						</span>
+						<BotonWhatsApp
+							telefono={p.telefono}
+							mensaje={mensajeWhatsAppDomiciliario(p.numero, p.nombre_cliente)}
+							label="Escribir al cliente"
+						/>
 					{/if}
 					<a
 						href={urlNavegacion(p)}

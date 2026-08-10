@@ -64,6 +64,9 @@
 	let observaciones = $state('');
 	let recargosSel = $state<string[]>([]);
 	let recargosConfirmadosNoAplica = $state(false);
+	// Contacto del cliente (Fase 19): el celular es obligatorio y el nombre opcional.
+	let nombreCliente = $state('');
+	let telefono = $state('');
 	let errores = $state<Record<string, string>>({});
 
 	let precio = $state<{ valor: number | null; meta: Record<string, unknown> } | null>(null);
@@ -164,7 +167,9 @@
 			observaciones,
 			recargos: recargosSel,
 			tipoServicio,
-			recargosConfirmadosNoAplica
+			recargosConfirmadosNoAplica,
+			telefono,
+			nombreCliente
 		});
 		return Object.keys(errores).length === 0;
 	}
@@ -244,11 +249,13 @@
 			direccion_origen: dirOrigen,
 			barrio_destino: destino,
 			direccion_destino: dirDestino,
-			observaciones: observaciones || undefined,
-			tipo_servicio: tipoServicio,
-			recargos: recargosSel,
-			recargos_confirmados_no_aplica: recargosConfirmadosNoAplica
-		});
+		observaciones: observaciones || undefined,
+		tipo_servicio: tipoServicio,
+		recargos: recargosSel,
+		recargos_confirmados_no_aplica: recargosConfirmadosNoAplica,
+		nombre_cliente: nombreCliente.trim() || undefined,
+		telefono: telefono.trim()
+	});
 		confirmando = false;
 		if (r.error) {
 			error = r.error;
@@ -269,6 +276,8 @@
 		observaciones = '';
 		recargosSel = [];
 		recargosConfirmadosNoAplica = false;
+		nombreCliente = '';
+		telefono = '';
 		errores = {};
 		precio = null;
 		error = null;
@@ -669,6 +678,49 @@
 						{#if errores.observaciones}
 							<p class="mt-1 text-xs text-red-600">{errores.observaciones}</p>
 						{/if}
+					</div>
+
+					<!-- Contacto (Fase 19): el celular es obligatorio para coordinar por WhatsApp -->
+					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+						<h2 class="mb-1 text-sm font-bold tracking-wide text-slate-500 uppercase">Tus datos</h2>
+						<p class="mb-4 text-xs text-slate-400">
+							El negocio y el domiciliario te contactarán por WhatsApp para coordinar la entrega.
+						</p>
+						<div class="grid gap-4 sm:grid-cols-2">
+							<div>
+								<label for="cli-nombre" class="mb-1.5 block text-sm font-semibold text-slate-700">
+									Nombre <span class="font-normal text-slate-400">(opcional)</span>
+								</label>
+								<input
+									id="cli-nombre"
+									type="text"
+									bind:value={nombreCliente}
+									maxlength="120"
+									placeholder="Ej: Ana María"
+									class="w-full rounded-xl border px-4 py-2.5 text-sm shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 bg-white text-slate-900 {errores.nombreCliente ? 'border-red-400' : 'border-slate-300'}"
+								/>
+								{#if errores.nombreCliente}
+									<p class="mt-1 text-xs text-red-600">{errores.nombreCliente}</p>
+								{/if}
+							</div>
+							<div>
+								<label for="cli-telefono" class="mb-1.5 block text-sm font-semibold text-slate-700">
+									Celular <span class="font-normal text-amber-600">(obligatorio)</span>
+								</label>
+								<input
+									id="cli-telefono"
+									type="tel"
+									inputmode="numeric"
+									bind:value={telefono}
+									maxlength="20"
+									placeholder="300 123 4567"
+									class="w-full rounded-xl border px-4 py-2.5 text-sm shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 bg-white text-slate-900 {errores.telefono ? 'border-red-400' : 'border-slate-300'}"
+								/>
+								{#if errores.telefono}
+									<p class="mt-1 text-xs text-red-600">{errores.telefono}</p>
+								{/if}
+							</div>
+						</div>
 					</div>
 
 					<div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">

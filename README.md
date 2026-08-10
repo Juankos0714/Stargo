@@ -250,6 +250,15 @@ cp .env.test.example .env.test  # credenciales del proyecto local
 bun run test:rls               # suite de RLS (67 casos)
 ```
 
+> **JWT_SECRET**: las suites no lo necesitan (el Auth local firma los tokens de
+> los usuarios de prueba con el secret de tu instancia). Si alguna vez fallan
+> con errores de JWT (`Expected 3 parts in JWT`, 401 en el seeding), es que los
+> keys de `.env.test` no coinciden con los de tu instancia: sácalos con
+> `supabase status` (o `supabase status -o env`) y actualiza `SUPABASE_URL`/
+> `SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`. El secret vive en
+> `supabase/config.toml → [auth] jwt_secret` (default del CLI); cambiarlo
+> invalida los keys por defecto del `.env.test.example`.
+
 La suite cubre, por cada tabla y cada rol (anon / cliente / admin / domiciliario):
 qué filas puede SELECT y qué puede INSERT/UPDATE/DELETE; que un cliente NO lea
 pedidos (ni los suyos por SQL directo), que un domiciliario NO vea pedidos ajenos

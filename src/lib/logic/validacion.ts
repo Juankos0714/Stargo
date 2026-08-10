@@ -10,7 +10,8 @@ export const LIMITES = {
 	direccion: 300,
 	observaciones: 1000,
 	recargos: 15,
-	motivoCancelacion: 300
+	motivoCancelacion: 300,
+	nombreCliente: 120
 } as const;
 
 export interface DatosPedido {
@@ -24,6 +25,10 @@ export interface DatosPedido {
 	tipoServicio?: string;
 	/** El usuario marcó explícitamente que no aplican recargos (Fase 14). */
 	recargosConfirmadosNoAplica?: boolean;
+	/** Celular del cliente: obligatorio para coordinar por WhatsApp (Fase 19). */
+	telefono: string;
+	/** Nombre del cliente, opcional (Fase 19): saluda en el mensaje de WhatsApp cuando existe. */
+	nombreCliente?: string;
 }
 
 /**
@@ -67,6 +72,18 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 	} else if ((d.recargos?.length ?? 0) === 0 && d.recargosConfirmadosNoAplica !== true) {
 		// Decisión explícita de recargos: elegir o marcar «No aplica».
 		errores.recargos = 'Indica si aplican recargos a tu pedido o marca «No aplica».';
+	}
+
+	// Teléfono del cliente (Fase 19): obligatorio y en formato colombiano.
+	if (!validarTelefono(d.telefono)) {
+		errores.telefono = (d.telefono ?? '').trim()
+			? 'Ingresa un número de celular colombiano válido (10 dígitos).'
+			: 'El teléfono es obligatorio para coordinar la entrega.';
+	}
+
+	// Nombre del cliente (opcional, Fase 19): solo tope de longitud.
+	if ((d.nombreCliente ?? '').length > LIMITES.nombreCliente) {
+		errores.nombreCliente = `Máximo ${LIMITES.nombreCliente} caracteres.`;
 	}
 
 	return errores;

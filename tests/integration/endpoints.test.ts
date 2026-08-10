@@ -61,6 +61,8 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Endpoints de pedidos (SvelteKit ↔ Su
 				direccion_destino: direccionDestinoTest(),
 				// Fase 14: decisión explícita de recargos.
 				recargos_confirmados_no_aplica: true,
+				// Fase 19: teléfono obligatorio para coordinar por WhatsApp.
+				telefono: '3001234567',
 				...extra
 			}
 		});
@@ -182,7 +184,8 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Endpoints de pedidos (SvelteKit ↔ Su
 						barrio_destino: cat.barrioB,
 						direccion_origen: direccionOrigenTest(),
 						direccion_destino: direccionDestinoTest(),
-						recargos_confirmados_no_aplica: true
+						recargos_confirmados_no_aplica: true,
+						telefono: '3001234567'
 					}
 				});
 				expect(r.status).toBe(400);
@@ -194,6 +197,34 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Endpoints de pedidos (SvelteKit ↔ Su
 			const r = await crearPedidoHttp({ direccion_origen: 'x'.repeat(301) });
 			expect(r.status).toBe(400);
 			expect(mensaje(r)).toMatch(/demasiado largas/);
+		});
+
+		test('sin teléfono → 400 y NO crea ninguna fila (Fase 19)', async () => {
+			const antes = await contarPedidosEndpoint();
+			const r = await crearPedidoHttp({ telefono: '' });
+			expect(r.status).toBe(400);
+			expect(mensaje(r)).toMatch(/El teléfono es obligatorio/);
+			expect(await contarPedidosEndpoint()).toBe(antes);
+		});
+
+		test('teléfono inválido → 400 (Fase 19)', async () => {
+			const antes = await contarPedidosEndpoint();
+			const r = await crearPedidoHttp({ telefono: '4001234567' });
+			expect(r.status).toBe(400);
+			expect(mensaje(r)).toMatch(/celular colombiano válido/);
+			expect(await contarPedidosEndpoint()).toBe(antes);
+		});
+
+		test('guarda el teléfono y el nombre opcional del cliente (Fase 19)', async () => {
+			const r = await crearPedidoHttp({ nombre_cliente: 'Ana María' });
+			expect(r.status, mensaje(r)).toBe(200);
+			const { data: fila, error } = await clienteService()
+				.from('pedidos')
+				.select('telefono, nombre_cliente')
+				.eq('numero', r.data?.data?.numero)
+				.single();
+			expect(error).toBeNull();
+			expect(fila).toMatchObject({ telefono: '3001234567', nombre_cliente: 'Ana María' });
 		});
 	});
 

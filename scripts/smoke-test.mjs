@@ -123,7 +123,9 @@ if (barrios.length >= 2) {
 				barrio_destino: barrios[1].id,
 				direccion_destino: `Smoke destino ${marca}`,
 				observaciones: marca,
-				recargos: []
+				recargos: [],
+				// Fase 19: el teléfono es obligatorio al crear el pedido.
+				telefono: '3001234567'
 			}
 		});
 		if (res.status === 200 && data?.data?.numero) {

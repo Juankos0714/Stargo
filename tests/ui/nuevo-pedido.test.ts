@@ -180,6 +180,8 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		expect(
 			screen.getByText('Indica si aplican recargos a tu pedido o marca «No aplica».')
 		).toBeInTheDocument();
+		// Fase 19: el celular es obligatorio para coordinar por WhatsApp.
+		expect(screen.getByText('El teléfono es obligatorio para coordinar la entrega.')).toBeInTheDocument();
 		expect(postMock).not.toHaveBeenCalledWith('/api/pedidos', expect.anything());
 	});
 
@@ -205,6 +207,9 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		await user.type(screen.getByPlaceholderText('Carrera 19 # 20-30'), 'Carrera 4 # 5-6');
 		// Fase 14: decisión explícita de recargos (marcar «No aplica»).
 		await user.click(screen.getByText('No aplica'));
+		// Fase 19: contacto del cliente (nombre opcional + celular obligatorio).
+		await user.type(screen.getByPlaceholderText('Ej: Ana María'), 'Ana María');
+		await user.type(screen.getByPlaceholderText('300 123 4567'), '300 123 4567');
 		await user.click(screen.getByRole('button', { name: 'Confirmar pedido' }));
 
 		await waitFor(() => expect(screen.getByText('¡Pedido confirmado!')).toBeInTheDocument());
@@ -218,7 +223,9 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 				direccion_destino: 'Carrera 4 # 5-6',
 				tipo_servicio: 'domicilio',
 				recargos: [],
-				recargos_confirmados_no_aplica: true
+				recargos_confirmados_no_aplica: true,
+				nombre_cliente: 'Ana María',
+				telefono: '300 123 4567'
 			})
 		);
 	});

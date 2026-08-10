@@ -31,6 +31,8 @@ function pedido(p: FixturePedido) {
 		barrio_destino_id: 'b-destino',
 		direccion_destino: 'Carrera 4 # 5-6',
 		observaciones: null,
+		telefono: '3001234567',
+		nombre_cliente: 'Ana',
 		tarifa_base: 6000,
 		recargos: null,
 		recargo_total: 0,
@@ -160,5 +162,38 @@ describe('Tabla de pedidos del admin', () => {
 		// Un estado terminal no ofrece cancelar (solo un «—»).
 		await user.click(screen.getByRole('button', { name: /Entregados/ }));
 		expect(screen.queryByRole('button', { name: 'Cancelar' })).not.toBeInTheDocument();
+	});
+
+	test('muestra el teléfono del cliente y el botón de WhatsApp con el mensaje del admin', async () => {
+		await renderizarCon([{ id: 'p1', numero: 'KAA1AA', estado: 'pendiente' }]);
+
+		// Número y nombre del cliente en la columna «Cliente».
+		expect(screen.getByText('3001234567')).toBeInTheDocument();
+		expect(screen.getByText('Ana')).toBeInTheDocument();
+		// Botón wa.me con la plantilla del ADMIN.
+		const enlace = screen.getByRole('link', { name: /Contactar por WhatsApp/ });
+		expect(enlace.getAttribute('href')).toMatch(/wa\.me\/573001234567\?/);
+		expect(decodeURIComponent(enlace.getAttribute('href') ?? '')).toContain(
+			'te escribimos de StarGo respecto a tu pedido #KAA1AA'
+		);
+		expect(decodeURIComponent(enlace.getAttribute('href') ?? '')).toContain('Hola Ana,');
+	});
+
+	test('sin teléfono no muestra botón de WhatsApp', async () => {
+		// Pasa un pedido sin teléfono: el fixture default lo trae, se reemplaza.
+		getMock.mockImplementation((path: string) => {
+			if (path.startsWith('/api/pedidos'))
+				return Promise.resolve({
+					data: [{ ...pedido({ id: 'p1', numero: 'KAA1AA', estado: 'pendiente' }), telefono: null, nombre_cliente: null }],
+					error: null
+				});
+			if (path.startsWith('/api/domiciliarios')) return Promise.resolve({ data: [], error: null });
+			return Promise.resolve({ data: null, error: null });
+		});
+		render(Pagina);
+		await screen.findByText('Pedidos');
+		await waitFor(() => expect(screen.queryByText('Cargando pedidos…')).not.toBeInTheDocument());
+
+		expect(screen.queryByRole('link', { name: /Contactar por WhatsApp/ })).not.toBeInTheDocument();
 	});
 });

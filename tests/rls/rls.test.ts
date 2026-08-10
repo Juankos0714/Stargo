@@ -207,7 +207,8 @@ describe.skipIf(!RLS_DISPONIBLE)('RLS — matriz de acceso por tabla y rol', () 
 				p_barrio_destino_id: cat.barrioB,
 				p_direccion_destino: 'Carrera test',
 				p_observaciones: null,
-				p_recargos: null
+				p_recargos: null,
+				p_telefono: '3001234567'
 			});
 			expect(r.error, `crear_pedido falló: ${r.error?.message}`).toBeNull();
 			const numero = r.data?.numero as string;
@@ -235,6 +236,32 @@ describe.skipIf(!RLS_DISPONIBLE)('RLS — matriz de acceso por tabla y rol', () 
 			esperaVacio(
 				await seleccion(clienteComo(domA.token), 'pedidos', { columna: 'id', valor: pSinAsignar.id }),
 				'domA SELECT pedido sin asignar'
+			);
+		});
+
+		test('el teléfono del cliente es visible SOLO para el admin y el domiciliario asignado (Fase 19)', async () => {
+			// Siembra el teléfono como lo haría crear_pedido.
+			await servicio
+				.from('pedidos')
+				.update({ telefono: '3001234567', nombre_cliente: 'Ana' })
+				.eq('id', pDeA.id);
+
+			// El domiciliario A ve el teléfono de SU pedido asignado.
+			const cDomA = clienteComo(domA.token);
+			const { data: mio } = await cDomA.from('pedidos').select('telefono, nombre_cliente').eq('id', pDeA.id).single();
+			expect(mio?.telefono).toBe('3001234567');
+			expect(mio?.nombre_cliente).toBe('Ana');
+
+			// El domiciliario B NO ve el pedido de A (ni por tanto su teléfono).
+			esperaVacio(
+				await seleccion(clienteComo(domB.token), 'pedidos', { columna: 'id', valor: pDeA.id }),
+				'domB SELECT pedido de domA (con teléfono)'
+			);
+
+			// El cliente (sin rol) tampoco lo ve.
+			esperaVacio(
+				await seleccion(clienteComo(cliente.token), 'pedidos', { columna: 'id', valor: pDeA.id }),
+				'cliente SELECT pedido ajeno (con teléfono)'
 			);
 		});
 

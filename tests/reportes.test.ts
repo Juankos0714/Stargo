@@ -21,6 +21,8 @@ function pedido(overrides: Partial<Pedido> = {}): Pedido {
 		barrio_destino_id: 'b2',
 		direccion_destino: 'Calle 2',
 		observaciones: null,
+		telefono: null,
+		nombre_cliente: null,
 		tarifa_base: 6000,
 		recargos: null,
 		recargo_total: 0,

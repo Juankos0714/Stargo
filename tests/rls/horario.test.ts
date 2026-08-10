@@ -180,7 +180,8 @@ describe.skipIf(!RLS_DISPONIBLE)('Horarios de operación (Fase 13)', () => {
 				p_barrio_destino_id: cat.barrioB,
 				p_direccion_destino: 'Dir destino horario',
 				p_observaciones: null,
-				p_recargos: null
+				p_recargos: null,
+				p_telefono: '3001234567'
 			});
 			expect(data).toBeNull();
 			expect(error?.message ?? '').toMatch(/fuera de horario/i);
@@ -200,7 +201,8 @@ describe.skipIf(!RLS_DISPONIBLE)('Horarios de operación (Fase 13)', () => {
 				p_barrio_destino_id: cat.barrioB,
 				p_direccion_destino: 'Dir destino horario ok',
 				p_observaciones: null,
-				p_recargos: null
+				p_recargos: null,
+				p_telefono: '3001234567'
 			});
 			expect(error, `crear_pedido falló: ${error?.message}`).toBeNull();
 			expect(data).not.toBeNull();

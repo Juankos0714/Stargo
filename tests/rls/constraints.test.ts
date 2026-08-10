@@ -244,7 +244,8 @@ describe.skipIf(!RLS_DISPONIBLE)('Constraints e integridad', () => {
 				p_barrio_destino_id: cat.barrioB,
 				p_direccion_destino: 'y',
 				p_observaciones: null,
-				p_recargos: ['codigo_inexistente']
+				p_recargos: ['codigo_inexistente'],
+				p_telefono: '3001234567'
 			});
 			expect(r.error, 'se esperaba error por recargo inexistente').not.toBeNull();
 			expect(r.error?.message ?? '').toMatch(/Recargo inválido o inactivo/);
@@ -257,7 +258,8 @@ describe.skipIf(!RLS_DISPONIBLE)('Constraints e integridad', () => {
 				p_barrio_destino_id: cat.barrioB,
 				p_direccion_destino: 'y',
 				p_observaciones: null,
-				p_recargos: [cat.recargoInactivo.codigo]
+				p_recargos: [cat.recargoInactivo.codigo],
+				p_telefono: '3001234567'
 			});
 			expect(r.error, 'se esperaba error por recargo inactivo').not.toBeNull();
 			expect(r.error?.message ?? '').toMatch(/Recargo inválido o inactivo/);
@@ -272,7 +274,8 @@ describe.skipIf(!RLS_DISPONIBLE)('Constraints e integridad', () => {
 				p_barrio_destino_id: cat.barrioB,
 				p_direccion_destino: 'y',
 				p_observaciones: null,
-				p_recargos: recargos(16)
+				p_recargos: recargos(16),
+				p_telefono: '3001234567'
 			});
 			expect(r.error, 'se esperaba error por exceso de recargos').not.toBeNull();
 			expect(r.error?.message ?? '').toMatch(/Demasiados recargos/);

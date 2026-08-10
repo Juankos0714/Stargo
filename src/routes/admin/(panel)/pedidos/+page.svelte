@@ -4,11 +4,13 @@
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import BadgeEstado from '$lib/components/BadgeEstado.svelte';
+	import BotonWhatsApp from '$lib/components/BotonWhatsApp.svelte';
 	import {
 		ESTADOS_PEDIDO,
 		etiquetaEstado,
 		etiquetaTipoServicio,
 		formatearPeso,
+		mensajeWhatsAppAdmin,
 		type Domiciliario,
 		type EstadoPedido,
 		type HistorialEstado,
@@ -240,9 +242,10 @@
 					<tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">
 						<th class="px-4 py-3">Pedido</th>
 						<th class="px-4 py-3">Origen → Destino</th>
-						<th class="px-4 py-3">Tarifa</th>
-						<th class="px-4 py-3">Domiciliario</th>
-						<th class="px-4 py-3">Estado</th>
+					<th class="px-4 py-3">Tarifa</th>
+					<th class="px-4 py-3">Domiciliario</th>
+					<th class="px-4 py-3">Cliente</th>
+					<th class="px-4 py-3">Estado</th>
 						<th class="px-4 py-3 text-right">Acción</th>
 					</tr>
 				</thead>
@@ -303,6 +306,20 @@
 									</span>
 								{:else}
 									<span class="text-xs text-slate-300">Sin asignar</span>
+								{/if}
+							</td>
+							<td class="px-4 py-3">
+								{#if p.telefono}
+									<p class="text-sm font-medium text-slate-900">{p.nombre_cliente ?? 'Cliente'}</p>
+									<p class="text-xs text-slate-500">{p.telefono}</p>
+									<BotonWhatsApp
+										telefono={p.telefono}
+										mensaje={mensajeWhatsAppAdmin(p.numero, p.nombre_cliente)}
+										label="Contactar por WhatsApp"
+										class="mt-1.5"
+									/>
+								{:else}
+									<span class="text-xs text-slate-300">—</span>
 								{/if}
 							</td>
 							<td class="px-4 py-3">

@@ -135,7 +135,9 @@ try {
 				direccion_destino: 'Prueba sonido movil destino',
 				observaciones: 'Prueba automatica sonido movil',
 				recargos: [],
-				recargos_confirmados_no_aplica: true
+				recargos_confirmados_no_aplica: true,
+				// Fase 19: el teléfono es obligatorio al crear el pedido.
+				telefono: '3001234567'
 			})
 		});
 		const pd = await p.json();

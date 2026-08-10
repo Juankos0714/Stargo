@@ -52,7 +52,9 @@ async function main() {
 				direccion_destino: 'Verif delete destino',
 				observaciones: 'Verificacion fix DELETE pedidos',
 				recargos: [],
-				recargos_confirmados_no_aplica: true
+				recargos_confirmados_no_aplica: true,
+				// Fase 19: el teléfono es obligatorio al crear el pedido.
+				telefono: '3001234567'
 			})
 		});
 		const pd = await p.json();

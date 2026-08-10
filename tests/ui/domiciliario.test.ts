@@ -80,6 +80,8 @@ function pedido(p: FixturePedido) {
 		barrio_destino_id: 'b-destino',
 		direccion_destino: 'Carrera 4 # 5-6',
 		observaciones: null,
+		telefono: '3001234567',
+		nombre_cliente: 'Ana',
 		tarifa_base: p.total,
 		recargos: [],
 		recargo_total: 0,
@@ -278,5 +280,38 @@ describe('Panel del domiciliario: comisión diaria y resaltado del nivel del dí
 		const badgeEnDeuda = screen.getByText('en deuda');
 		expect(badgeEnDeuda.className).toContain('bg-red-100');
 		expect(screen.queryByText('al día')).not.toBeInTheDocument();
+	});
+
+	test('las entregas activas ofrecen el botón de WhatsApp con el mensaje del domiciliario', async () => {
+		await renderizarCon([
+			{ id: 'p1', numero: 'KAA1AA', estado: 'en_camino', total: 6000, created_at: '2026-08-07T10:00:00' }
+		]);
+
+		const enlace = screen.getByRole('link', { name: /Escribir al cliente/ });
+		expect(enlace.getAttribute('href')).toMatch(/wa\.me\/573001234567\?/);
+		expect(decodeURIComponent(enlace.getAttribute('href') ?? '')).toContain(
+			'Hola Ana, soy tu domiciliario para el pedido #KAA1AA, voy en camino.'
+		);
+		// El número del cliente también es visible (Tarea 2), junto al botón.
+		expect(screen.getByText('Ana · 3001234567')).toBeInTheDocument();
+	});
+
+	test('sin teléfono no se ofrece el botón de WhatsApp', async () => {
+		const sinTelefono = {
+			...pedido({ id: 'p1', numero: 'KAA1AA', estado: 'en_camino', total: 6000, created_at: '2026-08-07T10:00:00' }),
+			telefono: null,
+			nombre_cliente: null
+		};
+		getMock.mockImplementation((path: string) => {
+			if (path.startsWith('/api/pedidos')) return Promise.resolve({ data: [sinTelefono], error: null });
+			if (path.startsWith('/api/domiciliarios/mi-cuenta')) {
+				return Promise.resolve({ data: cuenta(), error: null });
+			}
+			return Promise.resolve({ data: null, error: null });
+		});
+		render(Pagina);
+		await screen.findByText(/Comisión por nivel según el total del día/);
+
+		expect(screen.queryByRole('link', { name: /Escribir al cliente/ })).not.toBeInTheDocument();
 	});
 });

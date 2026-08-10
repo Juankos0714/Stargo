@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSupabaseAnon, getSupabaseAsUser } from '$lib/server/supabase';
 import { getSesion, miDomiciliarioId, requireAdmin, rolesDe } from '$lib/server/auth';
+import { validarTelefono } from '$lib/logic/validacion';
 import type { Domiciliario, HistorialEstado, Pedido } from '$lib/types';
 
 // ---------- POST: crear pedido (público) ----------
@@ -18,6 +19,23 @@ export const POST: RequestHandler = async ({ request }) => {
 	const barrioDestino = String(body?.barrio_destino ?? '').trim();
 	const direccionDestino = String(body?.direccion_destino ?? '').trim();
 	const observaciones = String(body?.observaciones ?? '').trim() || null;
+	// Teléfono del cliente (Fase 19): obligatorio para coordinar por WhatsApp.
+	const telefono = String(body?.telefono ?? '').trim();
+	if (!validarTelefono(telefono)) {
+		return json(
+			{
+				error: telefono
+					? 'Ingresa un número de celular colombiano válido (10 dígitos).'
+					: 'El teléfono es obligatorio para coordinar la entrega.'
+			},
+			{ status: 400 }
+		);
+	}
+	// Nombre del cliente (opcional, Fase 19).
+	const nombreCliente = String(body?.nombre_cliente ?? '').trim();
+	if (nombreCliente.length > 120) {
+		return json({ error: 'El nombre es demasiado largo (máx. 120 caracteres).' }, { status: 400 });
+	}
 	// Recargos elegidos por el cliente (códigos). El total real lo recalcula la BD.
 	const recargos = Array.isArray(body?.recargos)
 		? (body.recargos as unknown[])
@@ -66,7 +84,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		p_observaciones: observaciones,
 		p_recargos: recargos.length > 0 ? recargos : null,
 		p_tipo_servicio: tipoServicio,
-		p_recargos_confirmados_no_aplica: recargosConfirmadosNoAplica
+		p_recargos_confirmados_no_aplica: recargosConfirmadosNoAplica,
+		p_telefono: telefono,
+		p_nombre_cliente: nombreCliente || null
 	});
 
 	if (err) {

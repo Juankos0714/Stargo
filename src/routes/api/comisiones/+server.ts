@@ -21,8 +21,9 @@ import type { ComisionConfig, ComisionNivel } from '$lib/types';
  *   PUT    /api/comisiones/config     → reacomoda TODA la escalera con un paso
  *                                       y una cantidad de niveles nuevos (RPC)
  *
- * La escritura pasa por la tabla directa con RLS admin (mismo patrón que
- * zonas/tarifas); la lectura del domiciliario llega vía /mi-cuenta.
+ * La escritura pasa por RPCs SECURITY DEFINER (Fase 18 hardening) que
+ * congelan el día y escriben en la MISMA transacción (agregar/actualizar/
+ * eliminar_nivel_comision); la lectura del domiciliario llega vía /mi-cuenta.
  */
 
 /** Id fijo de la fila única de comision_config (la migración Fase 12 lo crea). */
@@ -38,20 +39,6 @@ async function leerConfig(db: SupabaseClient, niveles: ComisionNivel[]): Promise
 			? ordenados[1].hasta - ordenados[0].hasta
 			: ordenados[0]?.hasta ?? 10000;
 	return { id: CONFIG_ID, paso, niveles: ordenados.length };
-}
-
-/**
- * Congela HOY y los días pendientes con la escalera vigente ANTES de un
- * cambio (Fase 18): la escalera que se va a reemplazar queda registrada
- * para hoy y los días anteriores, así el cambio solo aplica desde mañana.
- *
- * Se llama ANTES de validar el body a propósito: si la petición se rechaza
- * (400/404), hoy queda congelado con la escalera ACTUAL (que es la misma),
- * sin daño; y si llega un cambio válido después, la congelación es no-op.
- */
-async function congelarDia(db: SupabaseClient): Promise<void> {
-	const { error } = await db.rpc('congelar_comisiones_dia');
-	if (error) throw new Error(error.message);
 }
 
 /** Mantiene comision_config.niveles al día con la cantidad real de niveles. */
@@ -79,13 +66,6 @@ export const GET: RequestHandler = async (event) => {
 export const POST: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
 	const db = getSupabaseAsUser(sesion.accessToken);
-
-	// Congela el día con la escalera actual antes de mutarla (Fase 18).
-	try {
-		await congelarDia(db);
-	} catch (e) {
-		return json({ error: e instanceof Error ? e.message : 'No se pudo congelar el día.' }, { status: 500 });
-	}
 
 	const body = await event.request.json().catch(() => ({}));
 	const { data: actuales } = await db
@@ -133,11 +113,13 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	const { data, error: err } = await db
-		.from('comision_niveles')
-		.insert({ nivel, hasta, valor })
-		.select()
-		.single();
+	// El RPC congela HOY con la escalera vigente y agrega el nivel en la MISMA
+	// transacción (hardening Fase 18): el cambio aplica desde mañana.
+	const { data, error: err } = await db.rpc('agregar_nivel_comision', {
+		p_nivel: nivel,
+		p_hasta: hasta,
+		p_valor: valor
+	});
 	if (err) return json({ error: err.message }, { status: 400 });
 	await sincronizarNiveles(db);
 	return json({ data });
@@ -146,13 +128,6 @@ export const POST: RequestHandler = async (event) => {
 export const PUT: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
 	const db = getSupabaseAsUser(sesion.accessToken);
-
-	// Congela el día con la escalera actual antes de mutarla (Fase 18).
-	try {
-		await congelarDia(db);
-	} catch (e) {
-		return json({ error: e instanceof Error ? e.message : 'No se pudo congelar el día.' }, { status: 500 });
-	}
 
 	const url = new URL(event.request.url);
 	const id = url.searchParams.get('id');
@@ -202,21 +177,21 @@ export const PUT: RequestHandler = async (event) => {
 		cambios.hasta = hasta;
 	}
 
-	const { data, error: err } = await db.from('comision_niveles').update(cambios).eq('id', id).select().single();
+	// El RPC congela HOY con la escalera vigente y actualiza el nivel en la MISMA
+	// transacción (hardening Fase 18): el cambio aplica desde mañana.
+	const { data, error: err } = await db.rpc('actualizar_nivel_comision', {
+		p_id: id,
+		p_valor: cambios.valor ?? null,
+		p_hasta: cambios.hasta ?? null
+	});
 	if (err) return json({ error: err.message }, { status: 400 });
+	if (!data) return json({ error: 'Nivel no encontrado.' }, { status: 404 });
 	return json({ data });
 };
 
 export const DELETE: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
 	const db = getSupabaseAsUser(sesion.accessToken);
-
-	// Congela el día con la escalera actual antes de mutarla (Fase 18).
-	try {
-		await congelarDia(db);
-	} catch (e) {
-		return json({ error: e instanceof Error ? e.message : 'No se pudo congelar el día.' }, { status: 500 });
-	}
 
 	const url = new URL(event.request.url);
 	const id = url.searchParams.get('id');
@@ -228,7 +203,9 @@ export const DELETE: RequestHandler = async (event) => {
 		return json({ error: 'Debe existir al menos un nivel de comisión.' }, { status: 400 });
 	}
 
-	const { data, error: err } = await db.from('comision_niveles').delete().eq('id', id).select().single();
+	// El RPC congela HOY con la escalera vigente y elimina el nivel en la MISMA
+	// transacción (hardening Fase 18): el cambio aplica desde mañana.
+	const { data, error: err } = await db.rpc('eliminar_nivel_comision', { p_id: id });
 	if (err) return json({ error: err.message }, { status: 400 });
 	if (!data) return json({ error: 'Nivel no encontrado.' }, { status: 404 });
 	await sincronizarNiveles(db);

@@ -84,13 +84,22 @@ const niveles = rNiveles?.data ?? [];
 // Escaleras congeladas por día (Fase 18): CADA día se calcula con la
 // snapshot vigente de ESE día (comision_historico); solo los días sin
 // congelar usan la escalera vigente. Misma lógica que $lib/server/cuenta.ts.
-const rHistorico = await q(() => s.from('comision_historico').select('fecha, niveles'));
+const rHistorico = await q(() => s.from('comision_historico').select('fecha, niveles, es_backfill'));
 const historico = rHistorico?.data ?? [];
 const porFecha = new Map(historico.map((h) => [h.fecha, h.niveles]));
 console.log(
 	`\n=== comision_historico (${historico.length} días congelados) ===\n` +
-		'  (cada día congelado usa la escalera que estaba vigente ESE día)'
+		'  (cada día congelado usa la escalera que estaba vigente ESE día; los del backfill inicial son aproximados)'
 );
+if (historico.length > 0) {
+	console.table(
+		historico.map((h) => ({
+			fecha: h.fecha,
+			origen: h.es_backfill ? 'backfill (aproximado)' : 'tiempo real',
+			niveles: (h.niveles ?? []).length
+		}))
+	);
+}
 
 const rDomis = await q(() => s.from('domiciliarios').select('id, nombre, activo, bloqueado'));
 const domis = rDomis?.data ?? [];
