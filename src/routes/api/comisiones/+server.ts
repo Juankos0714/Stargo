@@ -40,6 +40,20 @@ async function leerConfig(db: SupabaseClient, niveles: ComisionNivel[]): Promise
 	return { id: CONFIG_ID, paso, niveles: ordenados.length };
 }
 
+/**
+ * Congela HOY y los días pendientes con la escalera vigente ANTES de un
+ * cambio (Fase 18): la escalera que se va a reemplazar queda registrada
+ * para hoy y los días anteriores, así el cambio solo aplica desde mañana.
+ *
+ * Se llama ANTES de validar el body a propósito: si la petición se rechaza
+ * (400/404), hoy queda congelado con la escalera ACTUAL (que es la misma),
+ * sin daño; y si llega un cambio válido después, la congelación es no-op.
+ */
+async function congelarDia(db: SupabaseClient): Promise<void> {
+	const { error } = await db.rpc('congelar_comisiones_dia');
+	if (error) throw new Error(error.message);
+}
+
 /** Mantiene comision_config.niveles al día con la cantidad real de niveles. */
 async function sincronizarNiveles(db: SupabaseClient): Promise<void> {
 	const { count } = await db.from('comision_niveles').select('*', { count: 'exact', head: true });
@@ -65,6 +79,13 @@ export const GET: RequestHandler = async (event) => {
 export const POST: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
 	const db = getSupabaseAsUser(sesion.accessToken);
+
+	// Congela el día con la escalera actual antes de mutarla (Fase 18).
+	try {
+		await congelarDia(db);
+	} catch (e) {
+		return json({ error: e instanceof Error ? e.message : 'No se pudo congelar el día.' }, { status: 500 });
+	}
 
 	const body = await event.request.json().catch(() => ({}));
 	const { data: actuales } = await db
@@ -126,6 +147,13 @@ export const PUT: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
 	const db = getSupabaseAsUser(sesion.accessToken);
 
+	// Congela el día con la escalera actual antes de mutarla (Fase 18).
+	try {
+		await congelarDia(db);
+	} catch (e) {
+		return json({ error: e instanceof Error ? e.message : 'No se pudo congelar el día.' }, { status: 500 });
+	}
+
 	const url = new URL(event.request.url);
 	const id = url.searchParams.get('id');
 	if (!id) return json({ error: 'Falta el id del nivel.' }, { status: 400 });
@@ -182,6 +210,13 @@ export const PUT: RequestHandler = async (event) => {
 export const DELETE: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
 	const db = getSupabaseAsUser(sesion.accessToken);
+
+	// Congela el día con la escalera actual antes de mutarla (Fase 18).
+	try {
+		await congelarDia(db);
+	} catch (e) {
+		return json({ error: e instanceof Error ? e.message : 'No se pudo congelar el día.' }, { status: 500 });
+	}
 
 	const url = new URL(event.request.url);
 	const id = url.searchParams.get('id');

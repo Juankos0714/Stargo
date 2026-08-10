@@ -3,9 +3,11 @@ import {
 	calcularDeuda,
 	comisionDiaria,
 	fechaBogota,
+	mismasEscaleras,
 	nivelComision,
 	nivelDeTotal,
 	nivelDiario,
+	nivelesParaFecha,
 	rangoDeNiveles,
 	redondearComision,
 	totalPedidoComision,
@@ -272,6 +274,40 @@ describe('comisión DIARIA acumulada (Fase 13)', () => {
 			);
 			expect(nivelDiario(corta, 90000)?.nivel).toBe(3);
 			expect(comisionDiaria(corta, 90000)).toBe(3900);
+		});
+	});
+
+	describe('escaleras congeladas por día (Fase 18)', () => {
+		const congeladas = new Map<string, ComisionNivel[]>([
+			['2026-08-05', niveles([1, 10000, 1300], [2, 20000, 1300], [3, 30000, 1300])],
+			['2026-08-06', niveles([1, 10000, 1500], [2, 20000, 1500], [3, 30000, 1500])]
+		]);
+		const actuales = niveles([1, 10000, 9999], [2, 20000, 9999]);
+
+		test('nivelesParaFecha: un día congelado usa SU escalera, no la vigente', () => {
+			expect(nivelesParaFecha(congeladas, '2026-08-05', actuales)).toBe(congeladas.get('2026-08-05'));
+			expect(nivelesParaFecha(congeladas, '2026-08-06', actuales)).toBe(congeladas.get('2026-08-06'));
+		});
+
+		test('nivelesParaFecha: un día sin congelar usa la escalera vigente', () => {
+			// Días sin cambio desde entonces (o el día en curso antes de un cambio).
+			expect(nivelesParaFecha(congeladas, '2026-08-07', actuales)).toBe(actuales);
+			expect(nivelesParaFecha(new Map(), '2026-08-01', actuales)).toBe(actuales);
+		});
+
+		test('mismasEscaleras: compara nivel/hasta/valor sin importar el orden ni el id', () => {
+			const a = niveles([1, 10000, 1300], [2, 20000, 2200]);
+			const b = niveles([2, 20000, 2200], [1, 10000, 1300]); // mismo contenido, distinto orden/id
+			expect(mismasEscaleras(a, b)).toBe(true);
+			expect(mismasEscaleras(a, a)).toBe(true);
+			// Cambió el valor de un nivel → escaleras distintas.
+			expect(mismasEscaleras(a, niveles([1, 10000, 1300], [2, 20000, 9999]))).toBe(false);
+			// Cambió un tope → distintas.
+			expect(mismasEscaleras(a, niveles([1, 10000, 1300], [2, 25000, 2200]))).toBe(false);
+			// Distinta cantidad de niveles → distintas.
+			expect(mismasEscaleras(a, niveles([1, 10000, 1300]))).toBe(false);
+			expect(mismasEscaleras([], [])).toBe(true);
+			expect(mismasEscaleras([], a)).toBe(false);
 		});
 	});
 

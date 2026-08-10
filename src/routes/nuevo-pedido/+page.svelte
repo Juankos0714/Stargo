@@ -735,11 +735,11 @@
 						{#if precioDisponible || (tipoServicio === 'compra_diligencia' && !origenRequerido && !tieneRutaCompleta)}
 							<div class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
 								<Icon name="triangle-exclamation" class="mt-0.5 size-3.5 shrink-0" />
-								<span>
-									{tipoServicio === 'compra_diligencia' && !tieneRutaCompleta
-										? 'El precio final lo confirma el <strong>domiciliario</strong> al realizar la diligencia según lo que realmente se haga.'
-										: 'Este es un <strong>estimado</strong>: el precio final lo confirma el domiciliario según el servicio real que realice (compras, peso, paradas, espera, método de pago, etc.).'}
-								</span>
+								{#if tipoServicio === 'compra_diligencia' && !tieneRutaCompleta}
+									<span>El precio final lo confirma el <strong>domiciliario</strong> al realizar la diligencia según lo que realmente se haga.</span>
+								{:else}
+									<span>Este es un <strong>estimado</strong>: el precio final lo confirma el domiciliario según el servicio real que realice (compras, peso, paradas, espera, método de pago, etc.).</span>
+								{/if}
 							</div>
 						{/if}
 

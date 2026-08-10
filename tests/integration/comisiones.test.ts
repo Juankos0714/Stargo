@@ -10,10 +10,13 @@ import { INTEGRACION_DISPONIBLE, peticion } from './http';	import {
 	sembrarCatalogo,
 	sembrarPedido,
 	clienteService,
+	direccionOrigenTest,
+	direccionDestinoTest,
 	type Catalogo,
 	type SesionApp,
 	type UsuarioRol
 } from './helpers';
+import { fechaBogota } from '../../src/lib/logic/comisiones';
 
 /**
  * Flujo completo de comisiones por NIVELES (Fase 11 + 12) por los endpoints
@@ -55,7 +58,7 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 		total_comision: number;
 		total_pagos: number;
 		deuda: number;
-		hoy: { fecha: string; total: number; nivel: number | null; comision: number };
+		hoy: { fecha: string; total: number; nivel: number | null; comision: number; escalera_anterior?: boolean };
 	}
 
 	async function nivelesAdmin(): Promise<{ id: string; nivel: number; hasta: number; valor: number }[]> {
@@ -128,10 +131,15 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 			niveles: 20
 		});
 		if (errCfg) throw new Error(`Siembra de config falló: ${errCfg.message}`);
+		// Escaleras congeladas por día (Fase 18): se limpia para partir de un
+		// estado conocido (la migración backfillea el historial).
+		await s.from('comision_historico').delete().gte('fecha', '2000-01-01');
 	});
 
 	afterAll(async () => {
 		await limpiarIntegracion();
+		// No deja snapshots congelados de esta corrida en la base de pruebas.
+		await clienteService().from('comision_historico').delete().gte('fecha', '2000-01-01');
 	});
 
 	test('admin ve los niveles sembrados por la migración (GET /api/comisiones)', async () => {
@@ -184,22 +192,25 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 		expect(cuenta.niveles.length).toBe(4);
 		expect(cuenta.niveles.find((n) => n.nivel === 2)?.valor).toBe(2200);
 		// Fase 13: comisión por DÍA. Ambos pedidos se entregaron hoy (mismo
-		// día en Bogotá): total 6.000 + 15.000 = 21.000 → nivel 3 →
-		// comisión del día = 1.300 + 2.200 + 1.300 = 4.800.
+		// día en Bogotá): total 6.000 + 15.000 = 21.000 → nivel 3.
+		// Fase 18: al cambiar un nivel HOY (test anterior), la escalera de hoy
+		// quedó CONGELADA con la anterior (3 niveles × $1.300): el día cobra
+		// 3 × 1.300 = 3.900, aunque la escalera vigente ya tiene el nivel 2 en 2.200.
 		expect(cuenta.hoy.total).toBe(21000);
 		expect(cuenta.hoy.nivel).toBe(3);
-		expect(cuenta.hoy.comision).toBe(4800);
-		expect(cuenta.total_comision).toBe(4800);
+		expect(cuenta.hoy.comision).toBe(3900);
+		expect(cuenta.total_comision).toBe(3900);
 		expect(cuenta.total_pagos).toBe(0);
-		expect(cuenta.deuda).toBe(4800);
+		expect(cuenta.deuda).toBe(3900);
 		expect(cuenta.bloqueado).toBe(false);
+		expect(cuenta.hoy.escalera_anterior).toBe(true);
 	});
 
-	test('consistencia con varios pedidos el mismo día: hoy = total_comision = deuda (sin abonos)', async () => {
+	test('varios pedidos el mismo día: extender la escalera NO cambia la comisión del día congelado', async () => {
 		const s = clienteService();
-		// Extiende la escalera a 9 niveles de $10.000 para que 90.000 caiga en
-		// el nivel 9 (igual que la escalera por defecto de producción). El
-		// nivel 4 ya existe (lo creó un test anterior): upsert lo ajusta.
+		// Extiende la escalera VIGENTE a 9 niveles de $10.000 (la escalera de
+		// HOY quedó congelada con 3 niveles × $1.300 cuando se cambió un nivel
+		// en un test anterior: este upsert directo no la modifica).
 		await s.from('comision_niveles').upsert(
 			[
 				{ nivel: 4, hasta: 40000, valor: 1300 },
@@ -212,25 +223,29 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 			{ onConflict: 'nivel' }
 		);
 
-		// Tres pedidos de $30.000 entregados HOY: total del día 90.000.
+		// Tres pedidos de $30.000 entregados HOY. El día ya tenía 21.000 de
+		// los tests anteriores: total del día 21.000 + 90.000 = 111.000.
 		const creados: { id: string }[] = [];
 		for (let i = 0; i < 3; i++) creados.push(await crearYEntregar(30000));
 
 		const cuenta = await cuentaDomA();
-		// Comisión DIARIA: 90.000 → nivel 9 → 9 × 1.300 = 11.700.
-		expect(cuenta.hoy.total).toBe(90000);
-		expect(cuenta.hoy.nivel).toBe(9);
-		expect(cuenta.hoy.comision).toBe(11700);
-		// La deuda debe salir del MISMO cálculo diario, no de los snapshots
-		// por pedido (3 × 1.300 = 3.900, el bug que reportó el usuario).
-		expect(cuenta.total_comision).toBe(11700);
-		expect(cuenta.deuda).toBe(11700);
+		// La escalera de HOY sigue siendo la congelada (3 niveles × $1.300):
+		// aunque la vigente ya tiene 9 niveles, el día cobra 3 × 1.300 = 3.900
+		// y NO 9 × 1.300. Es exactamente el comportamiento pedido: el cambio
+		// aplica desde mañana y hoy conserva la escalera de su día.
+		expect(cuenta.hoy.total).toBe(111000);
+		expect(cuenta.hoy.nivel).toBe(3);
+		expect(cuenta.hoy.comision).toBe(3900);
+		expect(cuenta.total_comision).toBe(3900);
+		expect(cuenta.deuda).toBe(3900);
 
-		// Restaura el estado de la corrida: quita los niveles extra Y borra los
-		// 3 pedidos creados (si quedaran, inflarían la deuda de los tests
-		// siguientes, que esperan total_comision = 4.800).
+		// Restaura el estado de la corrida: quita los niveles extra, borra los
+		// pedidos creados y sincroniza la config con la cantidad real. Las
+		// entregas de los tests anteriores (21.000) se conservan: los tests
+		// siguientes las siguen sumando.
 		await s.from('pedidos').delete().in('id', creados.map((p) => p.id));
 		await s.from('comision_niveles').delete().gte('nivel', 4);
+		await s.from('comision_config').update({ niveles: 3 }).eq('id', CONFIG_ID);
 	});
 
 	test('admin registra un abono (POST /api/pagos) y la deuda se reduce', async () => {
@@ -244,7 +259,8 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 
 		const cuenta = await cuentaDomA();
 		expect(cuenta.total_pagos).toBe(ABONO);
-		expect(cuenta.deuda).toBe(4800 - ABONO);
+		// Deuda del día congelado: 3.900 (escalera anterior de 3 × $1.300) − abono.
+		expect(cuenta.deuda).toBe(3900 - ABONO);
 
 		const listado = await peticion<{ data: { valor: number }[] }>(
 			`/api/pagos?domiciliario_id=${domA.domiciliarioId}`,
@@ -299,9 +315,10 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 			});
 			expect(t.status, `→ ${siguiente}: ${t.data?.error}`).toBe(200);
 		}
-		// El tercer pedido (6.000) se entrega el MISMO día: total del día
-		// 21.000 + 6.000 = 27.000 → sigue en nivel 3 → comisión del día 4.800.
-		expect((await cuentaDomA()).total_comision).toBe(4800);
+		// El pedido en curso (6.000) se entrega el MISMO día: total del día
+		// 21.000 + 6.000 = 27.000 → sigue en nivel 3 → comisión del día 3.900
+		// (escalera congelada de 3 × $1.300 de cuando se cambió un nivel hoy).
+		expect((await cuentaDomA()).total_comision).toBe(3900);
 	});
 
 	test('solo el admin desbloquea y el domiciliario vuelve a recibir pedidos', async () => {
@@ -431,9 +448,7 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 		});
 		expect(rCliente.status).toBe(403);
 		expect(mensaje(rCliente)).toMatch(/No eres administrador/);
-	});
-
-	test('restaura la escalera y la config para no contaminar otras corridas', async () => {
+	});		test('restaura la escalera y la config para no contaminar otras corridas', async () => {
 		const s = clienteService();
 		await s.from('comision_niveles').delete().gte('nivel', 4);
 		await s.from('comision_config').update({ paso: 10000, niveles: 3 }).eq('id', CONFIG_ID);
@@ -445,5 +460,85 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 		expect(r.status).toBe(200);
 		expect((r.data?.data ?? []).length).toBe(3);
 		expect(r.data?.meta?.config).toMatchObject({ paso: 10000, niveles: 3 });
+	});
+
+	test('Fase 18: cambiar la escalera HOY no altera la comisión de hoy ni la de ayer', async () => {
+		const s = clienteService();
+		// Estado conocido: 3 niveles de $10.000 × $1.300, sin entregas ni
+		// abonos de domA (el test de abonos registró uno antes).
+		await s.from('pedidos').delete().eq('domiciliario_id', domA.domiciliarioId).eq('estado', 'entregado');
+		await s.from('pagos_domiciliarios').delete().eq('domiciliario_id', domA.domiciliarioId);
+		await s.from('comision_historico').delete().gte('fecha', '2000-01-01');
+		await s.from('comision_niveles').delete().gte('nivel', 0);
+		const { error: errNiv } = await s.from('comision_niveles').insert([
+			{ nivel: 1, hasta: 10000, valor: 1300 },
+			{ nivel: 2, hasta: 20000, valor: 1300 },
+			{ nivel: 3, hasta: 30000, valor: 1300 }
+		]);
+		if (errNiv) throw new Error(`Siembra de niveles falló: ${errNiv.message}`);
+		await s.from('comision_config').upsert({ id: CONFIG_ID, paso: 10000, niveles: 3 });
+
+		// Una entrega de AYER (insertada directo con updated_at de ayer) y una de HOY.
+		const ayer = fechaBogota(new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+		const { error: errPed } = await s.from('pedidos').insert({
+			numero: `AY${Math.random().toString(36).slice(2, 8)}`.toUpperCase(),
+			barrio_origen_id: cat.barrioA,
+			direccion_origen: direccionOrigenTest(),
+			barrio_destino_id: cat.barrioB,
+			direccion_destino: direccionDestinoTest(),
+			observaciones: null,
+			tarifa_base: 40000,
+			recargos: null,
+			recargo_total: 0,
+			total: 40000,
+			zona_origen_id: null,
+			zona_destino_id: null,
+			estado: 'entregado',
+			domiciliario_id: domA.domiciliarioId,
+			updated_at: `${ayer}T20:00:00.000Z`
+		});
+		if (errPed) throw new Error(`Siembra de pedido de ayer falló: ${errPed.message}`);
+		await crearYEntregar(21000);
+
+		// Sin cambios aún: ayer y hoy se calculan con la escalera vigente.
+		// Ayer: 40.000 → nivel 3 → 3.900 · Hoy: 21.000 → nivel 3 → 3.900.
+		let cuenta = await cuentaDomA();
+		expect(cuenta.hoy.total).toBe(21000);
+		expect(cuenta.hoy.comision).toBe(3900);
+		expect(cuenta.total_comision).toBe(7800);
+		expect(cuenta.deuda).toBe(7800);
+		expect(cuenta.hoy.escalera_anterior).toBe(false);
+
+		// El admin cambia el nivel 2 HOY (debe aplicar desde MAÑANA).
+		const niveles = await nivelesAdmin();
+		const nivel2 = niveles.find((n) => n.nivel === 2);
+		expect(nivel2).toBeDefined();
+		const r = await peticion<{ error?: string }>(`/api/comisiones?id=${nivel2!.id}`, {
+			metodo: 'PUT',
+			cuerpo: { valor: 9999 },
+			jar: sesionAdmin.jar
+		});
+		expect(r.status, r.data?.error).toBe(200);
+
+		// La escalera VIGENTE ya cambió…
+		expect((await nivelesAdmin()).find((n) => n.nivel === 2)?.valor).toBe(9999);
+		// …pero ayer y HOY conservan la escalera anterior: la deuda no cambia.
+		cuenta = await cuentaDomA();
+		expect(cuenta.hoy.comision).toBe(3900);
+		expect(cuenta.total_comision).toBe(7800);
+		expect(cuenta.deuda).toBe(7800);
+		// La escalera congelada de hoy difiere de la vigente → aviso en el panel.
+		expect(cuenta.hoy.escalera_anterior).toBe(true);
+
+		// Limpieza: deja la corrida como estaba (sin entregas, escalera base).
+		await s.from('pedidos').delete().eq('domiciliario_id', domA.domiciliarioId).eq('estado', 'entregado');
+		await s.from('comision_historico').delete().gte('fecha', '2000-01-01');
+		await s.from('comision_niveles').delete().gte('nivel', 0);
+		await s.from('comision_niveles').insert([
+			{ nivel: 1, hasta: 10000, valor: 1300 },
+			{ nivel: 2, hasta: 20000, valor: 1300 },
+			{ nivel: 3, hasta: 30000, valor: 1300 }
+		]);
+		await s.from('comision_config').upsert({ id: CONFIG_ID, paso: 10000, niveles: 3 });
 	});
 });

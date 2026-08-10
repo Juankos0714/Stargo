@@ -10,6 +10,7 @@ import {
 	sembrarCatalogo,
 	sembrarPedido,
 	seleccion,
+	insercion,
 	actualizacion,
 	esperaPermitido,
 	esperaVacio,
@@ -18,6 +19,7 @@ import {
 	type Catalogo,
 	type UsuarioRol
 } from './helpers';
+import { fechaBogota } from '../../src/lib/logic/comisiones';
 
 /** Id fijo de la fila única de comision_config (Fase 12). */
 const CONFIG_ID = '00000000-0000-0000-0000-000000000001';
@@ -81,10 +83,15 @@ describe.skipIf(!RLS_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase 11)', (
 			.from('comision_config')
 			.upsert({ id: CONFIG_ID, paso: 10000, niveles: 3 });
 		if (errCfg) throw new Error(`Siembra de config falló: ${errCfg.message}`);
+		// Escaleras congeladas (Fase 18): se limpia para partir de un estado
+		// conocido (la migración backfillea el historial con la escalera actual).
+		await servicio.from('comision_historico').delete().gte('fecha', '2000-01-01');
 	});
 
 	afterAll(async () => {
 		await limpiarTodo();
+		// No deja snapshots congelados de esta corrida en la base de pruebas.
+		await servicio.from('comision_historico').delete().gte('fecha', '2000-01-01');
 	});
 
 	async function valorNivel(nivel: number): Promise<number> {
@@ -353,6 +360,71 @@ describe.skipIf(!RLS_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase 11)', (
 
 		test('anon no puede leer pagos', async () => {
 			esperaDenegado(await seleccion(anon, 'pagos_domiciliarios'), 'anon SELECT pagos');
+		});
+	});
+
+	describe('comision_historico: escalera congelada por día (Fase 18)', () => {
+		test('RLS: admin y domiciliarios leen el historial; el cliente ve 0; anon denegado', async () => {
+			// Asegura al menos una fila congelada para poder leerla.
+			const { error } = await clienteComo(admin.token).rpc('congelar_comisiones_dia');
+			expect(error, `congelar falló: ${error?.message}`).toBeNull();
+
+			esperaPermitido(await seleccion(clienteComo(admin.token), 'comision_historico'), 'admin SELECT historico');
+			esperaPermitido(
+				await seleccion(clienteComo(domA.token), 'comision_historico'),
+				'domiciliario SELECT historico'
+			);
+			esperaVacio(await seleccion(clienteComo(cliente.token), 'comision_historico'), 'cliente SELECT historico');
+			esperaDenegado(await seleccion(anon, 'comision_historico'), 'anon SELECT historico');
+		});
+
+		test('nadie escribe directo en el historial: la escritura va por el RPC', async () => {
+			const fila = { fecha: '2030-01-01', niveles: [], paso: 10000 };
+			esperaDenegado(await insercion(clienteComo(admin.token), 'comision_historico', fila), 'admin INSERT historico');
+			esperaDenegado(await insercion(clienteComo(domA.token), 'comision_historico', fila), 'domi INSERT historico');
+			esperaDenegado(await insercion(clienteComo(cliente.token), 'comision_historico', fila), 'cliente INSERT historico');
+		});
+
+		test('congelar_comisiones_dia: solo el admin lo ejecuta', async () => {
+			const rD = await clienteComo(domA.token).rpc('congelar_comisiones_dia');
+			expect(rD.data).toBeNull();
+			expect(rD.error?.message ?? '').toMatch(/Solo un administrador/);
+
+			const rC = await clienteComo(cliente.token).rpc('congelar_comisiones_dia');
+			expect(rC.data).toBeNull();
+			expect(rC.error?.message ?? '').toMatch(/Solo un administrador/);
+
+			const rA = await anon.rpc('congelar_comisiones_dia');
+			expect(rA.error, 'anon no debería ejecutar congelar_comisiones_dia').not.toBeNull();
+		});
+
+		test('congela HOY con la escalera vigente y es idempotente', async () => {
+			// Parte de cero: sin snapshots previos.
+			await servicio.from('comision_historico').delete().gte('fecha', '2000-01-01');
+
+			const r = await clienteComo(admin.token).rpc('congelar_comisiones_dia');
+			expect(r.error, `congelar falló: ${r.error?.message}`).toBeNull();
+			expect(r.data?.congelado).toBe(true);
+
+			const hoy = fechaBogota(new Date().toISOString());
+			const { data: filas } = await servicio
+				.from('comision_historico')
+				.select('fecha, niveles, paso')
+				.order('fecha');
+			expect((filas ?? []).length).toBeGreaterThanOrEqual(1);
+			const ultimo = filas?.[filas.length - 1];
+			expect(ultimo?.fecha).toBe(hoy);
+			// La snapshot refleja la escalera vigente (nivel 1 hasta $10.000, $1.300).
+			const niveles = (ultimo?.niveles as { nivel: number; hasta: number; valor: number }[]) ?? [];
+			expect(niveles[0]).toMatchObject({ nivel: 1, hasta: 10000, valor: 1300 });
+			expect(ultimo?.paso).toBe(10000);
+
+			// Idempotente: un segundo llamado no agrega filas nuevas.
+			const r2 = await clienteComo(admin.token).rpc('congelar_comisiones_dia');
+			expect(r2.error, `segundo congelar falló: ${r2.error?.message}`).toBeNull();
+			expect(r2.data?.congelado).toBe(false);
+			const { count } = await servicio.from('comision_historico').select('*', { count: 'exact', head: true });
+			expect(count ?? 0).toBe(filas?.length ?? 0);
 		});
 	});
 

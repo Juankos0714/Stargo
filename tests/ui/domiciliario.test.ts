@@ -50,7 +50,7 @@ type OverridesCuenta = Partial<{
 	total_pagos: number;
 	deuda: number;
 	pagos: FixturePago[];
-	hoy: { fecha: string; total: number; nivel: number | null; comision: number } | null;
+	hoy: { fecha: string; total: number; nivel: number | null; comision: number; escalera_anterior?: boolean } | null;
 }>;
 
 /** Resumen del día: fecha Bogotá, total acumulado, nivel alcanzado y comisión. */
@@ -237,6 +237,24 @@ describe('Panel del domiciliario: comisión diaria y resaltado del nivel del dí
 		// El valor y la nota de cada abono se siguen listando (la nota va
 		// precedida de «·» en el mismo nodo de texto).
 		expect(screen.getByText(/abono 1/)).toBeInTheDocument();
+	});
+
+	test('avisa cuando la escalera cambió HOY: la comisión del día usa la escalera anterior', async () => {
+		await renderizarCon([], escalera20(), {
+			// La escalera congelada de hoy difiere de la vigente (cambió hoy):
+			// la comisión de hoy se calculó con la escalera anterior.
+			hoy: { ...dia(25000, 3, 3900), escalera_anterior: true }
+		});
+
+		expect(screen.getByText(/La escalera de comisiones cambió/)).toBeInTheDocument();
+		expect(screen.getByText(/escalera anterior/)).toBeInTheDocument();
+		expect(screen.getByText(/días anteriores tampoco se modifican/)).toBeInTheDocument();
+	});
+
+	test('sin cambios de escalera hoy NO aparece el aviso', async () => {
+		await renderizarCon([], escalera20(), { hoy: dia(25000, 3, 3900) });
+
+		expect(screen.queryByText(/La escalera de comisiones cambió/)).not.toBeInTheDocument();
 	});
 
 	test('el summary de abonos muestra el estado de la deuda como badge verde/rojo', async () => {

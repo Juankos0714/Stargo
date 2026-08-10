@@ -249,6 +249,17 @@
 		</div>
 	</div>
 
+	{#if hoy?.escalera_anterior}
+		<div class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+			<Icon name="clock" class="mt-0.5 size-4 shrink-0" />
+			<span>
+				La escalera de comisiones cambió <strong>hoy</strong>: la comisión de este día se calcula con la
+				escalera anterior y la nueva aplica <strong>desde mañana</strong>. Tus días anteriores tampoco se
+				modifican.
+			</span>
+		</div>
+	{/if}
+
 	<TablaNiveles
 		niveles={nivelesConRango}
 		nivelDestacado={hoy?.nivel ?? null}

@@ -127,6 +127,22 @@ export interface ComisionConfig {
 	updated_at?: string;
 }
 
+/**
+ * Escalera de comisiones CONGELADA para un día (Fase 18): snapshot de
+ * comision_niveles vigente ese día. Un cambio posterior de la escalera no
+ * altera las comisiones de los días ya congelados (hoy incluido cuando el
+ * cambio se hace hoy: aplica desde mañana).
+ */
+export interface ComisionHistorico {
+	/** Día (YYYY-MM-DD, hora de Bogotá) al que aplica esta escalera. */
+	fecha: string;
+	/** Niveles congelados ese día (sin id: solo nivel/hasta/valor). */
+	niveles: ComisionNivel[];
+	/** Paso de la escalera congelada (referencia). */
+	paso: number;
+	creado_en?: string;
+}
+
 /** Abono que el admin registra contra la deuda de comisiones de un domiciliario. */
 export interface PagoDomiciliario {
 	id: string;
@@ -164,6 +180,11 @@ export interface ResumenDia {
 	nivel: number | null;
 	/** Comisión del día = Σ valores de los niveles hasta el alcanzado. */
 	comision: number;
+	/**
+	 * true si HOY se calculó con la escalera ANTERIOR (el admin la cambió
+	 * hoy): la comisión de hoy queda congelada y la nueva aplica desde mañana.
+	 */
+	escalera_anterior?: boolean;
 }
 
 // ---------- Horarios de operación (Fase 13) ----------
@@ -423,9 +444,11 @@ export {
 	calcularDeuda,
 	comisionDiaria,
 	fechaBogota,
+	mismasEscaleras,
 	nivelComision,
 	nivelDeTotal,
 	nivelDiario,
+	nivelesParaFecha,
 	rangoDeNiveles,
 	redondearComision,
 	totalPedidoComision,

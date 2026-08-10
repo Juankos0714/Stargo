@@ -57,7 +57,9 @@ import {
 	calcularDeuda,
 	comisionDiaria,
 	fechaBogota,
+	mismasEscaleras,
 	nivelDiario,
+	nivelesParaFecha,
 	totalPedidoComision,
 	totalesDiarios
 } from '../src/lib/logic/comisiones.ts';
@@ -78,6 +80,17 @@ console.table(
 	(rNiveles?.data ?? []).map((n) => ({ nivel: n.nivel, hasta: n.hasta, valor: n.valor }))
 );
 const niveles = rNiveles?.data ?? [];
+
+// Escaleras congeladas por día (Fase 18): CADA día se calcula con la
+// snapshot vigente de ESE día (comision_historico); solo los días sin
+// congelar usan la escalera vigente. Misma lógica que $lib/server/cuenta.ts.
+const rHistorico = await q(() => s.from('comision_historico').select('fecha, niveles'));
+const historico = rHistorico?.data ?? [];
+const porFecha = new Map(historico.map((h) => [h.fecha, h.niveles]));
+console.log(
+	`\n=== comision_historico (${historico.length} días congelados) ===\n` +
+		'  (cada día congelado usa la escalera que estaba vigente ESE día)'
+);
 
 const rDomis = await q(() => s.from('domiciliarios').select('id, nombre, activo, bloqueado'));
 const domis = rDomis?.data ?? [];
@@ -110,14 +123,29 @@ for (const d of domis ?? []) {
 	}
 
 	let totalComision = 0;
-	let hoy = { fecha: hoyBogota, total: 0, nivel: null, comision: 0 };
+	let hoy = { fecha: hoyBogota, total: 0, nivel: null, comision: 0, escalera_anterior: false };
 	const detalleDias = [];
 	for (const [fecha, totalDia] of porDia) {
-		const comision = comisionDiaria(niveles ?? [], totalDia);
+		// Fase 18: la escalera del día es la congelada (si el día se congeló)
+		// o la vigente (si no). Un cambio posterior no altera lo congelado.
+		const nivelesDia = nivelesParaFecha(porFecha, fecha, niveles ?? []);
+		const comision = comisionDiaria(nivelesDia, totalDia);
 		totalComision += comision;
-		detalleDias.push({ fecha, totalDia, nivel: nivelDiario(niveles ?? [], totalDia)?.nivel ?? null, comision });
+		detalleDias.push({
+			fecha,
+			totalDia,
+			nivel: nivelDiario(nivelesDia, totalDia)?.nivel ?? null,
+			comision,
+			escalera: porFecha.has(fecha) ? 'congelada' : 'vigente'
+		});
 		if (fecha === hoyBogota) {
-			hoy = { fecha, total: totalDia, nivel: nivelDiario(niveles ?? [], totalDia)?.nivel ?? null, comision };
+			hoy = {
+				fecha,
+				total: totalDia,
+				nivel: nivelDiario(nivelesDia, totalDia)?.nivel ?? null,
+				comision,
+				escalera_anterior: !mismasEscaleras(nivelesDia, niveles ?? [])
+			};
 		}
 	}
 
@@ -131,8 +159,11 @@ for (const d of domis ?? []) {
 	console.log(`\n================ ${d.nombre} (${d.id}) ================`);
 	console.log(`  activo: ${d.activo} · bloqueado: ${d.bloqueado}`);
 	console.log(`  pedidos entregados: ${misEntregados.length} · Σ totales: $${sumaTotales} · Σ snapshots pedidos.comision: $${sumaSnapshots}`);
-	console.log(`  total_comision (Fase 13, por día): $${totalComision}`);
+	console.log(`  total_comision (Fase 13 + 18, por día): $${totalComision}`);
 	console.log(`  hoy: $${hoy.total} → nivel ${hoy.nivel} → comisión $${hoy.comision}`);
+	if (hoy.escalera_anterior) {
+		console.log('  AVISO: la escalera cambió HOY → la comisión de hoy se calculó con la escalera ANTERIOR (la nueva aplica desde mañana).');
+	}
 	console.log(`  total_pagos: $${totalPagos} (${misPagos.length} abonos)`);
 	console.log(`  DEUDA: $${deuda}`);
 	if (detalleDias.length > 0) {

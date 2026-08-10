@@ -1,6 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { calcularDeuda, comisionDiaria, fechaBogota, nivelDiario, totalesDiarios } from '$lib/logic/comisiones';
-import type { ComisionNivel, PagoDomiciliario, ResumenDia } from '$lib/types';
+import {
+	calcularDeuda,
+	comisionDiaria,
+	fechaBogota,
+	mismasEscaleras,
+	nivelDiario,
+	nivelesParaFecha,
+	totalesDiarios
+} from '$lib/logic/comisiones';
+import type { ComisionHistorico, ComisionNivel, PagoDomiciliario, ResumenDia } from '$lib/types';
 
 /**
  * Cuentas de comisiones (Fase 10 + 11 + 13).
@@ -34,19 +42,35 @@ interface Entrega {
 	updated_at: string;
 }
 
-/** Suma de comisiones diarias de un domiciliario y el resumen de HOY. */
+/**
+ * Suma de comisiones diarias de un domiciliario y el resumen de HOY.
+ *
+ * Fase 18: CADA día usa la escalera congelada que estaba vigente ese día
+ * (comision_historico) y solo los días sin congelar usan la vigente. Así un
+ * cambio posterior de la escalera no altera lo ya generado ni el día en curso.
+ */
 function comisionPorDias(
-	niveles: ComisionNivel[],
+	porFecha: Map<string, ComisionNivel[]>,
+	escalera: ComisionNivel[],
 	totales: Map<string, number> | undefined,
 	hoyBogota: string
 ): { total: number; hoy: ResumenDia } {
 	let total = 0;
-	let hoy: ResumenDia = { fecha: hoyBogota, total: 0, nivel: null, comision: 0 };
+	let hoy: ResumenDia = { fecha: hoyBogota, total: 0, nivel: null, comision: 0, escalera_anterior: false };
 	for (const [fecha, totalDia] of totales ?? []) {
-		const comision = comisionDiaria(niveles, totalDia);
+		const nivelesDia = nivelesParaFecha(porFecha, fecha, escalera);
+		const comision = comisionDiaria(nivelesDia, totalDia);
 		total += comision;
 		if (fecha === hoyBogota) {
-			hoy = { fecha, total: totalDia, nivel: nivelDiario(niveles, totalDia)?.nivel ?? null, comision };
+			hoy = {
+				fecha,
+				total: totalDia,
+				nivel: nivelDiario(nivelesDia, totalDia)?.nivel ?? null,
+				comision,
+				// La escalera cambió hoy: la comisión de HOY se calculó con la
+				// escalera anterior y la nueva aplica desde mañana.
+				escalera_anterior: !mismasEscaleras(nivelesDia, escalera)
+			};
 		}
 	}
 	return { total, hoy };
@@ -102,12 +126,18 @@ export async function obtenerResumenes(
 	//    PostgREST limita cada respuesta a ~1000 filas: se pagina igual que
 	//    en reportes.ts para que la deuda no se calcule sobre datos parciales.
 	const escalera = (niveles ?? ((await db.from('comision_niveles').select('*').order('nivel')).data ?? [])) as ComisionNivel[];
+	// Escaleras congeladas por día (Fase 18): cada día se calcula con la
+	// escalera vigente ESE día; un cambio posterior no altera lo congelado.
+	const { data: historico } = await db.from('comision_historico').select('fecha, niveles');
+	const porFecha = new Map<string, ComisionNivel[]>(
+		((historico ?? []) as ComisionHistorico[]).map((h) => [h.fecha, h.niveles])
+	);
 	const entregados = await obtenerEntregados(db, unicos);
 	const porDia = totalesDiarios(entregados);
 	for (const [domId, dias] of porDia) {
 		const r = mapa.get(domId);
 		if (!r) continue;
-		const { total, hoy } = comisionPorDias(escalera, dias, hoyBogota);
+		const { total, hoy } = comisionPorDias(porFecha, escalera, dias, hoyBogota);
 		r.total_comision = total;
 		r.hoy = hoy;
 	}

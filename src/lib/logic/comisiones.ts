@@ -153,6 +153,34 @@ export function comisionDiaria(niveles: ComisionNivel[], totalDia: number): numb
 		.reduce((acc, n) => acc + (Number.isFinite(n.valor) ? Math.max(0, n.valor) : 0), 0);
 }
 
+/**
+ * Escalera que aplica a una fecha concreta (Fase 18): la SNAPSHOT congelada
+ * de ese día si existe (comision_historico) o la escalera vigente si el día
+ * no se congeló (no hubo cambios desde entonces o aún es hoy).
+ */
+export function nivelesParaFecha(
+	porFecha: Map<string, ComisionNivel[]>,
+	fecha: string,
+	actuales: ComisionNivel[]
+): ComisionNivel[] {
+	return porFecha.get(fecha) ?? actuales;
+}
+
+/**
+ * ¿Dos escaleras son la misma? Compara nivel/hasta/valor (ignora el id: los
+ * snapshots congelados no lo guardan). Se usa para saber si la escalera
+ * congelada de HOY difiere de la vigente (cambió hoy → aviso en el panel).
+ */
+export function mismasEscaleras(a: ComisionNivel[], b: ComisionNivel[]): boolean {
+	const ordenA = [...a].sort((x, y) => x.nivel - y.nivel);
+	const ordenB = [...b].sort((x, y) => x.nivel - y.nivel);
+	if (ordenA.length !== ordenB.length) return false;
+	return ordenA.every(
+		(n, i) =>
+			n.nivel === ordenB[i].nivel && n.hasta === ordenB[i].hasta && n.valor === ordenB[i].valor
+	);
+}
+
 export interface NivelConRango extends ComisionNivel {
 	/** Límite inferior del rango (inclusive): para el nivel 1 es 1. */
 	desde: number;

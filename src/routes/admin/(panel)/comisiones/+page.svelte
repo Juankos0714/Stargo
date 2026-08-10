@@ -144,7 +144,7 @@
 			!window.confirm(
 				`¿Reacomodar la escalera a ${Math.round(cantidad)} niveles de ${formatearPeso(
 					Math.round(paso)
-				)} cada uno?\n\nLos rangos de todos los niveles cambiarán, pero se conservan los valores de comisión que ya configuraste y lo generado por pedidos entregados.`
+				)} cada uno?\n\nLos rangos de todos los niveles cambiarán y la nueva escalera aplicará desde mañana: las comisiones de hoy y de los días anteriores se mantienen con la escalera vigente de cada día.`
 			)
 		) {
 			return;
@@ -201,13 +201,23 @@
 	<div>
 		<h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Comisiones por nivel</h1>
 		<p class="mt-1 text-sm text-slate-500">
-			La comisión que paga cada domiciliario depende del valor del pedido entregado. Ajusta el valor de cada
-			nivel o reacomoda toda la escalera: la comisión se congela al entregar, así que cambiar un nivel no altera
-			lo ya generado.
+			La comisión que paga cada domiciliario es por día, según el total acumulado de sus entregas. Lo que
+			ajustes aquí aplica desde <strong class="font-semibold text-slate-700">mañana</strong>: las comisiones de
+			hoy y de los días anteriores se mantienen con la escalera que estaba vigente ese día.
 		</p>
 	</div>
 	<IndicadorRealtime estado={estadoRealtime} />
 </header>
+
+<!-- Aviso: los cambios aplican desde mañana (Fase 18) -->
+<div class="mb-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+	<Icon name="clock" class="mt-0.5 size-4 shrink-0" />
+	<span>
+		Cada día queda congelado con la escalera vigente ese día. Si cambias un nivel <strong>hoy</strong>, la
+		comisión de hoy y la de los días anteriores no se alteran: la nueva escalera empieza a aplicar <strong>desde
+		mañana</strong>.
+	</span>
+</div>
 
 <!-- Configuración de la escalera: paso entre niveles y cantidad -->
 <section class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -252,8 +262,8 @@
 	</div>
 	<p class="mt-2 text-[11px] text-slate-400">
 		Cambia el rango de <span class="font-semibold text-slate-500">todos</span> los niveles de una vez: el tope de
-		cada nivel pasa a ser nivel × paso. Se conservan los valores de comisión que ya configuraste (por posición) y
-		las comisiones de pedidos entregados no se alteran.
+		cada nivel pasa a ser nivel × paso. Se conservan los valores de comisión que ya configuraste (por posición).
+		La nueva escalera aplica desde mañana: hoy y los días anteriores conservan la escalera de cada día.
 	</p>
 </section>
 
@@ -382,9 +392,9 @@
 <p class="mt-5 flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">
 	<Icon name="lightbulb" class="mt-0.5 size-4 shrink-0 text-amber-500" />
 	<span>
-		El valor de la comisión se congela en cada pedido al momento de entregarlo. Si cambias un nivel ahora, los
-		pedidos ya entregados conservan su comisión original y los nuevos usan el valor actualizado. Con «Reacomodar
-		escalera» cambias el rango que abarca cada nivel; el domiciliario ve esta tabla en su panel para saber cuánto
-		pagará.
+		La comisión de cada día se calcula con la escalera que estaba vigente ese día y queda <strong>congelada</strong>:
+		un cambio hecho hoy no altera la comisión de hoy ni la de los días anteriores, y la nueva escalera aplica desde
+		mañana. Con «Reacomodar escalera» cambias el rango que abarca cada nivel; el domiciliario ve esta tabla en su
+		panel para saber cuánto pagará.
 	</span>
 </p>

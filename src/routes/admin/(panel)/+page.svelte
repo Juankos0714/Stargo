@@ -148,7 +148,7 @@
 			valor: hoyStats?.domiciliarios_disponibles ?? null,
 			hint: hoyStats
 				? `${hoyStats.domiciliarios_ocupados} de ${hoyStats.domiciliarios_activos} activos ocupados`
-				: 'repartidores activos',
+				: 'domiciliarios activos',
 			icon: 'users',
 			color: 'bg-primary-light text-primary',
 			href: '/admin/domiciliarios'
@@ -172,7 +172,7 @@
 		{
 			href: '/admin/domiciliarios',
 			label: 'Gestionar domiciliarios',
-			desc: 'Registrar repartidores y activar o desactivar su acceso.',
+			desc: 'Registrar domiciliarios y activar o desactivar su acceso.',
 			icon: 'users'
 		},
 		{

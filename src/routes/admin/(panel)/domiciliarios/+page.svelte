@@ -273,7 +273,7 @@
 	<div>
 		<h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Domiciliarios</h1>
 		<p class="mt-1 text-sm text-slate-500">
-			Registra repartidores y gestiona su deuda, abonos y bloqueos por falta de pago.
+			Registra domiciliarios y gestiona su deuda, abonos y bloqueos por falta de pago.
 		</p>
 	</div>
 	<IndicadorRealtime estado={estadoRealtime} />
@@ -294,11 +294,11 @@
 	<div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-1">
 		<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Alta de domiciliario</h2>
 		<p class="mt-1 text-xs text-slate-400">
-			Crea el repartidor con un usuario («movil1», «movil2»…) y contraseña: entra sin correo.
+			Crea el domiciliario con un usuario («movil1», «movil2»…) y contraseña: entra sin correo.
 		</p>
 
 		<p class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-800">
-			Con contraseña se crea la cuenta <strong>automáticamente</strong> y el repartidor ingresa con el
+			Con contraseña se crea la cuenta <strong>automáticamente</strong> y el domiciliario ingresa con el
 			<strong>usuario</strong> o <strong>email</strong> que definas, <strong>sin correo ni confirmación</strong>.
 			Sin contraseña, la cuenta debe existir y solo se enlaza la fila.
 		</p>
@@ -355,7 +355,7 @@
 						id="dom-email"
 						type="email"
 						bind:value={email}
-						placeholder="repartidor@correo.com"
+						placeholder="domiciliario@correo.com"
 						class="w-full rounded-xl border border-slate-300 bg-white min-h-11 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
 					/>
 				{/if}

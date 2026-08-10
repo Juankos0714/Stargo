@@ -101,6 +101,15 @@ describe('Panel admin de comisiones', () => {
 		);
 	});
 
+	test('avisa que los cambios aplican desde mañana (Fase 18)', async () => {
+		await renderizar();
+
+		// Cada día queda congelado con su escalera; el cambio aplica desde
+		// mañana (el aviso aparece en el banner y en los textos de apoyo).
+		expect(screen.getAllByText(/desde mañana/).length).toBeGreaterThan(0);
+		expect(screen.getAllByText(/días anteriores/).length).toBeGreaterThan(0);
+	});
+
 	test('valida la comisión antes de guardar y no llama a la API', async () => {
 		const user = userEvent.setup();
 		await renderizar();

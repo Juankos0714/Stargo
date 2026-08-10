@@ -24,6 +24,12 @@ export const PUT: RequestHandler = async (event) => {
 		return json({ error: 'Envía «paso» y «niveles» como números.' }, { status: 400 });
 	}
 
+	// Congela el día con la escalera actual antes de reacomodarla (Fase 18):
+	// hoy y los días anteriores conservan la escalera vigente hasta ahora y
+	// la nueva configuración aplica desde mañana.
+	const { error: errCongelar } = await db.rpc('congelar_comisiones_dia');
+	if (errCongelar) return json({ error: errCongelar.message }, { status: 500 });
+
 	const { data, error: err } = await db.rpc('reconfigurar_escalera', {
 		p_paso: paso,
 		p_niveles: niveles

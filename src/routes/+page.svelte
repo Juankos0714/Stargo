@@ -45,8 +45,6 @@
 			<Logo type="full" surface="dark" height={36} priority />
 		</a>
 		<nav class="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm">
-			<a href="/nuevo-pedido" class="rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white">Hacer pedido</a>
-			<a href="/consultar-estado" class="rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white">Consultar estado</a>
 			<a href="/calculadora" class="hidden rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white sm:inline-flex">Calculadora</a>
 			{#if !cargando}
 				{#if esAdmin}

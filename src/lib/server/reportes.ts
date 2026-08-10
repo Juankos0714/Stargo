@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
+	ComisionHistorico,
 	ComisionNivel,
 	EstadoPedido,
 	Pedido,
@@ -9,7 +10,11 @@ import type {
 	ReporteResumen,
 	ReporteSerie
 } from '$lib/types';
-import { comisionDiaria, totalesDiarios as totalesDiariosComision } from '$lib/logic/comisiones';
+import {
+	comisionDiaria,
+	nivelesParaFecha,
+	totalesDiarios as totalesDiariosComision
+} from '$lib/logic/comisiones';
 
 /** Estados que cuentan como pedido «en proceso» (tiene un repartidor activo). */
 export const EN_CURSO: EstadoPedido[] = ['asignado', 'aceptado', 'recogido', 'en_camino'];
@@ -298,15 +303,20 @@ export async function obtenerReporte(
 	const ocupados = await obtenerOcupados(db);
 	const ocupadosActivos = activos.filter((d) => ocupados.has(d.id)).length;
 
-	// Comisiones a pagar en el rango (Fase 13): la comisión es DIARIA y
+	// Comisiones a pagar en el rango (Fase 13 + 18): la comisión es DIARIA y
 	// acumulada por domiciliario — se agrupan los entregados del rango por día
-	// (hora de Bogotá) y se aplica la escalera VIGENTE de comision_niveles.
+	// (hora de Bogotá) y CADA día se calcula con la escalera congelada que
+	// estaba vigente ese día (comision_historico; fallback a la vigente).
 	// Esto es lo que la app efectivamente cobra a los domiciliarios por las
 	// entregas del período (no el snapshot informativo pedidos.comision).
 	let comisiones_pagadas = 0;
 	const { data: niveles, error: errNiv } = await db.from('comision_niveles').select('*').order('nivel');
 	if (errNiv) throw new Error(errNiv.message);
 	const escalera = (niveles ?? []) as ComisionNivel[];
+	const { data: historico } = await db.from('comision_historico').select('fecha, niveles');
+	const porFecha = new Map<string, ComisionNivel[]>(
+		((historico ?? []) as ComisionHistorico[]).map((h) => [h.fecha, h.niveles])
+	);
 	if (escalera.length > 0) {
 		const porDia = totalesDiariosComision(
 			pedidos
@@ -320,8 +330,8 @@ export async function obtenerReporte(
 				}))
 		);
 		for (const dias of porDia.values()) {
-			for (const [, totalDia] of dias) {
-				comisiones_pagadas += comisionDiaria(escalera, totalDia);
+			for (const [fecha, totalDia] of dias) {
+				comisiones_pagadas += comisionDiaria(nivelesParaFecha(porFecha, fecha, escalera), totalDia);
 			}
 		}
 	}

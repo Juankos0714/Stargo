@@ -49,7 +49,7 @@
 					<div class="min-w-0">
 						<div class="truncate text-xs font-semibold text-white">{page.data.nombre}</div>
 						<div class="truncate text-[10px] text-[#8BB4FF]">
-							Repartidor{page.data.username ? ` · ${page.data.username}` : ''}
+							Domiciliario{page.data.username ? ` · ${page.data.username}` : ''}
 						</div>
 					</div>
 				</div>
