@@ -17,12 +17,16 @@
 	import { page } from '$app/state';
 	import type { HorarioHoy } from '$lib/types';
 
-	let horario = $state<HorarioHoy | null>(null);
-	let barrios = $state<Barrio[]>([]);
-	let zonas = $state<Zona[]>([]);
-	let recargos = $state<Recargo[]>([]);
-	let cargando = $state(true);
-	let errorCarga = $state<string | null>(null);
+	// El catálogo (barrios, zonas, recargos y horario de hoy) lo resuelve el
+	// servidor (+page.server.ts): el formulario ya viene en el HTML inicial,
+	// sin las 4 llamadas /api encadenadas que retrasaban el render en mobile.
+	let { data } = $props();
+	let horario = $state<HorarioHoy | null>(data.horario);
+	let barrios = $state<Barrio[]>(data.barrios);
+	let zonas = $state<Zona[]>(data.zonas);
+	let recargos = $state<Recargo[]>(data.recargos);
+	let cargando = $state(false);
+	let errorCarga = $state<string | null>(data.error);
 
 	// ---------- Tipo de servicio (Fase 14) ----------
 	let tipoServicio = $state<TipoServicio>('domicilio');
@@ -174,25 +178,6 @@
 		return Object.keys(errores).length === 0;
 	}
 
-	async function cargar() {
-		cargando = true;
-		const [rBarrios, rZonas, rRecargos, rHorario] = await Promise.all([
-			api.get<Barrio[]>('/api/barrios?select=id,nombre,zona_id&orden=nombre'),
-			api.get<Zona[]>('/api/zonas?select=id,nombre,tipo'),
-			api.get<Recargo[]>('/api/recargos?select=*'),
-			api.get<HorarioHoy>('/api/horario')
-		]);
-		if (rBarrios.error) errorCarga = rBarrios.error;
-		else barrios = rBarrios.data ?? [];
-		if (rZonas.error && !rBarrios.error) errorCarga = rZonas.error;
-		else zonas = rZonas.data ?? [];
-		if (!rRecargos.error) recargos = rRecargos.data ?? [];
-		// El estado del horario es informativo: si no se pudo calcular, el
-		// formulario sigue disponible (la BD vuelve a validar al crear).
-		if (!rHorario.error) horario = rHorario.data ?? null;
-		cargando = false;
-	}
-
 	async function calcular() {
 		if (!origen || !destino) return;
 		const id = ++calcId;
@@ -281,11 +266,7 @@
 		errores = {};
 		precio = null;
 		error = null;
-	}
-
-	$effect(() => {
-		cargar();
-	});
+	}
 
 	// Deep-link desde la calculadora: /nuevo-pedido?origen=<id>&destino=<id>
 	// preselecciona los barrios apenas se cargan (y la tarifa se calcula sola).

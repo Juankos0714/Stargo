@@ -1,5 +1,8 @@
 <script lang="ts">
 	import './layout.css';
+	// Inter auto-alojada: @font-face con font-display: swap, sin petición
+	// bloqueante a fonts.googleapis.com en la ruta crítica.
+	import '@fontsource-variable/inter';
 	import IndicadorOffline from '$lib/components/IndicadorOffline.svelte';
 	import BotonInstalar from '$lib/components/BotonInstalar.svelte';
 	import { registrarSonidoSW } from '$lib/sonido';
@@ -31,6 +34,7 @@
 <svelte:head>
 	<link rel="icon" type="image/png" href="/icons/favicon.png" />
 	<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+	<meta name="description" content="Haz tu pedido con tarifa calculada automáticamente y sigue su estado en vivo." />
 	<meta property="og:site_name" content="StarGo" />
 	<meta property="og:title" content="StarGo — Domicilios en Armenia" />
 	<meta property="og:description" content="Haz tu pedido con tarifa calculada automáticamente y sigue su estado en vivo." />

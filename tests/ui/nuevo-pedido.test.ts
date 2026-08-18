@@ -3,26 +3,51 @@ import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import Pagina from '../../src/routes/nuevo-pedido/+page.svelte';
 import { api } from '$lib/api';
+import type { Barrio, HorarioHoy, Recargo, Zona } from '$lib/types';
 
 vi.mock('$lib/api', () => ({
 	api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), del: vi.fn() }
 }));
 
-const BARRIOS = [
+const BARRIOS: Barrio[] = [
 	{ id: 'barrio-a', nombre: 'Barrio A', zona_id: 'zona-1', revisado: true },
 	{ id: 'barrio-b', nombre: 'Barrio B', zona_id: 'zona-2', revisado: true }
 ];
-const ZONAS = [
+const ZONAS: Zona[] = [
 	{ id: 'zona-1', nombre: 'Zona Norte', tipo: 'urbana', descripcion: null },
 	{ id: 'zona-2', nombre: 'Zona Sur', tipo: 'urbana', descripcion: null }
 ];
-const RECARGOS = [
+const RECARGOS: Recargo[] = [
 	{ codigo: 'rc-peso', nombre: 'Peso test', tipo: 'peso', valor: 2000, activo: true, descripcion: null },
 	{ codigo: 'rc-compra', nombre: 'Compra test', tipo: 'compra', valor: 3000, activo: true, descripcion: null },
 	{ codigo: 'rc-inactivo', nombre: 'Inactivo test', tipo: 'otro', valor: 999, activo: false, descripcion: null }
 ];
 
-const getMock = vi.mocked(api.get);
+// El catálogo lo resuelve +page.server.ts (SSR): la página se renderiza
+// con estos props en vez de llamar a /api/barrios|zonas|recargos|horario.
+const HORARIO_ABIERTO: HorarioHoy = {
+	fecha: '2026-08-07',
+	dia_semana: 5,
+	apertura: '08:00',
+	cierre: '20:00',
+	abierto: true,
+	motivo: null,
+	fuente: 'semanal',
+	hora_actual: '12:00'
+};
+const HORARIO_CERRADO: HorarioHoy = {
+	fecha: '2026-08-07',
+	dia_semana: 5,
+	apertura: '08:00',
+	cierre: '20:00',
+	abierto: false,
+	motivo: '24 de diciembre',
+	fuente: 'excepcion',
+	hora_actual: '21:00'
+};
+const dataAbierto = { barrios: BARRIOS, zonas: ZONAS, recargos: RECARGOS, horario: HORARIO_ABIERTO, error: null };
+const dataCerrado = { barrios: BARRIOS, zonas: ZONAS, recargos: RECARGOS, horario: HORARIO_CERRADO, error: null };
+
 const postMock = vi.mocked(api.post);
 
 // El endpoint real responde { data: <número>, meta: {...} } (api.ts ya lo
@@ -31,17 +56,6 @@ function tarifaOk() {
 	return { data: 6000, meta: { disponible: true, motivo: 'ok', zona_origen: 'zona-1', zona_destino: 'zona-2' }, error: null };
 }	beforeEach(() => {
 		vi.clearAllMocks();
-		getMock.mockImplementation((path: string) => {
-			if (path.startsWith('/api/barrios')) return Promise.resolve({ data: BARRIOS, error: null });
-			if (path.startsWith('/api/zonas')) return Promise.resolve({ data: ZONAS, error: null });
-			if (path.startsWith('/api/recargos')) return Promise.resolve({ data: RECARGOS, error: null });
-			if (path.startsWith('/api/horario'))
-				return Promise.resolve({
-					data: { fecha: '2026-08-07', dia_semana: 5, apertura: '08:00', cierre: '20:00', abierto: true, motivo: null, fuente: 'semanal', hora_actual: '12:00' },
-					error: null
-				});
-			return Promise.resolve({ data: null, error: null });
-		});
 		postMock.mockResolvedValue({ data: null, error: null });
 	});
 
@@ -61,7 +75,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 			postMock.mockImplementation((path: string) =>
 				path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 			);
-			render(Pagina);
+			render(Pagina, { props: { data: dataAbierto } });
 			await formularioListo();
 
 			expect(screen.getByText(/Atendemos hoy hasta las 20:00/)).toBeInTheDocument();
@@ -69,18 +83,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		});
 
 		test('cuando la app está cerrada reemplaza el formulario por el aviso de horario', async () => {
-			getMock.mockImplementation((path: string) => {
-				if (path.startsWith('/api/barrios')) return Promise.resolve({ data: BARRIOS, error: null });
-				if (path.startsWith('/api/zonas')) return Promise.resolve({ data: ZONAS, error: null });
-				if (path.startsWith('/api/recargos')) return Promise.resolve({ data: RECARGOS, error: null });
-				if (path.startsWith('/api/horario'))
-					return Promise.resolve({
-						data: { fecha: '2026-08-07', dia_semana: 5, apertura: '08:00', cierre: '20:00', abierto: false, motivo: '24 de diciembre', fuente: 'excepcion', hora_actual: '21:00' },
-						error: null
-					});
-				return Promise.resolve({ data: null, error: null });
-			});
-			render(Pagina);
+			render(Pagina, { props: { data: dataCerrado } });
 
 			await screen.findByText(/Estamos fuera de horario de atención/);
 			// El rango vive dentro de un <strong>; el texto previo en el <p>.
@@ -96,7 +99,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
 		const user = userEvent.setup();
-		render(Pagina);
+		render(Pagina, { props: { data: dataAbierto } });
 		await formularioListo();
 
 		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
@@ -125,7 +128,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 				: Promise.resolve({ data: null, error: null })
 		);
 		const user = userEvent.setup();
-		render(Pagina);
+		render(Pagina, { props: { data: dataAbierto } });
 		await formularioListo();
 		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
@@ -149,7 +152,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 				: Promise.resolve({ data: null, error: null })
 		);
 		const user = userEvent.setup();
-		render(Pagina);
+		render(Pagina, { props: { data: dataAbierto } });
 		await formularioListo();
 		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
@@ -166,7 +169,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
 		const user = userEvent.setup();
-		render(Pagina);
+		render(Pagina, { props: { data: dataAbierto } });
 		await formularioListo();
 		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
@@ -197,7 +200,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 			return Promise.resolve({ data: null, error: null });
 		});
 		const user = userEvent.setup();
-		render(Pagina);
+		render(Pagina, { props: { data: dataAbierto } });
 		await formularioListo();
 		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
@@ -235,7 +238,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
 		const user = userEvent.setup();
-		const { container } = render(Pagina);
+		const { container } = render(Pagina, { props: { data: dataAbierto } });
 		await formularioListo();
 		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
@@ -273,7 +276,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
 		const user = userEvent.setup();
-		const { container } = render(Pagina);
+		const { container } = render(Pagina, { props: { data: dataAbierto } });
 		await formularioListo();
 
 		// Cambia al modo compra/diligencia: el recargo de compra debe aparecer.

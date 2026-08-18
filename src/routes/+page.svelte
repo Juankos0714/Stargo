@@ -1,30 +1,11 @@
 <script lang="ts">
-	import { api } from '$lib/api';
+	// Los datos (horario de hoy + roles del usuario) se resuelven en el
+	// servidor (+page.server.ts): el banner y la navegación ya vienen en el
+	// HTML inicial, sin peticiones /api en la ruta crítica del cliente.
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import type { HorarioHoy } from '$lib/types';
 
-	let cargando = $state(true);
-	let esAdmin = $state(false);
-	let esDomiciliario = $state(false);
-	let horario = $state<HorarioHoy | null>(null);
-
-	$effect(() => {
-		let activo = true;
-		api.get<{ email: string; esAdmin: boolean; esDomiciliario: boolean }>('/api/sesion').then((r) => {
-			if (activo) {
-				esAdmin = r.data?.esAdmin === true && r.error === null;
-				esDomiciliario = r.data?.esDomiciliario === true && r.error === null;
-				cargando = false;
-			}
-		});
-		api.get<HorarioHoy>('/api/horario').then((r) => {
-			if (activo && !r.error) horario = r.data ?? null;
-		});
-		return () => {
-			activo = false;
-		};
-	});
+	let { data } = $props();
 </script>
 
 <svelte:head>
@@ -46,31 +27,29 @@
 		</a>
 		<nav class="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm">
 			<a href="/calculadora" class="hidden rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white sm:inline-flex">Calculadora</a>
-			{#if !cargando}
-				{#if esAdmin}
-					<a href="/admin" class="rounded-lg bg-primary px-4 py-2 font-semibold text-white shadow-lg transition hover:bg-primary-dark">Panel admin</a>
-				{:else if esDomiciliario}
-					<a href="/domiciliario" class="rounded-lg bg-primary px-4 py-2 font-semibold text-white shadow-lg transition hover:bg-primary-dark">Mis entregas</a>
-				{:else}
-					<a href="/login" class="rounded-lg border border-white/15 px-4 py-2 font-medium text-slate-200 transition hover:bg-white/10">Iniciar sesión</a>
-				{/if}
+			{#if data.esAdmin}
+				<a href="/admin" class="rounded-lg bg-primary px-4 py-2 font-semibold text-white shadow-lg transition hover:bg-primary-dark">Panel admin</a>
+			{:else if data.esDomiciliario}
+				<a href="/domiciliario" class="rounded-lg bg-primary px-4 py-2 font-semibold text-white shadow-lg transition hover:bg-primary-dark">Mis entregas</a>
+			{:else}
+				<a href="/login" class="rounded-lg border border-white/15 px-4 py-2 font-medium text-slate-200 transition hover:bg-white/10">Iniciar sesión</a>
 			{/if}
 		</nav>
 	</header>
 
 	<main class="relative z-10 mx-auto max-w-6xl px-6">
-		{#if horario && !horario.abierto}
+		{#if data.horario && !data.horario.abierto}
 			<div class="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-center text-sm text-amber-200">
 				<Icon name="clock" class="size-4 shrink-0" />
 				<span>
-					Estamos fuera de horario de atención (hoy {horario.apertura} – {horario.cierre}): no se reciben pedidos
+					Estamos fuera de horario de atención (hoy {data.horario.apertura} – {data.horario.cierre}): no se reciben pedidos
 					nuevos. Puedes seguir consultando el estado de tu pedido.
 				</span>
 			</div>
-		{:else if horario?.abierto}
+		{:else if data.horario?.abierto}
 			<div class="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-center text-sm text-green-200">
 				<Icon name="circle-check" class="size-4 shrink-0" />
-				<span>Recibimos pedidos hoy hasta las {horario.cierre}.</span>
+				<span>Recibimos pedidos hoy hasta las {data.horario.cierre}.</span>
 			</div>
 		{/if}
 
@@ -106,21 +85,21 @@
 				<div class="mb-4 flex size-11 items-center justify-center rounded-xl bg-primary/20 text-[#8BB4FF]">
 					<Icon name="bolt" class="size-5" />
 				</div>
-				<h3 class="font-semibold text-white">Tarifa al instante</h3>
+				<h2 class="font-semibold text-white">Tarifa al instante</h2>
 				<p class="mt-1.5 text-sm text-slate-400">El precio de tu domicilio se calcula automáticamente al elegir origen y destino.</p>
 			</div>
 			<div class="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur transition hover:border-primary/50 hover:bg-white/10">
 				<div class="mb-4 flex size-11 items-center justify-center rounded-xl bg-primary/20 text-[#8BB4FF]">
 					<Icon name="truck-fast" class="size-5" />
 				</div>
-				<h3 class="font-semibold text-white">Pedidos en minutos</h3>
+				<h2 class="font-semibold text-white">Pedidos en minutos</h2>
 				<p class="mt-1.5 text-sm text-slate-400">Confirma tu pedido y recibe al instante el código de seguimiento.</p>
 			</div>
 			<div class="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur transition hover:border-primary/50 hover:bg-white/10">
 				<div class="mb-4 flex size-11 items-center justify-center rounded-xl bg-primary/20 text-[#8BB4FF]">
 					<Icon name="magnifying-glass-location" class="size-5" />
 				</div>
-				<h3 class="font-semibold text-white">Seguimiento en vivo</h3>
+				<h2 class="font-semibold text-white">Seguimiento en vivo</h2>
 				<p class="mt-1.5 text-sm text-slate-400">Consulta el estado de tu entrega cuando quieras, desde cualquier dispositivo.</p>
 			</div>
 		</section>

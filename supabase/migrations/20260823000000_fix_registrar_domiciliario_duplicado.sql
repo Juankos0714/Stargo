@@ -1,0 +1,17 @@
+-- ============================================================
+-- StarGo · Fix — Overload duplicado de registrar_domiciliario
+-- ============================================================
+-- La Fase 16 re-emitió registrar_domiciliario con p_username usando
+-- CREATE OR REPLACE con DISTINTA aridad (3 → 4 parámetros). En Postgres
+-- CREATE OR REPLACE solo reemplaza funciones con la MISMA firma, así que
+-- el overload viejo (p_nombre, p_telefono, p_email) sobrevivió junto al
+-- nuevo (p_nombre, p_telefono, p_email, p_username).
+--
+-- Con p_username opcional (DEFAULT NULL), una llamada sin username — p. ej.
+-- la del panel admin al registrar un domiciliario — matchea AMBOS overloads
+-- y PostgREST responde:
+--   "Could not choose the best candidate function between: ..."
+--
+-- SOLUCIÓN: eliminar el overload obsoleto de 3 parámetros. El de 4 cubre
+-- todos los casos (p_username DEFAULT NULL = mismo comportamiento).
+DROP FUNCTION IF EXISTS public.registrar_domiciliario(TEXT, TEXT, TEXT);

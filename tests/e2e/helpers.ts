@@ -62,7 +62,7 @@ export interface EstadoE2E {
 		barrioA: string;
 		barrioB: string;
 		barrioSinTarifa: string;
-		recargoCompra: { codigo: string; nombre: string; valor: number };
+		recargoPeso: { codigo: string; nombre: string; valor: number };
 	};
 }
 
@@ -196,9 +196,12 @@ export async function sembrarE2E(): Promise<EstadoE2E | null> {
 	});
 	if (errTarifa) throw new Error(`E2E: siembra de tarifa falló: ${errTarifa.message}`);
 
-	const recargoCompra = { codigo: `e2e_${PREFIJO_E2E}_compra`, nombre: 'E2E Compra', valor: 2000 };
+	// Recargo ACTIVO no-compra: en el flujo de Domicilio los recargos de tipo
+	// «compra» se ocultan (solo aplican a compras/diligencias), así que el
+	// único recargo visible del formulario debe ser de otro tipo ('peso').
+	const recargoPeso = { codigo: `e2e_${PREFIJO_E2E}_peso`, nombre: 'E2E Peso', valor: 2000 };
 	const { error: errRecargos } = await s.from('recargos').insert([
-		{ ...recargoCompra, tipo: 'compra', activo: true },
+		{ ...recargoPeso, tipo: 'peso', activo: true },
 		{ codigo: `e2e_${PREFIJO_E2E}_inactivo`, nombre: 'E2E Inactivo', valor: 999, tipo: 'otro', activo: false }
 	]);
 	if (errRecargos) throw new Error(`E2E: siembra de recargos falló: ${errRecargos.message}`);
@@ -230,7 +233,7 @@ export async function sembrarE2E(): Promise<EstadoE2E | null> {
 			barrioA: porNombre.get(nombreBarrioA) as string,
 			barrioB: porNombre.get(nombreBarrioB) as string,
 			barrioSinTarifa: porNombre.get(nombreSinTarifa) as string,
-			recargoCompra
+			recargoPeso
 		}
 	};
 	guardarEstado(estado);
@@ -301,6 +304,7 @@ export async function crearPedidoAPI(
 	opts: { recargos?: string[] } = {}
 ): Promise<string> {
 	// El endpoint responde { data: { numero, ... } } (la respuesta del RPC).
+	const recargos = opts.recargos ?? [];
 	const r = await peticion<{ data?: { numero: string }; error?: string }>('/api/pedidos', {
 		metodo: 'POST',
 		cuerpo: {
@@ -309,7 +313,10 @@ export async function crearPedidoAPI(
 			barrio_destino: e.catalogo.barrioB,
 			direccion_destino: `Dir e2e ${e.prefijo} destino API`,
 			observaciones: 'creado por API E2E',
-			recargos: opts.recargos ?? [],
+			recargos,
+			// Fase 14: el API exige decisión explícita de recargos (elegir o «No
+			// aplica»). Sin recargos se marca «no aplica».
+			recargos_confirmados_no_aplica: recargos.length === 0,
 			// Fase 19: el teléfono es obligatorio.
 			telefono: '3001234567'
 		}
@@ -386,9 +393,12 @@ export async function crearPedidoUI(
 	await elegirBarrio(page, 'ped-destino', `Barrio E2E B ${estado.prefijo}`);
 	await page.locator('#dir-origen').fill('Dir e2e ' + estado.prefijo + ' origen');
 	await page.locator('#dir-destino').fill('Dir e2e ' + estado.prefijo + ' destino');
+	// Fase 14: el formulario exige decisión explícita de recargos — elegir el
+	// recargo activo del catálogo («E2E Peso») o marcar «No aplica».
 	if (opts.recargo) {
-		// El único recargo activo del catálogo es "E2E Compra".
-		await page.getByText('E2E Compra', { exact: true }).click();
+		await page.getByText('E2E Peso', { exact: true }).click();
+	} else {
+		await page.getByText('No aplica', { exact: true }).click();
 	}
 	// Fase 19: contacto del cliente (nombre opcional + celular obligatorio).
 	await page.locator('#cli-nombre').fill('Ana E2E');

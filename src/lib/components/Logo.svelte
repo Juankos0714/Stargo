@@ -27,11 +27,18 @@
 			dark: '/brand/stargo-full-white.svg'
 		}
 	};
+
+	// Relación de aspecto intrínseca de cada SVG (viewBox) para emitir width y
+	// height explícitos: evita el layout shift por imágenes sin dimensiones.
+	const RATIO = { full: 573 / 134, mark: 611 / 624 };
+	const width = $derived(Math.round(height * RATIO[type]));
 </script>
 
 <img
 	src={ASSETS[type][surface]}
 	alt="Stargo"
+	width={width}
+	height={height}
 	style="height: {height}px; width: auto;"
 	loading={priority ? 'eager' : 'lazy'}
 	fetchpriority={priority ? 'high' : 'auto'}

@@ -14,8 +14,12 @@ const csp: NonNullable<KitConfig['csp']> = {
 		'script-src': ['self', 'https://vercel.live'],
 		// 'unsafe-inline' en style-src: necesario por atributos style=""
 		// que SvelteKit y algunas vistas usan (p. ej. el degradado del home).
-		'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com', 'https://vercel.live'],
-		'font-src': ['self', 'https://fonts.gstatic.com', 'data:', 'https://vercel.live', 'https://assets.vercel.com'],
+		// 'unsafe-inline' en style-src: necesario por atributos style=""
+		// que SvelteKit y algunas vistas usan (p. ej. el degradado del home).
+		// Inter va auto-alojada (mismo origen), así que ya no se permite
+		// fonts.googleapis.com / fonts.gstatic.com.
+		'style-src': ['self', 'unsafe-inline', 'https://vercel.live'],
+		'font-src': ['self', 'data:', 'https://vercel.live', 'https://assets.vercel.com'],
 		'img-src': ['self', 'data:', 'https://vercel.live', 'https://vercel.com', 'blob:'],
 		// REST + Realtime (WebSocket) de Supabase desde el navegador.
 		// Ingest de Sentry (solo se usa si PUBLIC_SENTRY_DSN está configurado).

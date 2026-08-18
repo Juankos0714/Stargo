@@ -13,7 +13,7 @@
  * Sale con código 1 si algún presupuesto de Core Web Vitals se supera.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -28,28 +28,36 @@ const PRESUPUESTO = {
 	'total-blocking-time': 200
 };
 
-const dir = mkdtempSync(join(tmpdir(), 'lh-'));
-const rutaSalida = join(dir, 'report.json');
+const dir = process.env.LH_REPORT_DIR || mkdtempSync(join(tmpdir(), 'lh-'));
 
 for (const vista of VISTAS) {
 	const url = URL + vista.trim();
+	const nombre = vista.trim().replaceAll('/', '_') || 'home';
+	const rutaSalida = join(dir, `report-${nombre}.json`);
 	console.log(`[perf] Auditando ${url}…`);
-	// La Parte 7 pide simular mobile con red 3G/4G: --preset=mobile aplica el
-	// throttling por defecto de Lighthouse (CPU 4x + red lenta de mobile).
+	// La Parte 7 pide simular mobile con red 3G/4G: el preset `perf` (por
+	// defecto en Lighthouse 13) aplica emulación móvil + throttling simulado
+	// (CPU 4x + red lenta de mobile). `mobile` dejó de existir como preset.
 	const r = spawnSync(
 		'npx',
 		[
 			'lighthouse',
 			url,
 			'--quiet',
-			'--chrome-flags=--headless --no-sandbox',
+			'--chrome-flags=--headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage',
 			'--output=json',
 			`--output-path=${rutaSalida}`,
-			'--preset=mobile'
+			'--preset=perf'
 		],
 		{ stdio: 'inherit' }
 	);
+	// En Windows, chrome-launcher a veces termina con código ≠ 0 al limpiar su
+	// perfil temporal (EPERM) AUNQUE el reporte ya se escribió. Si el reporte
+	// existe se evalúa igual; solo se considera fallo si no llegó a escribirse.
 	if (r.status !== 0) {
+		console.warn(`[perf] Lighthouse terminó con código ${r.status} (${url}); se evalúa el reporte si existe.`);
+	}
+	if (!existsSync(rutaSalida)) {
 		console.error(`[perf] Lighthouse falló para ${url} (¿Chrome instalado?)`);
 		process.exitCode = 1;
 		continue;

@@ -68,6 +68,25 @@ test('comisiones: configurar en admin → entregar → deuda → abono', async (
 	let domiId: string | undefined;
 	let domiUserId: string | undefined;
 	try {
+		// ---- 0. Escalera en estado conocido (Fase 18) ----------------------------
+		// Un cambio de escalera HOY congela la comisión del día con la escalera
+		// ANTERIOR (la nueva aplica desde mañana). Para que la entrega de hoy
+		// genere la comisión que el test configura, se deja la escalera en ese
+		// estado ANTES de tocar el panel: nivel 1 = $1.500, sin días congelados
+		// de corridas anteriores (mismo patrón que la suite de integración).
+		const s = clienteService();
+		await s.from('comision_historico').delete().gte('fecha', '2000-01-01');
+		await s.from('comision_niveles').delete().gte('nivel', 0);
+		await s.from('comision_niveles').insert([
+			{ nivel: 1, hasta: 10000, valor: 1500 },
+			{ nivel: 2, hasta: 20000, valor: 1500 },
+			{ nivel: 3, hasta: 30000, valor: 1500 }
+		]);
+		await s.from('comision_config').upsert(
+			{ id: '00000000-0000-0000-0000-000000000001', paso: 10000, niveles: 20 },
+			{ onConflict: 'id' }
+		);
+
 		// ---- 1. Admin: garantiza la escalera y fija la comisión del nivel 1. ----
 		// El pedido del catálogo E2E (tarifa A→B = $6.000) cae en el nivel 1, así
 		// que la comisión que se congela al entregar será la del nivel 1.
@@ -176,6 +195,27 @@ test('comisiones: configurar en admin → entregar → deuda → abono', async (
 		await expect(domiPage.getByText(/total abonado \$\s*1\.000/)).toBeVisible();
 		await expect(domiPage.getByText('en deuda', { exact: true })).toBeVisible();
 	} finally {
+		// Restaura la escalera al estado de la migración (20 × $1.300, paso
+		// $10.000) y quita los días congelados que dejó esta corrida, para no
+		// contaminar corridas posteriores del mismo día.
+		try {
+			const s2 = clienteService();
+			await s2.from('comision_niveles').delete().gte('nivel', 0);
+			await s2.from('comision_niveles').insert(
+				Array.from({ length: 20 }, (_, i) => ({
+					nivel: i + 1,
+					hasta: (i + 1) * 10000,
+					valor: 1300
+				}))
+			);
+			await s2.from('comision_config').upsert(
+				{ id: '00000000-0000-0000-0000-000000000001', paso: 10000, niveles: 20 },
+				{ onConflict: 'id' }
+			);
+			await s2.from('comision_historico').delete().gte('fecha', '2000-01-01');
+		} catch {
+			// best-effort: no debe enmascarar el fallo real del test
+		}
 		await limpiarDomi(domiId, domiUserId);
 		await ctxAdmin.close();
 		await ctxDomi.close();
