@@ -83,6 +83,11 @@
 			href: '/admin/barrios',
 			label: 'Barrios',
 			icon: 'location-dot'
+		},
+		{
+			href: '/admin/descargar',
+			label: 'Descargar app',
+			icon: 'download'
 		}
 	];
 

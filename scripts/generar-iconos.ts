@@ -14,6 +14,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import {
+	faAppleWhole,
 	faArrowRight,
 	faArrowRightArrowLeft,
 	faArrowRotateRight,
@@ -34,6 +35,7 @@ import {
 	faCoins,
 	faCommentSms,
 	faDownload,
+	faExternalLink,
 	faFaceSmileBeam,
 	faFloppyDisk,
 	faGaugeHigh,
@@ -49,6 +51,7 @@ import {
 	faPlus,
 	faReceipt,
 	faRightFromBracket,
+	faRobot,
 	faSun,
 	faTableCells,
 	faTicket,
@@ -63,6 +66,7 @@ import {
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 
 const ICONOS: Array<[string, IconDefinition]> = [
+	['apple', faAppleWhole],
 	['arrow-right', faArrowRight],
 	['arrows-left-right', faArrowRightArrowLeft],
 	['arrow-rotate-right', faArrowRotateRight],
@@ -83,6 +87,7 @@ const ICONOS: Array<[string, IconDefinition]> = [
 	['coins', faCoins],
 	['comment-sms', faCommentSms],
 	['download', faDownload],
+	['external-link', faExternalLink],
 	['face-smile-beam', faFaceSmileBeam],
 	['floppy-disk', faFloppyDisk],
 	['gauge-high', faGaugeHigh],
@@ -98,6 +103,7 @@ const ICONOS: Array<[string, IconDefinition]> = [
 	['plus', faPlus],
 	['receipt', faReceipt],
 	['right-from-bracket', faRightFromBracket],
+	['robot', faRobot],
 	['sun', faSun],
 	['table-cells', faTableCells],
 	['ticket', faTicket],
