@@ -27,6 +27,42 @@ if (SENTRY_ACTIVO) {
  * La Content-Security-Policy se configura en vite.config.ts (csp), donde
  * SvelteKit genera un nonce para sus scripts inline de hidratación.
  */
+/**
+ * CORS para Capacitor (capacitor://localhost).
+ * Las cabeceras se definen en vercel.json para producción;
+ * este handler cubre el preflight OPTIONS y desarrollo local.
+ */
+const CORS_ORIGINS = 'capacitor://localhost, http://localhost';
+
+const handleCors: Handle = async ({ event, resolve }) => {
+	// Responder 200 a preflight OPTIONS en /api/*
+	if (event.url.pathname.startsWith('/api/') && event.request.method === 'OPTIONS') {
+		return new Response(null, {
+			status: 204,
+			headers: {
+				'Access-Control-Allow-Origin': CORS_ORIGINS,
+				'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+				'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+				'Access-Control-Allow-Credentials': 'true',
+				'Access-Control-Max-Age': '86400'
+			}
+		});
+	}
+
+	const response = await resolve(event);
+
+	// Agregar CORS headers a respuestas de API para Capacitor
+	if (event.url.pathname.startsWith('/api/')) {
+		const origin = event.request.headers.get('origin') ?? '';
+		if (origin.includes('capacitor://') || origin.includes('localhost')) {
+			response.headers.set('Access-Control-Allow-Origin', CORS_ORIGINS);
+			response.headers.set('Access-Control-Allow-Credentials', 'true');
+		}
+	}
+
+	return response;
+};
+
 const handleSeguridad: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
 
@@ -39,8 +75,8 @@ const handleSeguridad: Handle = async ({ event, resolve }) => {
 };
 
 export const handle: Handle = SENTRY_ACTIVO
-	? sequence(Sentry.sentryHandle(), handleSeguridad)
-	: handleSeguridad;
+	? sequence(Sentry.sentryHandle(), handleCors, handleSeguridad)
+	: sequence(handleCors, handleSeguridad);
 
 /**
  * Manejo de errores del servidor:

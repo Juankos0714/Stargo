@@ -1,13 +1,30 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { api } from '$lib/api';
+	import { api, apiFetch } from '$lib/api';
 	import { supabaseBrowser } from '$lib/supabase-browser';
+	import { esCapacitor } from '$lib/push-capacitor';
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import CentroNotificaciones from '$lib/components/CentroNotificaciones.svelte';
 
 	let { children } = $props();
+
+	// En Capacitor, la auth del layout server no corre. Verificar vía API.
+	let nombre = $state(page.data?.nombre ?? '');
+	let username = $state<string | null>(page.data?.username ?? null);
+	if (esCapacitor() && !nombre) {
+		apiFetch('/api/sesion', { headers: { Accept: 'application/json' } })
+			.then((r) => r.json().catch(() => ({ data: null })))
+			.then((body) => {
+				if (!body?.data?.user) {
+					goto('/login');
+				} else {
+					nombre = body.data.user.user_metadata?.nombre ?? '';
+				}
+			})
+			.catch(() => goto('/login'));
+	}
 
 	async function salir() {
 		await api.post('/api/salir');
@@ -44,12 +61,12 @@
 			<div class="mb-3 flex items-center justify-between gap-2">
 				<div class="flex min-w-0 items-center gap-3">
 					<div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-[#8BB4FF]">
-						{page.data.nombre?.charAt(0).toUpperCase()}
+						{nombre?.charAt(0).toUpperCase()}
 					</div>
 					<div class="min-w-0">
-						<div class="truncate text-xs font-semibold text-white">{page.data.nombre}</div>
+						<div class="truncate text-xs font-semibold text-white">{nombre}</div>
 						<div class="truncate text-[10px] text-[#8BB4FF]">
-							Domiciliario{page.data.username ? ` · ${page.data.username}` : ''}
+							Domiciliario{username ? ` · ${username}` : ''}
 						</div>
 					</div>
 				</div>

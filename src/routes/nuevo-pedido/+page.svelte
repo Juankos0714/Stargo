@@ -16,17 +16,39 @@
 	import { validarPedido } from '$lib/logic/validacion';
 	import { page } from '$app/state';
 	import type { HorarioHoy } from '$lib/types';
+	import { apiFetch } from '$lib/api';
+	import { esCapacitor } from '$lib/push-capacitor';
 
 	// El catálogo (barrios, zonas, recargos y horario de hoy) lo resuelve el
 	// servidor (+page.server.ts): el formulario ya viene en el HTML inicial,
 	// sin las 4 llamadas /api encadenadas que retrasaban el render en mobile.
+	// En Capacitor (ssr: false), se cargan via API en el cliente.
 	let { data } = $props();
-	let horario = $state<HorarioHoy | null>(data.horario);
-	let barrios = $state<Barrio[]>(data.barrios);
-	let zonas = $state<Zona[]>(data.zonas);
-	let recargos = $state<Recargo[]>(data.recargos);
-	let cargando = $state(false);
-	let errorCarga = $state<string | null>(data.error);
+	let horario = $state<HorarioHoy | null>(data?.horario ?? null);
+	let barrios = $state<Barrio[]>(data?.barrios ?? []);
+	let zonas = $state<Zona[]>(data?.zonas ?? []);
+	let recargos = $state<Recargo[]>(data?.recargos ?? []);
+	let cargando = $state(!data?.barrios);
+	let errorCarga = $state<string | null>(data?.error ?? null);
+
+	// En Capacitor, cargar catálogo via API.
+	if (esCapacitor() && barrios.length === 0) {
+		Promise.all([
+			apiFetch('/api/barrios').then((r) => r.json().catch(() => ({ data: [] }))),
+			apiFetch('/api/zonas').then((r) => r.json().catch(() => ({ data: [] }))),
+			apiFetch('/api/recargos').then((r) => r.json().catch(() => ({ data: [] }))),
+			apiFetch('/api/horario').then((r) => r.json().catch(() => ({ data: null })))
+		]).then(([rB, rZ, rR, rH]) => {
+			barrios = rB?.data ?? [];
+			zonas = rZ?.data ?? [];
+			recargos = rR?.data ?? [];
+			horario = rH?.data ?? null;
+			cargando = false;
+		}).catch(() => {
+			cargando = false;
+			errorCarga = 'No se pudieron cargar los datos.';
+		});
+	}
 
 	// ---------- Tipo de servicio (Fase 14) ----------
 	let tipoServicio = $state<TipoServicio>('domicilio');

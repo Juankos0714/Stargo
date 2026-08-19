@@ -2,10 +2,34 @@
 	// Los datos (horario de hoy + roles del usuario) se resuelven en el
 	// servidor (+page.server.ts): el banner y la navegación ya vienen en el
 	// HTML inicial, sin peticiones /api en la ruta crítica del cliente.
+	// En Capacitor (ssr: false), se cargan via API en el cliente.
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { apiFetch } from '$lib/api';
+	import { esCapacitor } from '$lib/push-capacitor';
+	import type { HorarioHoy } from '$lib/types';
 
 	let { data } = $props();
+
+	// En Capacitor, data viene vacío del load (ssr: false + no +page.ts).
+	// Cargamos los datos manualmente via API.
+	let horario = $state<HorarioHoy | null>(data?.horario ?? null);
+	let esAdmin = $state(data?.esAdmin ?? false);
+	let esDomiciliario = $state(data?.esDomiciliario ?? false);
+
+	if (esCapacitor() && !data?.horario) {
+		Promise.all([
+			apiFetch('/api/horario').then((r) => r.json().catch(() => ({ data: null }))),
+			apiFetch('/api/sesion', { headers: { Accept: 'application/json' } }).then((r) =>
+				r.json().catch(() => ({ data: null }))
+			)
+		]).then(([rHorario, rSesion]) => {
+			horario = rHorario?.data ?? null;
+			const sesion = rSesion?.data;
+			esAdmin = sesion?.roles?.esAdmin ?? false;
+			esDomiciliario = sesion?.roles?.esDomiciliario ?? false;
+		});
+	}
 </script>
 
 <svelte:head>
@@ -27,9 +51,9 @@
 		</a>
 		<nav class="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm">
 			<a href="/calculadora" class="hidden rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/10 hover:text-white sm:inline-flex">Calculadora</a>
-			{#if data.esAdmin}
+			{#if esAdmin}
 				<a href="/admin" class="rounded-lg bg-primary px-4 py-2 font-semibold text-white shadow-lg transition hover:bg-primary-dark">Panel admin</a>
-			{:else if data.esDomiciliario}
+			{:else if esDomiciliario}
 				<a href="/domiciliario" class="rounded-lg bg-primary px-4 py-2 font-semibold text-white shadow-lg transition hover:bg-primary-dark">Mis entregas</a>
 			{:else}
 				<a href="/login" class="rounded-lg border border-white/15 px-4 py-2 font-medium text-slate-200 transition hover:bg-white/10">Iniciar sesión</a>
@@ -38,18 +62,18 @@
 	</header>
 
 	<main class="relative z-10 mx-auto max-w-6xl px-6">
-		{#if data.horario && !data.horario.abierto}
+		{#if horario && !horario.abierto}
 			<div class="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-center text-sm text-amber-200">
 				<Icon name="clock" class="size-4 shrink-0" />
 				<span>
-					Estamos fuera de horario de atención (hoy {data.horario.apertura} – {data.horario.cierre}): no se reciben pedidos
+					Estamos fuera de horario de atención (hoy {horario.apertura} – {horario.cierre}): no se reciben pedidos
 					nuevos. Puedes seguir consultando el estado de tu pedido.
 				</span>
 			</div>
-		{:else if data.horario?.abierto}
+		{:else if horario?.abierto}
 			<div class="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-center text-sm text-green-200">
 				<Icon name="circle-check" class="size-4 shrink-0" />
-				<span>Recibimos pedidos hoy hasta las {data.horario.cierre}.</span>
+				<span>Recibimos pedidos hoy hasta las {horario.cierre}.</span>
 			</div>
 		{/if}
 

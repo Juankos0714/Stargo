@@ -5,6 +5,12 @@
 	import { suscribirCambios } from '$lib/realtime';
 	import { esIOS, pushSoportado, suscribirPush, estaSuscrito } from '$lib/push';
 	import {
+		esCapacitor,
+		registrarPushCapacitor,
+		estaSuscritoCapacitor,
+		escucharPushForeground
+	} from '$lib/push-capacitor';
+	import {
 		sonarNotificacion,
 		obtenerVolumenSonido,
 		fijarVolumenSonido,
@@ -91,32 +97,45 @@
 		marcando = false;
 	}
 
+	/** Activar push: Capacitor nativo o Web Push (PWA). */
 	async function activarPush() {
 		activandoPush = true;
 		pushMensaje = null;
-		const r = await suscribirPush();
-		activandoPush = false;
-		if (r.ok) {
-			pushActivo = true;
-			pushMensaje = null;
+
+		if (esCapacitor()) {
+			// Push nativo (FCM)
+			const r = await registrarPushCapacitor();
+			activandoPush = false;
+			if (r.ok) {
+				pushActivo = true;
+				pushMensaje = null;
+			} else {
+				pushMensaje = r.error ?? 'No se pudo activar push nativo.';
+			}
 		} else {
-			pushMensaje = r.error ?? 'No se pudo activar.';
+			// Web Push (VAPID) para PWA
+			const r = await suscribirPush();
+			activandoPush = false;
+			if (r.ok) {
+				pushActivo = true;
+				pushMensaje = null;
+			} else {
+				pushMensaje = r.error ?? 'No se pudo activar.';
+			}
 		}
 	}
 
-	/** Envía un push de prueba real para diagnosticar la cadena de Web Push. */
+	/** Envía un push de prueba real para diagnosticar la cadena de push. */
 	async function probarPush() {
 		probandoPush = true;
 		pruebaPush = null;
 		try {
-			const res = await fetch('/api/push/probar', { method: 'POST' });
-			const body = await res.json().catch(() => ({}));
-			const data = body?.data;
+			const res = await api.post<{ ok: boolean; diagnostico?: string; detalle?: string; suscripciones?: number }>('/api/push/probar');
 			pruebaPush = {
-				ok: res.ok && Boolean(data?.ok),
-				diagnostico: data?.diagnostico,
-				detalle: data?.detalle ?? body?.error ?? 'No se pudo completar la prueba.',
-				suscripciones: data?.suscripciones ?? 0
+				ok: res.data?.ok ?? false,
+				diagnostico: res.data?.diagnostico,
+				detalle: res.data?.detalle ?? res.error ?? 'No se pudo completar la prueba.',
+				suscripciones: res.data?.suscripciones ?? 0
 			};
 		} catch {
 			pruebaPush = { ok: false, detalle: 'Error de red al probar las notificaciones.' };
@@ -159,25 +178,41 @@
 	$effect(() => {
 		let activo = true;
 		let limpiar: (() => void) | undefined;
+
+		// En Capacitor, configurar listeners de push foreground una vez.
+		if (esCapacitor()) {
+			escucharPushForeground();
+		}
+
 		hidratarSesionRealtime().then(() => {
 			if (!activo) return;
 			limpiar = suscribirCambios({
-				tabla: 'notificaciones',					onCambio: (payload) => {
-						// Solo suena cuando llega una notificación NUEVA (INSERT), no al
-						// marcarla leída (UPDATE). El sonido del sistema no suena con la
-						// app en foco, así que se reproduce uno local. El gate por
-						// breakpoint evita que las dos instancias montadas (sidebar +
-						// topbar) suenen a la vez.
-						const evento = (payload as { eventType?: string } | null)?.eventType;
-						if (evento === 'INSERT' && debeSonar()) sonarNotificacion();
-						cargar();
-					}
+				tabla: 'notificaciones',
+				onCambio: (payload) => {
+					// Solo suena cuando llega una notificación NUEVA (INSERT), no al
+					// marcarla leída (UPDATE). El sonido del sistema no suena con la
+					// app en foco, así que se reproduce uno local. El gate por
+					// breakpoint evita que las dos instancias montadas (sidebar +
+					// topbar) suenen a la vez.
+					const evento = (payload as { eventType?: string } | null)?.eventType;
+					if (evento === 'INSERT' && debeSonar()) sonarNotificacion();
+					cargar();
+				}
 			});
 		});
 		cargar();
-		estaSuscrito().then((s) => {
-			if (activo) pushActivo = s;
-		});
+
+		// Verificar estado de push: Capacitor nativo o Web Push
+		if (esCapacitor()) {
+			estaSuscritoCapacitor().then((s) => {
+				if (activo) pushActivo = s;
+			});
+		} else {
+			estaSuscrito().then((s) => {
+				if (activo) pushActivo = s;
+			});
+		}
+
 		return () => {
 			activo = false;
 			limpiar?.();
@@ -311,7 +346,70 @@
 				{/if}
 			</div>
 
-			{#if pushSoportado()}
+			<!-- Push: Capacitor nativo (FCM) o Web Push (PWA) -->
+			{#if esCapacitor()}
+				<!-- Push nativo Capacitor: siempre disponible en la app nativa -->
+				<div class="shrink-0 border-t border-slate-100 bg-slate-50 px-4 py-3">
+					{#if pushActivo === true}
+						<p class="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700">
+							<Icon name="circle-check" class="size-3.5" />
+							Notificaciones push activadas
+						</p>
+						<p class="mt-1 text-center text-[10px] text-slate-400">
+							Recibirás avisos de pedidos aunque la app esté cerrada.
+						</p>
+					{:else}
+						<button
+							type="button"
+							onclick={activarPush}
+							disabled={activandoPush}
+							class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white transition hover:bg-primary-dark disabled:opacity-60"
+						>
+							<Icon name="bell" class="size-3.5" />
+							{activandoPush ? 'Activando…' : 'Activar notificaciones push'}
+						</button>
+						{#if pushMensaje}
+							<p class="mt-2 flex items-center justify-center gap-1 text-center text-[10px] font-medium text-red-600">
+								<Icon name="triangle-exclamation" class="size-3 shrink-0" />
+								{pushMensaje}
+							</p>
+						{:else}
+							<p class="mt-1.5 text-center text-[10px] text-slate-400">
+								Recibe avisos de pedidos nuevos aunque la app esté cerrada.
+							</p>
+						{/if}
+					{/if}
+
+					<button
+						type="button"
+						onclick={probarPush}
+						disabled={probandoPush}
+						class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-60"
+					>
+						<Icon name="arrow-rotate-right" class="size-3" />
+						{probandoPush ? 'Enviando prueba…' : 'Enviar notificación de prueba'}
+					</button>
+					{#if pruebaPush}
+						{#if pruebaPush.diagnostico}
+							<p
+								class="mt-2 flex items-center justify-center gap-1 rounded-md bg-white/60 px-2 py-1 text-center text-[11px] font-bold {pruebaPush.ok
+									? 'text-emerald-700'
+									: 'text-red-600'}"
+							>
+								{pruebaPush.ok ? '✓ ' : '✗ '}{pruebaPush.diagnostico}
+							</p>
+						{/if}
+						<p
+							class="mt-1.5 text-center text-[10px] leading-relaxed font-medium whitespace-pre-line {pruebaPush.ok
+								? 'text-emerald-700'
+								: 'text-amber-700'}"
+						>
+							{pruebaPush.detalle}
+						</p>
+					{/if}
+				</div>
+			{:else if pushSoportado()}
+				<!-- Web Push (PWA en navegador) -->
 				<div class="shrink-0 border-t border-slate-100 bg-slate-50 px-4 py-3">
 					{#if pushActivo === true}
 						<p class="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700">
@@ -343,8 +441,7 @@
 						{/if}
 					{/if}
 
-					<!-- Diagnóstico: prueba real de la cadena de Web Push (útil
-					     cuando el push no llega con la app cerrada). -->
+					<!-- Diagnóstico: prueba real de la cadena de Web Push -->
 					<button
 						type="button"
 						onclick={probarPush}
@@ -374,9 +471,7 @@
 					{/if}
 				</div>
 			{:else if esIOS()}
-				<!-- iOS 16.4+: el push solo existe en la PWA INSTALADA. En Safari
-				     normal no aparece el botón; se explica cómo instalar, o el
-				     usuario creería que la activación está rota. -->
+				<!-- iOS 16.4+: el push solo existe en la PWA INSTALADA. -->
 				<div class="shrink-0 border-t border-slate-100 bg-slate-50 px-4 py-3">
 					<p class="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-600">
 						<Icon name="bell" class="size-3.5" />

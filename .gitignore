@@ -46,6 +46,10 @@ desktop.ini
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+# Capacitor
+android/
+ios/
+
 # Python
 __pycache__/
 *.py[cod]

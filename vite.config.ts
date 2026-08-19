@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
-import adapter from '@sveltejs/adapter-vercel';
+import vercelAdapter from '@sveltejs/adapter-vercel';
+import staticAdapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import type { KitConfig } from '@sveltejs/kit';
@@ -65,8 +66,8 @@ export default defineConfig(({ mode }) => ({
 				runes: ({ filename }) => filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 
-			// Despliegue en Vercel (serverless + HTTPS).
-			adapter: adapter(),
+			// Despliegue: Vercel (SSR) o Capacitor (estático, ssr: false).
+			adapter: process.env.CAPACITOR_BUILD ? staticAdapter({ pages: 'build', assets: 'build', fallback: 'index.html', precompress: false, strict: true }) : vercelAdapter(),
 
 			// `src/instrumentation.server.ts` (Sentry del servidor) exige este flag
 			// desde SvelteKit 2.x: sin él, la carga de la config falla y SvelteKit

@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { api } from '$lib/api';
+	import { api, apiFetch } from '$lib/api';
 	import { supabaseBrowser } from '$lib/supabase-browser';
+	import { esCapacitor } from '$lib/push-capacitor';
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import CentroNotificaciones from '$lib/components/CentroNotificaciones.svelte';
@@ -11,6 +12,21 @@
 
 	// Menú móvil (Tarea 2): en vez del scroll horizontal se abre un drawer.
 	let menuAbierto = $state(false);
+
+	// En Capacitor, la auth del layout server no corre. Verificar vía API.
+	let email = $state(page.data?.email ?? '');
+	if (esCapacitor() && !email) {
+		apiFetch('/api/sesion', { headers: { Accept: 'application/json' } })
+			.then((r) => r.json().catch(() => ({ data: null })))
+			.then((body) => {
+				if (!body?.data?.user) {
+					goto('/login');
+				} else {
+					email = body.data.user.email ?? '';
+				}
+			})
+			.catch(() => goto('/login'));
+	}
 
 	const nav = [
 		{
@@ -111,10 +127,10 @@
 			<div class="mb-3 flex items-center justify-between gap-2">
 				<div class="flex min-w-0 items-center gap-3">
 					<div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-[#8BB4FF]">
-						{page.data.email?.charAt(0).toUpperCase()}
+						{email?.charAt(0).toUpperCase()}
 					</div>
 					<div class="min-w-0">
-						<div class="truncate text-xs font-semibold text-white">{page.data.email}</div>
+						<div class="truncate text-xs font-semibold text-white">{email}</div>
 						<div class="text-[10px] text-[#8BB4FF]">Administrador</div>
 					</div>
 				</div>
