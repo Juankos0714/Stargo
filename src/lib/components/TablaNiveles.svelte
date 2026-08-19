@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import { Receipt } from 'lucide';
 	import { formatearPeso, vistaCompactaNiveles, type NivelConRango } from '$lib/types';
 
 	interface Props {
@@ -72,7 +73,7 @@
 		<summary
 			class="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-primary-dark hover:underline"
 		>
-			<Icon name="receipt" class="size-3.5 shrink-0" />
+			<Icon icon={Receipt} class="size-3.5 shrink-0" />
 			<span>{titulo} ({niveles.length} niveles)</span>
 			{#if destacadoValido}
 				<span

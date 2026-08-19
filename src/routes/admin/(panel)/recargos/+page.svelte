@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
+	import { Plus } from 'lucide';
 	import { TIPOS_RECARGO, etiquetaTipoRecargo, type Recargo, type TipoRecargo } from '$lib/types';
 
 	let recargos = $state<Recargo[]>([]);
@@ -176,7 +177,7 @@
 		onclick={() => (formAbierto = !formAbierto)}
 		class="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
 	>
-		<Icon name="plus" class="size-4" />
+		<Icon icon={Plus} class="size-4" />
 		Nuevo recargo
 	</button>
 </header>

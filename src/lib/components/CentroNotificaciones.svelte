@@ -17,6 +17,7 @@
 		previsualizarSonido
 	} from '$lib/sonido';
 	import Icon from './Icon.svelte';
+	import { Bell, ClipboardList, CircleCheck, VolumeX, Volume2, TriangleAlert, RotateCw } from 'lucide';
 
 	interface Notificacion {
 		id: number;
@@ -238,7 +239,7 @@
 			? 'text-slate-300 hover:bg-white/10 hover:text-white'
 			: 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'}"
 	>
-		<Icon name="bell" class="size-4.5" />
+		<Icon icon={Bell} class="size-4.5" />
 		{#if lista.length > 0}
 			<span
 				class="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
@@ -294,7 +295,7 @@
 											? 'bg-primary-light text-primary'
 											: 'bg-emerald-50 text-emerald-600'}"
 									>
-										<Icon name={n.tipo === 'nuevo_pedido' ? 'clipboard-list' : 'circle-check'} class="size-3.5" />
+										<Icon icon={n.tipo === 'nuevo_pedido' ? ClipboardList : CircleCheck} class="size-3.5" />
 									</span>
 									<span class="min-w-0 flex-1">
 										<span class="block truncate text-sm font-semibold text-slate-900">{n.titulo}</span>
@@ -322,7 +323,7 @@
 							? 'text-slate-400 hover:bg-slate-200/70'
 							: 'text-slate-500 hover:bg-slate-200/70 hover:text-slate-700'}"
 					>
-						<Icon name={volumen === 0 ? 'volume-xmark' : 'volume-high'} class="size-4" />
+						<Icon icon={volumen === 0 ? VolumeX : Volume2} class="size-4" />
 					</button>
 					<input
 						type="range"
@@ -352,7 +353,7 @@
 				<div class="shrink-0 border-t border-slate-100 bg-slate-50 px-4 py-3">
 					{#if pushActivo === true}
 						<p class="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700">
-							<Icon name="circle-check" class="size-3.5" />
+							<Icon icon={CircleCheck} class="size-3.5" />
 							Notificaciones push activadas
 						</p>
 						<p class="mt-1 text-center text-[10px] text-slate-400">
@@ -365,12 +366,12 @@
 							disabled={activandoPush}
 							class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white transition hover:bg-primary-dark disabled:opacity-60"
 						>
-							<Icon name="bell" class="size-3.5" />
+							<Icon icon={Bell} class="size-3.5" />
 							{activandoPush ? 'Activando…' : 'Activar notificaciones push'}
 						</button>
 						{#if pushMensaje}
 							<p class="mt-2 flex items-center justify-center gap-1 text-center text-[10px] font-medium text-red-600">
-								<Icon name="triangle-exclamation" class="size-3 shrink-0" />
+								<Icon icon={TriangleAlert} class="size-3 shrink-0" />
 								{pushMensaje}
 							</p>
 						{:else}
@@ -386,7 +387,7 @@
 						disabled={probandoPush}
 						class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-60"
 					>
-						<Icon name="arrow-rotate-right" class="size-3" />
+						<Icon icon={RotateCw} class="size-3" />
 						{probandoPush ? 'Enviando prueba…' : 'Enviar notificación de prueba'}
 					</button>
 					{#if pruebaPush}
@@ -413,7 +414,7 @@
 				<div class="shrink-0 border-t border-slate-100 bg-slate-50 px-4 py-3">
 					{#if pushActivo === true}
 						<p class="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700">
-							<Icon name="circle-check" class="size-3.5" />
+							<Icon icon={CircleCheck} class="size-3.5" />
 							Notificaciones push activadas
 						</p>
 						<p class="mt-1 text-center text-[10px] text-slate-400">
@@ -426,12 +427,12 @@
 							disabled={activandoPush}
 							class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white transition hover:bg-primary-dark disabled:opacity-60"
 						>
-							<Icon name="bell" class="size-3.5" />
+							<Icon icon={Bell} class="size-3.5" />
 							{activandoPush ? 'Activando…' : 'Activar notificaciones push'}
 						</button>
 						{#if pushMensaje}
 							<p class="mt-2 flex items-center justify-center gap-1 text-center text-[10px] font-medium text-red-600">
-								<Icon name="triangle-exclamation" class="size-3 shrink-0" />
+								<Icon icon={TriangleAlert} class="size-3 shrink-0" />
 								{pushMensaje}
 							</p>
 						{:else if pushActivo === null}
@@ -448,7 +449,7 @@
 						disabled={probandoPush}
 						class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-60"
 					>
-						<Icon name="arrow-rotate-right" class="size-3" />
+						<Icon icon={RotateCw} class="size-3" />
 						{probandoPush ? 'Enviando prueba…' : 'Enviar notificación de prueba'}
 					</button>
 					{#if pruebaPush}
@@ -474,7 +475,7 @@
 				<!-- iOS 16.4+: el push solo existe en la PWA INSTALADA. -->
 				<div class="shrink-0 border-t border-slate-100 bg-slate-50 px-4 py-3">
 					<p class="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-600">
-						<Icon name="bell" class="size-3.5" />
+						<Icon icon={Bell} class="size-3.5" />
 						Notificaciones solo en la app instalada
 					</p>
 					<p class="mt-1 text-center text-[10px] text-slate-400">

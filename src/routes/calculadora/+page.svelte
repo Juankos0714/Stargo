@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { ArrowLeftRight, Info, ArrowRight, TriangleAlert } from 'lucide';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { formatearPeso, type Barrio, type Zona } from '$lib/types';
@@ -191,7 +192,7 @@
 						aria-label="Intercambiar origen y destino"
 						class="mx-auto flex size-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-primary hover:text-primary-dark active:scale-95"
 					>
-						<Icon name="arrows-left-right" class="size-4.5" />
+						<Icon icon={ArrowLeftRight} class="size-4.5" />
 					</button>
 
 					<div>
@@ -213,7 +214,7 @@
 				<div class="mt-7 min-h-36 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-6">
 					{#if !calculado}
 						<p class="flex items-center gap-2 text-sm text-slate-400">
-							<Icon name="circle-info" class="size-4.5" />
+							<Icon icon={Info} class="size-4.5" />
 							Selecciona ambos barrios para calcular la tarifa automáticamente.
 						</p>
 					{:else if disponible}
@@ -230,12 +231,12 @@
 								class="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:bg-primary-dark"
 							>
 								Solicitar este domicilio
-								<Icon name="arrow-right" class="size-4" />
+								<Icon icon={ArrowRight} class="size-4" />
 							</a>
 						</div>
 					{:else}
 						<div class="flex flex-col items-center gap-1.5 text-center">
-							<span class="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">									<Icon name="triangle-exclamation" class="size-3.5" />
+							<span class="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">									<Icon icon={TriangleAlert} class="size-3.5" />
 								{#if motivo === 'zona_no_disponible'}
 									Zona no disponible
 								{:else if motivo === 'sin_tarifa'}

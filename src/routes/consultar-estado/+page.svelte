@@ -2,6 +2,7 @@
 	import { api } from '$lib/api';
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { ClipboardList, Ban, Search } from 'lucide';
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import BadgeEstado from '$lib/components/BadgeEstado.svelte';
@@ -205,7 +206,7 @@
 						aria-label="Pegar código desde el portapapeles"
 						class="absolute top-1/2 right-2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-primary"
 					>
-						<Icon name="clipboard-list" class="size-4.5" />
+						<Icon icon={ClipboardList} class="size-4.5" />
 					</button>
 				</div>
 				<button
@@ -303,7 +304,7 @@
 
 					{#if resultado.pedido.estado === 'cancelado' && resultado.pedido.motivo_cancelacion}
 						<p class="mt-4 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-							<Icon name="ban" class="mt-0.5 size-4 shrink-0" />
+							<Icon icon={Ban} class="mt-0.5 size-4 shrink-0" />
 							<span><span class="font-semibold">Motivo de cancelación:</span> {resultado.pedido.motivo_cancelacion}</span>
 						</p>
 					{/if}
@@ -380,7 +381,7 @@
 			{:else}
 				<div class="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-10 text-center">
 					<div class="mx-auto flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-						<Icon name="magnifying-glass" class="size-5" />
+						<Icon icon={Search} class="size-5" />
 					</div>
 					<h2 class="mt-4 text-sm font-bold text-slate-700">¿Dónde encuentro el código?</h2>
 					<ol class="mx-auto mt-3 max-w-sm space-y-1.5 text-left text-sm text-slate-500">

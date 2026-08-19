@@ -69,11 +69,10 @@
 		"@capacitor/ios": "^8.5.0",
 		"@capacitor/push-notifications": "^8.1.2",
 		"@fontsource-variable/inter": "^5.3.0",
-		"@fortawesome/fontawesome-svg-core": "^6",
-		"@fortawesome/free-solid-svg-icons": "^6",
-		"@fortawesome/svelte-fontawesome": "^0.2.4",
 		"@sentry/sveltekit": "10",
 		"@supabase/supabase-js": "^2.112.2",
-		"@sveltejs/adapter-static": "^3.0.10"
+		"@sveltejs/adapter-static": "^3.0.10",
+		"lucide": "^1.33.0",
+		"morphicons-svelte": "^0.1.1"
 	}
 }

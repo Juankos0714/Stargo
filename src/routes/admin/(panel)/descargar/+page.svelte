@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import { Zap, CircleCheck, Download, Bot, Apple, ExternalLink } from 'lucide';
 	import {
 		obtenerEventoInstalacion,
 		estaInstalada,
@@ -68,7 +69,7 @@
 	<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 		<div class="flex items-start gap-4">
 			<div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-				<Icon name="bolt" class="size-6" />
+				<Icon icon={Zap} class="size-6" />
 			</div>
 			<div class="flex-1">
 				<h2 class="text-lg font-bold text-slate-900">App web (PWA)</h2>
@@ -78,7 +79,7 @@
 
 				{#if instalada}
 					<p class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-						<Icon name="circle-check" class="size-3.5" />
+						<Icon icon={CircleCheck} class="size-3.5" />
 						Ya tienes StarGo instalada
 					</p>
 				{:else if esIOS}
@@ -96,7 +97,7 @@
 						onclick={instalarPWA}
 						class="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
 					>
-						<Icon name="download" class="size-4" />
+						<Icon icon={Download} class="size-4" />
 						Instalar StarGo
 					</button>
 				{:else}
@@ -125,7 +126,7 @@
 	<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 		<div class="flex items-start gap-4">
 			<div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-				<Icon name="robot" class="size-6" />
+				<Icon icon={Bot} class="size-6" />
 			</div>
 			<div class="flex-1">
 				<h2 class="text-lg font-bold text-slate-900">Android (APK)</h2>
@@ -139,7 +140,7 @@
 						download
 						class="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
 					>
-						<Icon name="download" class="size-4" />
+						<Icon icon={Download} class="size-4" />
 						Descargar APK
 					</a>
 				{:else}
@@ -173,7 +174,7 @@
 	<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 		<div class="flex items-start gap-4">
 			<div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-				<Icon name="apple" class="size-6" />
+				<Icon icon={Apple} class="size-6" />
 			</div>
 			<div class="flex-1">
 				<h2 class="text-lg font-bold text-slate-900">iOS (TestFlight)</h2>
@@ -188,7 +189,7 @@
 						rel="noopener noreferrer"
 						class="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
 					>
-						<Icon name="external-link" class="size-4" />
+						<Icon icon={ExternalLink} class="size-4" />
 						Abrir en TestFlight
 					</a>
 				{:else}

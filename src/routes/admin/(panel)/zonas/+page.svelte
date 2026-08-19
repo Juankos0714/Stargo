@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
+	import { Plus } from 'lucide';
 	import { ordenarZonas, type Zona, type ZonaTipo } from '$lib/types';
 
 	let zonas = $state<Zona[]>([]);
@@ -131,7 +132,7 @@
 		onclick={() => (nuevaZonaAbierta = !nuevaZonaAbierta)}
 		class="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
 	>
-		<Icon name="plus" class="size-4" />
+		<Icon icon={Plus} class="size-4" />
 		Nueva zona
 	</button>
 </header>

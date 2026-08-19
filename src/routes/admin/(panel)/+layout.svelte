@@ -7,6 +7,10 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import CentroNotificaciones from '$lib/components/CentroNotificaciones.svelte';
+	import {
+		Home, ClipboardList, BarChart3, Gauge, Users, Coins, Clock,
+		Layers, Table2, Receipt, MapPin, Download, LogOut, Menu, X
+	} from 'lucide';
 
 	let { children } = $props();
 
@@ -32,62 +36,62 @@
 		{
 			href: '/admin',
 			label: 'Resumen',
-			icon: 'house'
+			icon: Home
 		},
 		{
 			href: '/admin/pedidos',
 			label: 'Pedidos',
-			icon: 'clipboard-list'
+			icon: ClipboardList
 		},
 		{
 			href: '/admin/reportes',
 			label: 'Reportes',
-			icon: 'chart-column'
+			icon: BarChart3
 		},
 		{
 			href: '/admin/metricas',
 			label: 'Métricas',
-			icon: 'gauge-high'
+			icon: Gauge
 		},
 		{
 			href: '/admin/domiciliarios',
 			label: 'Domiciliarios',
-			icon: 'users'
+			icon: Users
 		},
 		{
 			href: '/admin/comisiones',
 			label: 'Comisiones',
-			icon: 'coins'
+			icon: Coins
 		},
 		{
 			href: '/admin/horario',
 			label: 'Horarios',
-			icon: 'clock'
+			icon: Clock
 		},
 		{
 			href: '/admin/zonas',
 			label: 'Zonas',
-			icon: 'layer-group'
+			icon: Layers
 		},
 		{
 			href: '/admin/tarifas',
 			label: 'Tarifas',
-			icon: 'table-cells'
+			icon: Table2
 		},
 		{
 			href: '/admin/recargos',
 			label: 'Recargos',
-			icon: 'receipt'
+			icon: Receipt
 		},
 		{
 			href: '/admin/barrios',
 			label: 'Barrios',
-			icon: 'location-dot'
+			icon: MapPin
 		},
 		{
 			href: '/admin/descargar',
 			label: 'Descargar app',
-			icon: 'download'
+			icon: Download
 		}
 	];
 
@@ -122,7 +126,7 @@
 					? 'bg-primary/20 text-[#8BB4FF]'
 					: 'text-slate-400 hover:bg-white/5 hover:text-white'}"
 				>
-					<Icon name={item.icon} class="size-4.5" />
+					<Icon icon={item.icon} class="size-4.5" />
 					{item.label}
 				</a>
 			{/each}
@@ -146,7 +150,7 @@
 				onclick={salir}
 				class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"
 			>
-				<Icon name="right-from-bracket" class="size-4.5" />
+				<Icon icon={LogOut} class="size-4.5" />
 				Cerrar sesión
 			</button>
 		</div>
@@ -163,7 +167,7 @@
 					onclick={() => (menuAbierto = true)}
 					class="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50"
 				>
-					<Icon name="bars" class="size-4.5" />
+					<Icon icon={Menu} class="size-4.5" />
 				</button>
 				<a href="/" class="flex items-center">
 					<Logo type="mark" surface="light" height={28} />
@@ -225,7 +229,7 @@
 				onclick={() => (menuAbierto = false)}
 				class="flex size-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white"
 			>
-				<Icon name="xmark" class="size-4.5" />
+				<Icon icon={X} class="size-4.5" />
 			</button>
 		</div>
 
@@ -238,7 +242,7 @@
 						? 'bg-primary/20 text-[#8BB4FF]'
 						: 'text-slate-400 hover:bg-white/5 hover:text-white'}"
 				>
-					<Icon name={item.icon} class="size-4.5" />
+					<Icon icon={item.icon} class="size-4.5" />
 					{item.label}
 				</a>
 			{/each}
@@ -250,7 +254,7 @@
 				onclick={salir}
 				class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"
 			>
-				<Icon name="right-from-bracket" class="size-4.5" />
+				<Icon icon={LogOut} class="size-4.5" />
 				Cerrar sesión
 			</button>
 		</div>

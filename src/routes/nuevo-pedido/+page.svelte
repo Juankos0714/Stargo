@@ -2,6 +2,7 @@
 	import SearchSelect, { type SearchItem } from '$lib/components/SearchSelect.svelte';
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
+	import { Check, TriangleAlert, CircleCheck, Clock, Truck, ShoppingCart } from 'lucide';
 	import Logo from '$lib/components/Logo.svelte';
 	import {
 		etiquetaTipoRecargo,
@@ -288,7 +289,7 @@
 		errores = {};
 		precio = null;
 		error = null;
-	}
+	}
 
 	// Deep-link desde la calculadora: /nuevo-pedido?origen=<id>&destino=<id>
 	// preselecciona los barrios apenas se cargan (y la tarifa se calcula sola).
@@ -330,7 +331,7 @@
 			<!-- Confirmación -->
 			<div class="mx-auto max-w-lg rounded-2xl border border-success/30 bg-white p-8 text-center shadow-lg">
 				<div class="mx-auto flex size-16 items-center justify-center rounded-full bg-success text-white shadow-lg shadow-slate-900/10">
-					<Icon name="check" class="size-8" />
+					<Icon icon={Check} class="size-8" />
 				</div>
 				<h1 class="mt-5 text-2xl font-extrabold tracking-tight text-slate-900">¡Pedido confirmado!</h1>
 				<p class="mt-2 text-sm text-slate-500">Guarda tu código para consultar el estado del pedido:</p>
@@ -369,7 +370,7 @@
 					</p>
 				</div>
 				<p class="mt-4 flex items-start gap-1.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-xs text-amber-800">
-					<Icon name="triangle-exclamation" class="mt-0.5 size-3.5 shrink-0" />
+					<Icon icon={TriangleAlert} class="mt-0.5 size-3.5 shrink-0" />
 					<span>Este valor es un estimado: el precio final lo confirma el domiciliario según el servicio que realmente realice.</span>
 				</p>
 				<div class="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
@@ -394,7 +395,7 @@
 				<p class="mt-2 text-slate-500">La tarifa se calcula automáticamente al seleccionar los barrios.</p>
 				{#if horario?.abierto}
 					<p class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-xs font-semibold text-green-700">
-						<Icon name="circle-check" class="size-3.5" />
+						<Icon icon={CircleCheck} class="size-3.5" />
 						Atendemos hoy hasta las {horario.cierre}
 					</p>
 				{/if}
@@ -404,7 +405,7 @@
 				<!-- Fuera de horario: la app no recibe pedidos nuevos -->
 				<div class="mx-auto mt-10 max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center shadow-sm">
 					<div class="mx-auto flex size-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
-						<Icon name="clock" class="size-7" />
+						<Icon icon={Clock} class="size-7" />
 					</div>
 					<h2 class="mt-4 text-xl font-extrabold text-slate-900">Estamos fuera de horario de atención</h2>
 					<p class="mt-2 text-sm text-slate-600">
@@ -448,7 +449,7 @@
 									: 'border-slate-200 hover:border-primary/50'}"
 							>
 								<span class="flex items-center gap-2 text-sm font-bold text-slate-900">
-									<Icon name="truck-fast" class="size-4 text-primary" />
+									<Icon icon={Truck} class="size-4 text-primary" />
 									Domicilio normal
 								</span>
 								<span class="mt-1 block text-xs text-slate-500">Recoger y entregar entre dos puntos.</span>
@@ -461,7 +462,7 @@
 									: 'border-slate-200 hover:border-primary/50'}"
 							>
 								<span class="flex items-center gap-2 text-sm font-bold text-slate-900">
-									<Icon name="cart-shopping" class="size-4 text-primary" />
+									<Icon icon={ShoppingCart} class="size-4 text-primary" />
 									Compra / diligencia
 								</span>
 								<span class="mt-1 block text-xs text-slate-500">Comprar, pagar facturas o hacer trámites.</span>
@@ -789,7 +790,7 @@
 
 						{#if precioDisponible || (tipoServicio === 'compra_diligencia' && !origenRequerido && !tieneRutaCompleta)}
 							<div class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-								<Icon name="triangle-exclamation" class="mt-0.5 size-3.5 shrink-0" />
+								<Icon icon={TriangleAlert} class="mt-0.5 size-3.5 shrink-0" />
 								{#if tipoServicio === 'compra_diligencia' && !tieneRutaCompleta}
 									<span>El precio final lo confirma el <strong>domiciliario</strong> al realizar la diligencia según lo que realmente se haga.</span>
 								{:else}

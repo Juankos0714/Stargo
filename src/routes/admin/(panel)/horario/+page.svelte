@@ -4,6 +4,7 @@
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { CircleCheck, Ban, Plus } from 'lucide';
 	import {
 		DIAS_SEMANA,
 		etiquetaDia,
@@ -199,7 +200,7 @@
 				? 'bg-green-100 text-green-700'
 				: 'bg-red-100 text-red-700'}"
 		>
-			<Icon name={hoy?.abierto ? 'circle-check' : 'ban'} class="size-6" />
+			<Icon icon={hoy?.abierto ? CircleCheck : Ban} class="size-6" />
 		</span>
 		<div class="min-w-0 flex-1">
 			<p class="text-sm font-bold {hoy?.abierto ? 'text-green-800' : 'text-red-800'}">
@@ -346,7 +347,7 @@
 				disabled={guardando}
 				class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-primary-dark disabled:opacity-60"
 			>
-				<Icon name="plus" class="size-4" />
+				<Icon icon={Plus} class="size-4" />
 				{guardando ? 'Guardando…' : 'Agregar excepción'}
 			</button>
 		</form>

@@ -4,6 +4,7 @@
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { Ban, Plus, RotateCw } from 'lucide';
 	import { formatearPeso, type Domiciliario, type PagoDomiciliario } from '$lib/types';
 
 	interface DomiciliarioFila extends Domiciliario {
@@ -460,7 +461,7 @@
 								title={d.bloqueado ? 'Bloqueado por falta de pago' : 'Sin bloqueo'}
 							>
 								{#if d.bloqueado}
-									<Icon name="ban" class="size-3" />
+									<Icon icon={Ban} class="size-3" />
 								{/if}
 								{d.bloqueado ? 'Bloqueado' : 'Al día'}
 							</span>
@@ -487,7 +488,7 @@
 									onclick={() => abrirAbono(d)}
 									class="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary-light px-3 py-1.5 text-xs font-semibold text-primary-dark transition hover:bg-primary-light"
 								>
-									<Icon name="plus" class="size-3" />
+									<Icon icon={Plus} class="size-3" />
 									Registrar abono
 								</button>
 								<button
@@ -496,7 +497,7 @@
 									class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
 									title="Cambiar la contraseña del domiciliario (sin correo de confirmación)"
 								>
-									<Icon name="arrow-rotate-right" class="size-3" />
+									<Icon icon={RotateCw} class="size-3" />
 									Reiniciar contraseña
 								</button>
 								<button
@@ -507,7 +508,7 @@
 										? 'border-primary/30 bg-primary-light text-primary-dark hover:bg-primary-light'
 										: 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'}"
 								>
-									<Icon name="ban" class="size-3" />
+									<Icon icon={Ban} class="size-3" />
 									{guardandoBloqueo[d.id] ? 'Guardando…' : d.bloqueado ? 'Desbloquear' : 'Bloquear'}
 								</button>
 							</div>

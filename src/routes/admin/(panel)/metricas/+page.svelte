@@ -4,6 +4,7 @@
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { ClipboardList, History, CircleCheck, TriangleAlert, Gauge, RotateCw, Save, Lightbulb } from 'lucide';
 	import { formatearDuracion } from '$lib/logic/metricas';
 	import type { MetricasDashboard, AlertaRegistrada, CambioTarifa } from '$lib/server/metricas';
 
@@ -66,28 +67,28 @@
 			{
 				label: 'Pedidos activos',
 				valor: String(metricas.pedidos_activos),
-				icon: 'clipboard-list',
+				icon: ClipboardList,
 				hint: 'pendientes + en curso',
 				color: 'bg-primary-light text-primary'
 			},
 			{
 				label: 'Tiempo prom. asignación',
 				valor: formatearDuracion(metricas.tiempo_asignacion_prom_min),
-				icon: 'clock-rotate-left',
+				icon: History,
 				hint: 'últimas 24 h',
 				color: 'bg-sky-50 text-sky-600'
 			},
 			{
 				label: 'Tiempo prom. entrega',
 				valor: formatearDuracion(metricas.tiempo_entrega_prom_min),
-				icon: 'circle-check',
+				icon: CircleCheck,
 				hint: 'últimas 24 h',
 				color: 'bg-green-50 text-green-600'
 			},
 			{
 				label: 'Errores por minuto',
 				valor: metricas.errores_por_minuto.toFixed(2),
-				icon: 'triangle-exclamation',
+				icon: TriangleAlert,
 				hint: `${metricas.errores_ultima_hora} en la última hora`,
 				color: 'bg-red-50 text-red-500'
 			}
@@ -122,7 +123,7 @@
 	<div>
 		<h1 class="flex items-center gap-2.5 text-2xl font-extrabold tracking-tight text-slate-900">
 			Métricas
-			<Icon name="gauge-high" class="size-6 text-primary" />
+			<Icon icon={Gauge} class="size-6 text-primary" />
 		</h1>
 		<p class="mt-1 text-sm text-slate-500">
 			Estado de la operación en tiempo real: pedidos activos, tiempos promedio, errores y alertas.
@@ -136,7 +137,7 @@
 			disabled={refrescando}
 			class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
 		>
-			<Icon name="arrow-rotate-right" class="size-3.5 {refrescando ? 'animate-spin' : ''}" />
+			<Icon icon={RotateCw} class="size-3.5 {refrescando ? 'animate-spin' : ''}" />
 			Actualizar
 		</button>
 	</div>
@@ -161,7 +162,7 @@
 				<div class="flex items-center justify-between">
 					<p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">{tarjeta.label}</p>
 					<span class="flex size-8 items-center justify-center rounded-lg {tarjeta.color}">
-						<Icon name={tarjeta.icon} class="size-4" />
+						<Icon icon={tarjeta.icon} class="size-4" />
 					</span>
 				</div>
 				<p class="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">{tarjeta.valor}</p>
@@ -179,7 +180,7 @@
 		<section class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 			<div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
 				<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Alertas recientes</h2>
-				<Icon name="triangle-exclamation" class="size-4 text-amber-500" />
+				<Icon icon={TriangleAlert} class="size-4 text-amber-500" />
 			</div>
 			{#if metricas.alertas_recientes.length === 0}
 				<p class="p-8 text-center text-sm text-slate-400">Sin alertas registradas.</p>
@@ -207,7 +208,7 @@
 		<section class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 			<div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
 				<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Cambios recientes de tarifas</h2>
-				<Icon name="floppy-disk" class="size-4 text-primary-dark" />
+				<Icon icon={Save} class="size-4 text-primary-dark" />
 			</div>
 			{#if metricas.historial_tarifas.length === 0}
 				<p class="p-8 text-center text-sm text-slate-400">Sin cambios de tarifas registrados.</p>
@@ -242,7 +243,7 @@
 	</div>
 
 	<p class="mt-6 flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">
-		<Icon name="lightbulb" class="mt-0.5 size-4 shrink-0 text-amber-500" />
+		<Icon icon={Lightbulb} class="mt-0.5 size-4 shrink-0 text-amber-500" />
 		<span>
 			El historial de tarifas es la auditoría de la sección 14: si un cálculo salió mal, aquí ves quién y
 			cuándo cambió la matriz. Para verificar las alertas, llama a <code class="rounded bg-slate-100 px-1">/api/cron/alertas?prueba=1</code>

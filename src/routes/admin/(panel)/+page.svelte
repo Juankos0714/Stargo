@@ -7,6 +7,10 @@
 	import BadgeEstado from '$lib/components/BadgeEstado.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import {
+		History, Truck, CircleCheck, Ban, Coins, Users, Layers, MapPin,
+		Table2, ClipboardList, BarChart3, Clock, Pencil, Smile, Lightbulb
+	} from 'lucide';
+	import {
 		formatearPeso,
 		type HistorialEstado,
 		type Pedido,
@@ -107,7 +111,7 @@
 			label: 'Pedidos pendientes',
 			valor: hoyStats?.por_estado.pendiente ?? null,
 			hint: 'por atender',
-			icon: 'clock-rotate-left',
+			icon: History,
 			color: 'bg-amber-50 text-amber-600',
 			href: '/admin/pedidos'
 		},
@@ -115,7 +119,7 @@
 			label: 'En proceso',
 			valor: hoyStats?.en_proceso ?? null,
 			hint: 'asignados y en ruta',
-			icon: 'truck-fast',
+			icon: Truck,
 			color: 'bg-sky-50 text-sky-600',
 			href: '/admin/pedidos'
 		},
@@ -123,7 +127,7 @@
 			label: 'Entregados hoy',
 			valor: hoyStats?.entregados ?? null,
 			hint: 'completados el día de hoy',
-			icon: 'circle-check',
+			icon: CircleCheck,
 			color: 'bg-green-50 text-green-600',
 			href: '/admin/pedidos'
 		},
@@ -131,7 +135,7 @@
 			label: 'Cancelados hoy',
 			valor: hoyStats?.cancelados ?? null,
 			hint: 'anulados el día de hoy',
-			icon: 'ban',
+			icon: Ban,
 			color: 'bg-red-50 text-red-500',
 			href: '/admin/pedidos'
 		},
@@ -139,7 +143,7 @@
 			label: 'Ingresos hoy',
 			valor: hoyStats ? formatearPeso(hoyStats.ingresos) : null,
 			hint: 'suma de entregados',
-			icon: 'coins',
+			icon: Coins,
 			color: 'bg-emerald-50 text-emerald-600',
 			href: '/admin/reportes'
 		},
@@ -149,17 +153,17 @@
 			hint: hoyStats
 				? `${hoyStats.domiciliarios_ocupados} de ${hoyStats.domiciliarios_activos} activos ocupados`
 				: 'domiciliarios activos',
-			icon: 'users',
+			icon: Users,
 			color: 'bg-primary-light text-primary',
 			href: '/admin/domiciliarios'
 		}
 	]);
 
 	const configCards = $derived([
-		{ label: 'Zonas', valor: config.zonas, icon: 'layer-group', href: '/admin/zonas' },
-		{ label: 'Barrios', valor: config.barrios, icon: 'location-dot', href: '/admin/barrios' },
-		{ label: 'Tarifas', valor: config.tarifas, icon: 'table-cells', href: '/admin/tarifas' },
-		{ label: 'Comisiones', valor: config.comisiones, icon: 'coins', href: '/admin/comisiones' }
+		{ label: 'Zonas', valor: config.zonas, icon: Layers, href: '/admin/zonas' },
+		{ label: 'Barrios', valor: config.barrios, icon: MapPin, href: '/admin/barrios' },
+		{ label: 'Tarifas', valor: config.tarifas, icon: Table2, href: '/admin/tarifas' },
+		{ label: 'Comisiones', valor: config.comisiones, icon: Coins, href: '/admin/comisiones' }
 	]);
 
 	const acciones = [
@@ -167,7 +171,7 @@
 			href: '/admin/pedidos',
 			label: 'Revisar pedidos',
 			desc: 'Aceptar, despachar y actualizar el estado de los pedidos.',
-			icon: 'clipboard-list'
+			icon: ClipboardList
 		},
 		{
 			href: '/admin/domiciliarios',
@@ -179,19 +183,19 @@
 			href: '/admin/reportes',
 			label: 'Ver reportes',
 			desc: 'Pedidos por día, ingresos, cancelaciones y exportación a CSV.',
-			icon: 'chart-column'
+			icon: BarChart3
 		},
 		{
 			href: '/admin/zonas',
 			label: 'Gestionar zonas',
 			desc: 'Crear, editar y eliminar zonas tarifarias.',
-			icon: 'layer-group'
+			icon: Layers
 		},
 		{
 			href: '/admin/tarifas',
 			label: 'Editar matriz de tarifas',
 			desc: 'Precios origen → destino entre zonas.',
-			icon: 'table-cells'
+			icon: Table2
 		},
 		{
 			href: '/admin/comisiones',
@@ -203,19 +207,19 @@
 			href: '/admin/horario',
 			label: 'Configurar horarios',
 			desc: 'Cuándo la app recibe pedidos: horario semanal y fechas especiales.',
-			icon: 'clock'
+			icon: Clock
 		},
 		{
 			href: '/admin/barrios',
 			label: 'Asignar barrios',
 			desc: 'Revisar y corregir la zona de cada barrio.',
-			icon: 'location-dot'
+			icon: MapPin
 		},
 		{
 			href: '/calculadora',
 			label: 'Probar calculadora',
 			desc: 'Verifica el cálculo de tarifas con datos reales.',
-			icon: 'pen-to-square'
+			icon: Pencil
 		}
 	];
 </script>
@@ -228,7 +232,7 @@
 	<div>
 		<h1 class="flex min-w-0 items-center gap-2.5 text-2xl font-extrabold tracking-tight text-slate-900">
 			<span class="min-w-0 wrap-anywhere" title={page.data.email}>Hola, {page.data.email?.split('@')[0]}</span>
-			<Icon name="face-smile-beam" class="size-6 shrink-0 text-primary" />
+			<Icon icon={Smile} class="size-6 shrink-0 text-primary" />
 		</h1>
 		<p class="mt-1 text-sm text-slate-500">Así va la operación hoy.</p>
 	</div>
@@ -249,7 +253,7 @@
 			<div class="flex items-center justify-between">
 				<p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">{tarjeta.label}</p>
 				<span class="flex size-8 items-center justify-center rounded-lg {tarjeta.color}">
-					<Icon name={tarjeta.icon} class="size-4" />
+					<Icon icon={tarjeta.icon} class="size-4" />
 				</span>
 			</div>
 			<p class="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
@@ -311,7 +315,7 @@
 					class="group min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:border-primary hover:bg-white hover:shadow-sm"
 				>
 					<div class="flex items-center gap-2 text-xs font-semibold text-slate-500">
-						<Icon name={card.icon} class="size-3.5 text-primary" />
+						<Icon icon={card.icon} class="size-3.5 text-primary" />
 						{card.label}
 					</div>
 					<p class="mt-2 text-2xl font-extrabold text-slate-900">
@@ -335,7 +339,7 @@
 							class="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-primary hover:shadow-sm"
 						>
 							<span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-light text-primary-dark transition group-hover:bg-primary group-hover:text-white">
-								<Icon name={accion.icon} class="size-4" />
+								<Icon icon={accion.icon} class="size-4" />
 							</span>
 							<div class="min-w-0">
 								<p class="text-sm font-semibold text-slate-900">{accion.label}</p>
@@ -350,7 +354,7 @@
 </div>
 
 <p class="mt-6 flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">
-	<Icon name="lightbulb" class="mt-0.5 size-4 shrink-0 text-amber-500" />
+	<Icon icon={Lightbulb} class="mt-0.5 size-4 shrink-0 text-amber-500" />
 	<span>
 		Los «Ingresos» suman solo pedidos entregados; los cancelados se muestran aparte. El resumen se actualiza en tiempo real.
 	</span>

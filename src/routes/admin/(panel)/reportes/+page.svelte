@@ -4,6 +4,7 @@
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { ClipboardList, CircleCheck, Ban, Coins, Receipt, TrendingUp, Ticket, CalendarDays, Download, Users } from 'lucide';
 	import {
 		ESTADOS_PEDIDO,
 		etiquetaEstado,
@@ -139,34 +140,34 @@
 	const tarjetas = $derived.by(() => {
 		if (!resumen) return [];
 		return [
-			{ label: 'Total pedidos', valor: resumen.total, icon: 'clipboard-list', hint: 'en el rango', color: 'bg-primary-light text-primary' },
-			{ label: 'Entregados', valor: resumen.entregados, icon: 'circle-check', hint: 'completados', color: 'bg-green-50 text-green-600' },
-			{ label: 'Cancelados', valor: resumen.cancelados, icon: 'ban', hint: 'anulados', color: 'bg-red-50 text-red-500' },
+			{ label: 'Total pedidos', valor: resumen.total, icon: ClipboardList, hint: 'en el rango', color: 'bg-primary-light text-primary' },
+			{ label: 'Entregados', valor: resumen.entregados, icon: CircleCheck, hint: 'completados', color: 'bg-green-50 text-green-600' },
+			{ label: 'Cancelados', valor: resumen.cancelados, icon: Ban, hint: 'anulados', color: 'bg-red-50 text-red-500' },
 			{
 				label: 'Ganancia bruta',
 				valor: formatearPeso(resumen.ingresos),
-				icon: 'coins',
+				icon: Coins,
 				hint: 'total de los entregados',
 				color: 'bg-emerald-50 text-emerald-600'
 			},
 			{
 				label: 'Comisiones a pagar',
 				valor: formatearPeso(resumen.comisiones_pagadas),
-				icon: 'receipt',
+				icon: Receipt,
 				hint: 'comisión diaria de domiciliarios',
 				color: 'bg-amber-50 text-amber-600'
 			},
 			{
 				label: 'Ganancia neta',
 				valor: formatearPeso(resumen.ingresos_netos),
-				icon: 'arrow-trend-up',
+				icon: TrendingUp,
 				hint: 'bruta − comisiones',
 				color: 'bg-violet-50 text-violet-600'
 			},
 			{
 				label: 'Ticket promedio',
 				valor: formatearPeso(resumen.ticket_promedio),
-				icon: 'ticket',
+				icon: Ticket,
 				hint: 'por entrega',
 				color: 'bg-sky-50 text-sky-600'
 			}
@@ -235,7 +236,7 @@
 
 		<div class="flex flex-wrap items-center gap-3">
 			<label class="flex items-center gap-2 text-sm font-medium text-slate-600">
-				<Icon name="calendar-days" class="size-4 text-slate-400" />
+				<Icon icon={CalendarDays} class="size-4 text-slate-400" />
 				<input
 					type="date"
 					bind:value={desde}
@@ -256,7 +257,7 @@
 				href={`/api/reportes/csv?${query}`}
 				class="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
 			>
-				<Icon name="download" class="size-4" />
+				<Icon icon={Download} class="size-4" />
 				Exportar CSV
 			</a>
 		</div>
@@ -280,7 +281,7 @@
 				<div class="flex items-center justify-between">
 					<p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">{tarjeta.label}</p>
 					<span class="flex size-8 items-center justify-center rounded-lg {tarjeta.color}">
-						<Icon name={tarjeta.icon} class="size-4" />
+						<Icon icon={tarjeta.icon} class="size-4" />
 					</span>
 				</div>
 				<p class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">{tarjeta.valor}</p>
@@ -381,7 +382,7 @@
 			<div class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
 				<div class="flex items-center justify-between">
 					<p class="flex items-center gap-2 text-xs font-bold tracking-wide text-slate-500 uppercase">
-						<Icon name="users" class="size-3.5" />
+						<Icon icon={Users} class="size-3.5" />
 						Domiciliarios disponibles
 					</p>
 					<span class="text-xl font-extrabold text-slate-900">{resumen.domiciliarios_disponibles}</span>

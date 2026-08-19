@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import { MessageCircle } from 'lucide';
 	import { urlWhatsApp } from '$lib/types';
 
 	/**
@@ -31,7 +32,7 @@
 		rel="noopener noreferrer"
 		class="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3.5 py-2 text-xs font-semibold text-green-700 transition hover:border-green-400 hover:bg-green-100 {clase}"
 	>
-		<Icon name="comment-sms" class="size-3.5" />
+		<Icon icon={MessageCircle} class="size-3.5" />
 		{label}
 	</a>
 {/if}

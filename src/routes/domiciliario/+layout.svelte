@@ -6,6 +6,7 @@
 	import { esCapacitor } from '$lib/push-capacitor';
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { Truck, LogOut } from 'lucide';
 	import CentroNotificaciones from '$lib/components/CentroNotificaciones.svelte';
 
 	let { children } = $props();
@@ -52,7 +53,7 @@
 				href="/domiciliario"
 				class="flex items-center gap-3 rounded-lg bg-primary/15 px-3 py-2.5 text-sm font-medium text-[#8BB4FF]"
 			>
-				<Icon name="truck" class="size-4.5" />
+				<Icon icon={Truck} class="size-4.5" />
 				Mis entregas
 			</a>
 		</nav>
@@ -77,7 +78,7 @@
 				onclick={salir}
 				class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"
 			>
-				<Icon name="right-from-bracket" class="size-4.5" />
+				<Icon icon={LogOut} class="size-4.5" />
 				Cerrar sesión
 			</button>
 		</div>

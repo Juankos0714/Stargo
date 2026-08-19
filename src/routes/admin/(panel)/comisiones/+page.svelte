@@ -4,6 +4,7 @@
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { Clock, ArrowLeftRight, RotateCw, Coins, Plus, Save, X, Lightbulb } from 'lucide';
 	import {
 		formatearPeso,
 		rangoDeNiveles,
@@ -211,7 +212,7 @@
 
 <!-- Aviso: los cambios aplican desde mañana (Fase 18) -->
 <div class="mb-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-	<Icon name="clock" class="mt-0.5 size-4 shrink-0" />
+	<Icon icon={Clock} class="mt-0.5 size-4 shrink-0" />
 	<span>
 		Cada día queda congelado con la escalera vigente ese día. Si cambias un nivel <strong>hoy</strong>, la
 		comisión de hoy y la de los días anteriores no se alteran: la nueva escalera empieza a aplicar <strong>desde
@@ -223,7 +224,7 @@
 <section class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 	<div class="flex flex-wrap items-center gap-x-6 gap-y-3">
 		<p class="flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-			<Icon name="arrows-left-right" class="size-4 text-primary" />
+			<Icon icon={ArrowLeftRight} class="size-4 text-primary" />
 			Escalera de niveles
 		</p>
 		<label class="flex items-center gap-2 text-xs font-medium text-slate-600">
@@ -256,7 +257,7 @@
 			disabled={reconfigurando}
 			class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-primary-dark disabled:opacity-60"
 		>
-			<Icon name="arrow-rotate-right" class="size-3.5" />
+			<Icon icon={RotateCw} class="size-3.5" />
 			{reconfigurando ? 'Reacomodando…' : 'Reacomodar escalera'}
 		</button>
 	</div>
@@ -280,7 +281,7 @@
 <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
 	<div class="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
 		<p class="flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-			<Icon name="coins" class="size-4 text-primary" />
+			<Icon icon={Coins} class="size-4 text-primary" />
 			{niveles.length} niveles · cada uno abarca {formatearPeso(config?.paso ?? null)}
 		</p>
 		<button
@@ -289,7 +290,7 @@
 			disabled={agregando}
 			class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-primary-dark disabled:opacity-60"
 		>
-			<Icon name="plus" class="size-3.5" />
+			<Icon icon={Plus} class="size-3.5" />
 			{agregando ? 'Agregando…' : 'Agregar nivel'}
 		</button>
 	</div>
@@ -367,7 +368,7 @@
 										disabled={guardando[n.id]}
 										class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
 									>
-										<Icon name="floppy-disk" class="size-3" />
+										<Icon icon={Save} class="size-3" />
 										{guardando[n.id] ? 'Guardando…' : 'Guardar'}
 									</button>
 									<button
@@ -376,7 +377,7 @@
 										disabled={guardando[n.id]}
 										class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
 									>
-										<Icon name="xmark" class="size-3" />
+										<Icon icon={X} class="size-3" />
 										Eliminar
 									</button>
 								</div>
@@ -390,7 +391,7 @@
 </div>
 
 <p class="mt-5 flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">
-	<Icon name="lightbulb" class="mt-0.5 size-4 shrink-0 text-amber-500" />
+	<Icon icon={Lightbulb} class="mt-0.5 size-4 shrink-0 text-amber-500" />
 	<span>
 		La comisión de cada día se calcula con la escalera que estaba vigente ese día y queda <strong>congelada</strong>:
 		un cambio hecho hoy no altera la comisión de hoy ni la de los días anteriores, y la nueva escalera aplica desde

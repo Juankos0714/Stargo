@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import { Search, X } from 'lucide';
 
 	export interface SearchItem {
 		id: string;
@@ -98,7 +99,7 @@
 
 <div class="relative" bind:this={root}>
 	<div class="relative">
-		<Icon name="magnifying-glass" class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+		<Icon icon={Search} class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
 		<input
 			{id}
 			type="text"
@@ -125,7 +126,7 @@
 				onclick={limpiar}
 				class="absolute top-1/2 right-2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
 			>
-				<Icon name="xmark" class="size-4" />
+				<Icon icon={X} class="size-4" />
 			</button>
 		{/if}
 	</div>

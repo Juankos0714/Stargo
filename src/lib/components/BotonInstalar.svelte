@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import { Download, X } from 'lucide';
 	import {
 		obtenerEventoInstalacion,
 		estaInstalada,
@@ -125,7 +126,7 @@
 		onclick={alHacerClic}
 		class="fixed inset-x-0 bottom-4 z-50 mx-auto flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl active:scale-95"
 	>
-		<Icon name="download" class="size-4" />
+		<Icon icon={Download} class="size-4" />
 		Instalar app
 	</button>
 {/if}
@@ -154,7 +155,7 @@
 					class="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
 					aria-label="Cerrar"
 				>
-					<Icon name="xmark" class="size-4" />
+					<Icon icon={X} class="size-4" />
 				</button>
 			</div>
 			{#if esIOS}

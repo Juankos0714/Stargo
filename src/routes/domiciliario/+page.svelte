@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
+	import { Ban, Sun, Coins, CircleCheck, TriangleAlert, Clock, Truck, Phone, MapPin } from 'lucide';
 	import BadgeEstado from '$lib/components/BadgeEstado.svelte';
 	import BotonWhatsApp from '$lib/components/BotonWhatsApp.svelte';
 	import TablaNiveles from '$lib/components/TablaNiveles.svelte';
@@ -175,7 +176,7 @@
 		class="mb-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
 		role="alert"
 	>
-		<Icon name="ban" class="mt-0.5 size-5 shrink-0" />
+		<Icon icon={Ban} class="mt-0.5 size-5 shrink-0" />
 		<div>
 			<p class="font-bold">Estás bloqueado por falta de pago</p>
 			<p class="mt-0.5 text-xs text-red-600">
@@ -201,7 +202,7 @@
 	<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 		<div class="rounded-2xl border border-primary/25 bg-primary-light/40 p-4 shadow-sm">
 			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary-dark uppercase">
-				<Icon name="sun" class="size-3.5" />
+				<Icon icon={Sun} class="size-3.5" />
 				Hoy {hoyEtiqueta}
 			</p>
 			<p class="mt-1 text-2xl font-extrabold text-slate-900">
@@ -217,7 +218,7 @@
 		</div>
 		<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-				<Icon name="coins" class="size-3.5 text-primary" />
+				<Icon icon={Coins} class="size-3.5 text-primary" />
 				Generado en comisiones
 			</p>
 			<p class="mt-1 text-2xl font-extrabold text-slate-900">{formatearPeso(cuenta?.total_comision ?? null)}</p>
@@ -225,7 +226,7 @@
 		</div>
 		<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-				<Icon name="circle-check" class="size-3.5 text-primary" />
+				<Icon icon={CircleCheck} class="size-3.5 text-primary" />
 				Abonos registrados
 			</p>
 			<p class="mt-1 text-2xl font-extrabold text-slate-900">{formatearPeso(cuenta?.total_pagos ?? null)}</p>
@@ -239,7 +240,7 @@
 			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase {cuenta && cuenta.deuda > 0
 				? 'text-red-600'
 				: 'text-green-700'}">
-				<Icon name="triangle-exclamation" class="size-3.5" />
+				<Icon icon={TriangleAlert} class="size-3.5" />
 				Deuda pendiente
 			</p>
 			<p class="mt-1 text-2xl font-extrabold {cuenta && cuenta.deuda > 0 ? 'text-red-700' : 'text-green-700'}">
@@ -253,7 +254,7 @@
 
 	{#if hoy?.escalera_anterior}
 		<div class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-			<Icon name="clock" class="mt-0.5 size-4 shrink-0" />
+			<Icon icon={Clock} class="mt-0.5 size-4 shrink-0" />
 			<span>
 				La escalera de comisiones cambió <strong>hoy</strong>: la comisión de este día se calcula con la
 				escalera anterior y la nueva aplica <strong>desde mañana</strong>. Tus días anteriores tampoco se
@@ -341,7 +342,7 @@
 {:else if pestana === 'activos' && activos.length === 0}
 	<div class="rounded-2xl border-2 border-dashed border-slate-200 bg-white/60 p-14 text-center">
 		<div class="mx-auto flex size-14 items-center justify-center rounded-full bg-primary-light text-[#8BB4FF]">
-			<Icon name="truck" class="size-7" />
+			<Icon icon={Truck} class="size-7" />
 		</div>
 		<p class="mt-4 font-semibold text-slate-700">No tienes entregas en curso</p>
 		<p class="mt-1 text-sm text-slate-400">Cuando el administrador te asigne un pedido, aparecerá aquí automáticamente.</p>
@@ -424,7 +425,7 @@
 					{#if p.telefono}
 						<!-- Teléfono del cliente visible (Tarea 2): solo en los pedidos asignados a este domiciliario. -->
 						<span class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-							<Icon name="phone" class="size-3.5 text-primary" />
+							<Icon icon={Phone} class="size-3.5 text-primary" />
 							{p.nombre_cliente ? `${p.nombre_cliente} · ` : ''}{p.telefono}
 						</span>
 						<BotonWhatsApp
@@ -439,7 +440,7 @@
 						rel="noopener noreferrer"
 						class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-[#8BB4FF] hover:text-primary-dark"
 					>
-						<Icon name="location-dot" class="size-3.5" />
+						<Icon icon={MapPin} class="size-3.5" />
 						Abrir navegación
 					</a>
 					<details class="ml-auto">

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
+	import { Save, Check } from 'lucide';
 	import { ordenarZonas, type Tarifa, type Zona } from '$lib/types';
 
 	let zonas = $state<Zona[]>([]);
@@ -141,7 +142,7 @@
 		</p>
 	</div>
 	<div class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-500 shadow-sm">
-		<Icon name="floppy-disk" class="size-3.5 text-primary-dark" />
+		<Icon icon={Save} class="size-3.5 text-primary-dark" />
 		Los cambios se guardan automáticamente al salir de la celda (Enter o clic fuera).
 	</div>
 </header>
@@ -214,7 +215,7 @@
 											<span class="absolute -top-1 -right-1 size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" ></span>
 										{:else if guardadoOk[k]}
 											<span class="absolute -top-1.5 -right-1 flex size-4 items-center justify-center rounded-full bg-primary text-white">
-												<Icon name="check" class="size-2.5" />
+												<Icon icon={Check} class="size-2.5" />
 											</span>
 										{/if}
 									</div>
