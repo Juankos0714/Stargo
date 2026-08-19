@@ -1,7 +1,68 @@
-# StarGo — Plataforma de domicilios (Fases 2-8)
+# StarGo — Plataforma de domicilios
 
 Plataforma de pedidos y tarifas de domicilios para **Armenia, Quindío**.
-SvelteKit 5 (runes) + Supabase (Auth, Postgres/RLS, Realtime).
+SvelteKit 5 (runes) + Supabase (Auth, Postgres/RLS, Realtime) + Capacitor (app nativa).
+
+---
+
+## 📱 Descargar la app
+
+StarGo está disponible en tres formatos: web (PWA), Android (APK) e iOS (TestFlight).
+
+### Opción 1 — App web (PWA) ⚡
+
+La forma más rápida. Funciona desde cualquier navegador moderno.
+
+1. Abre **[stargo.vercel.app](https://stargo.vercel.app)** en tu navegador.
+2. **Android**: toca el menú ⋮ → *Agregar a pantalla de inicio*.
+3. **iPhone**: toca el botón de compartir ↗ → *Agregar a pantalla de inicio*.
+4. **Computador**: haz clic en el ícono de instalar en la barra de direcciones.
+
+> La PWA se instala como una app, abre en pantalla completa y recibe
+> notificaciones push (desde iOS 16.4+ solo funciona si la instalaste
+> desde la pantalla de inicio).
+
+### Opción 2 — Android (APK) 🤖
+
+Para instalar directamente sin pasar por Google Play.
+
+1. Descarga el archivo APK desde el enlace de tu administrador.
+2. Abre el archivo en tu teléfono (es posible que debas habilitar
+   *Instalar apps de fuentes desconocidas* en Ajustes → Seguridad).
+3. Sigue las instrucciones en pantalla.
+4. Abre StarGo desde el ícono en tu pantalla de inicio.
+
+> **Push nativo**: las notificaciones funcionan aunque la app esté cerrada.
+> Requiere que el administrador haya configurado Firebase Cloud Messaging.
+
+### Opción 3 — iOS (TestFlight) 🍎
+
+Para probar la versión beta en iPhone.
+
+1. Instala la app **[TestFlight](https://apps.apple.com/app/testflight/id899247664)** desde la App Store (es gratis).
+2. Abre el enlace de invitación que te comparta el administrador.
+3. Toca *Aceptar* en TestFlight y luego *Instalar*.
+4. Abre StarGo desde tu pantalla de inicio.
+
+> **Push nativo**: las notificaciones push nativas funcionan con la app
+> en segundo plano y cuando está cerrada.
+
+### Comparación rápida
+
+| Característica | PWA (Web) | Android (APK) | iOS (TestFlight) |
+|---|---|---|---|
+| **Requiere instalación** | Sí (desde el navegador) | Sí (descarga APK) | Sí (TestFlight + app) |
+| **Funciona sin conexión** | Básico (offline) | Sí | Sí |
+| **Notificaciones push** | Sí (Web Push) | Sí (FCM nativo) | Sí (APNs nativo) |
+| **Tiempo de carga** | Rápido | Instantáneo | Instantáneo |
+| **Actualizaciones** | Automáticas | Requiere nuevo APK | Automáticas vía TestFlight |
+| **Compatibilidad** | Cualquier navegador | Android 8+ | iOS 16.4+ |
+
+> **Recomendación**: si solo necesitas hacer pedidos y consultar estados,
+> la **PWA** es suficiente. Si quieres notificaciones push confiables en
+> segundo plano o la usas a diario, instala la **app nativa**.
+
+---
 
 ## Qué incluye
 
@@ -88,10 +149,11 @@ SvelteKit 5 (runes) + Supabase (Auth, Postgres/RLS, Realtime).
 ```
 src/
 ├── lib/
-│   ├── api.ts                    # Cliente fetch del frontend
+│   ├── api.ts                    # Cliente fetch del frontend (resuelve URLs para Capacitor)
 │   ├── types.ts                  # Tipos de dominio + máquina de estados (re-exporta formateo)
 │   ├── supabase-browser.ts       # Cliente Supabase del navegador (Realtime)
 │   ├── realtime.ts               # Helper de suscripción con estado/reconexión
+│   ├── push-capacitor.ts       # Push nativo para Capacitor (FCM)
 │   ├── logic/                    # Lógica de negocio pura (cobertura ≥90% con Vitest)
 │   │   ├── tarifa.ts             # Matriz de tarifas + fallback simétrico
 │   │   ├── recargos.ts           # Recargos aplicables + tope de selección
@@ -186,6 +248,35 @@ La app está configurada con `@sveltejs/adapter-vercel` y el repo raíz ES la ap
 3. Añade las variables de entorno en **Settings → Environment Variables**:
    `PUBLIC_SUPABASE_URL` y `PUBLIC_SUPABASE_ANON_KEY` (las mismas del `.env`).
 4. Deploy. El runtime Node + HTTPS ya están listos para las cookies httpOnly.
+
+### Build de app nativa (Capacitor)
+
+StarGo también se puede compilar como app nativa para Android e iOS usando
+[Capacitor](https://capacitorjs.com/). La app web se empaqueta dentro de un
+WebView nativo, y los push notifications se envían vía FCM (Android) o APNs (iOS).
+
+**Prerrequisitos**: Node.js ≥ 22.18, Bun, Android Studio o Xcode.
+
+```bash
+# 1. Configurar variables de entorno para Capacitor
+cp .env.capacitor.example .env.capacitor   # completa las URLs
+
+# 2. Build estático + sync con las plataformas nativas
+bun run cap:sync
+
+# 3. Abrir en el IDE nativo
+bun run cap:android    # abre Android Studio
+bun run cap:ios        # abre Xcode (solo macOS)
+```
+
+**Archivos importantes**:
+- `capacitor.config.ts` — configuración de Capacitor
+- `scripts/build-capacitor.mjs` — build script que maneja Sentry y adapter-static
+- `src/lib/push-capacitor.ts` — módulo de push nativo (FCM)
+- `docs/capacitor-build.md` — guía completa de builds y configuración de Firebase/FCM
+
+Para Builds de release (APK/AAB para Android o IPA para iOS), consulta
+[`docs/capacitor-build.md`](docs/capacitor-build.md).
 
 ### Primer administrador
 
@@ -517,6 +608,8 @@ WHERE conrelid = 'tarifas'::regclass;
 | `/api/cron/alertas` | GET | cron | chequeos de alertas (pedidos sin asignar, 5xx, rate limits, Supabase) → webhook + bitácora |
 | `/api/cron/alertas?prueba=1` | GET | cron | fuerza una alerta de prueba (verificación) |
 | `/api/alertas/probar` | POST | admin | provoca un error 500 a propósito (verificación de Sentry/5xx) |
+| `/api/push/registrar-token` | POST | admin/dom | `{token, plataforma}` → guarda token FCM nativo (Capacitor) |
+| `/api/push/estado` | GET | admin/dom | `{tiene_token: boolean}` → verifica si tiene token registrado |
 | `/api/health` | GET | — | health check: `{ok, supabase, latencia_ms}` (200/503, sin cache) |
 | `/api/login` | POST | — | `{email, password}` → cookies httpOnly + roles |
 | `/api/sesion` | GET | — | valida/renueva; devuelve roles y tokens para Realtime |
@@ -546,8 +639,11 @@ bun run test:alertas   # verificación de alertas (Parte 9): prueba webhook + er
 bun run bundle:budget  # presupuesto de bundle (Parte 7) tras bun run build
 bun run perf:lighthouse  # auditoría Lighthouse de Core Web Vitals (Parte 7, requiere Chrome)
 bun run go-no-go       # checklist pre-lanzamiento (Parte 10): veredicto GO/NO-GO + gates locales
-bun run build          # build de producción
-bun run preview        # previsualizar el build
+bun run build          # build de producción (Vercel)
+bun run build:capacitor # build estático para Capacitor (app nativa)
+bun run cap:sync       # build + sync con Android/iOS
+bun run cap:android    # abrir en Android Studio
+bun run cap:ios        # abrir en Xcode (solo macOS)
 ```
 
 > Nota: usa `bun run test`, no `bun test` (este último es el runner nativo de
