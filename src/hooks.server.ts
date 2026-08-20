@@ -32,32 +32,30 @@ if (SENTRY_ACTIVO) {
  * Las cabeceras se definen en vercel.json para producción;
  * este handler cubre el preflight OPTIONS y desarrollo local.
  */
-const CORS_ORIGINS = 'capacitor://localhost, http://localhost';
+const ALLOWED_ORIGINS = new Set(['capacitor://localhost', 'http://localhost', 'https://localhost']);
 
 const handleCors: Handle = async ({ event, resolve }) => {
+	const origin = event.request.headers.get('origin') ?? '';
+	const allowedOrigin = ALLOWED_ORIGINS.has(origin) ? origin : '';
+
 	// Responder 200 a preflight OPTIONS en /api/*
 	if (event.url.pathname.startsWith('/api/') && event.request.method === 'OPTIONS') {
-		return new Response(null, {
-			status: 204,
-			headers: {
-				'Access-Control-Allow-Origin': CORS_ORIGINS,
-				'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-				'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
-				'Access-Control-Allow-Credentials': 'true',
-				'Access-Control-Max-Age': '86400'
-			}
-		});
+		const headers: Record<string, string> = {
+			'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+			'Access-Control-Allow-Credentials': 'true',
+			'Access-Control-Max-Age': '86400'
+		};
+		if (allowedOrigin) headers['Access-Control-Allow-Origin'] = allowedOrigin;
+		return new Response(null, { status: 204, headers });
 	}
 
 	const response = await resolve(event);
 
 	// Agregar CORS headers a respuestas de API para Capacitor
-	if (event.url.pathname.startsWith('/api/')) {
-		const origin = event.request.headers.get('origin') ?? '';
-		if (origin.includes('capacitor://') || origin.includes('localhost')) {
-			response.headers.set('Access-Control-Allow-Origin', CORS_ORIGINS);
-			response.headers.set('Access-Control-Allow-Credentials', 'true');
-		}
+	if (event.url.pathname.startsWith('/api/') && allowedOrigin) {
+		response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
+		response.headers.set('Access-Control-Allow-Credentials', 'true');
 	}
 
 	return response;
