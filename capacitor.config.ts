@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
 	appName: 'StarGo',
 	webDir: 'build',
 	server: {
-		androidScheme: 'https'
+		androidScheme: 'http'
 	},
 	plugins: {
 		PushNotifications: {

@@ -20,8 +20,8 @@ const csp: NonNullable<KitConfig['csp']> = {
 		// Inter va auto-alojada (mismo origen), así que ya no se permite
 		// fonts.googleapis.com / fonts.gstatic.com.
 		'style-src': ['self', 'unsafe-inline', 'https://vercel.live'],
-		'font-src': ['self', 'data:', 'https://vercel.live', 'https://assets.vercel.com'],
-		'img-src': ['self', 'data:', 'https://vercel.live', 'https://vercel.com', 'blob:'],
+		'font-src': ['self', 'data:', 'https://vercel.live', 'https://stargo-zeta.vercel.app', 'https://assets.vercel.com'],
+		'img-src': ['self', 'data:', 'https://vercel.live', 'https://stargo-zeta.vercel.app', 'https://vercel.com', 'blob:'],
 		// REST + Realtime (WebSocket) de Supabase desde el navegador.
 		// Ingest de Sentry (solo se usa si PUBLIC_SENTRY_DSN está configurado).
 		// Vercel Live Feedback (widget de feedback en previews): API + realtime.
@@ -30,7 +30,7 @@ const csp: NonNullable<KitConfig['csp']> = {
 			'https://*.supabase.co',
 			'wss://*.supabase.co',
 			'https://*.ingest.sentry.io',
-			'https://vercel.live',
+			'https://vercel.live', 'https://stargo-zeta.vercel.app',
 			'wss://ws-us3.pusher.com'
 		],
 		// El diálogo del widget de feedback de Vercel se renderiza en un iframe
