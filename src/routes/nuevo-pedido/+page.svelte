@@ -734,47 +734,44 @@
 						</div>
 					</div>
 						<!-- Base necesaria (Fase 21): efectivo que el domiciliario debe adelantar -->
-						{#if tipoServicio === 'compra_diligencia'}
-							<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-								<h2 class="mb-1 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
-									<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">4</span>
-									Base necesaria
-								</h2>
-								<p class="mb-4 ml-7 text-xs text-slate-400">
-									Efectivo que el domiciliario necesitará adelantar para cubrir la compra o diligencia en el local.
-									Se sugiere automáticamente el total, puedes ajustarlo si es necesario.
-								</p>
-								<div class="grid gap-4 sm:grid-cols-2">
-									<div>
-										<label for="base-necesaria" class="mb-1.5 block text-sm font-semibold text-slate-700">Monto a adelantar (COP)</label>
-										<input
-											id="base-necesaria"
-											type="number"
-											min="0"
-											step="500"
-											bind:value={baseNecesaria}
-											placeholder="{totalEstimado > 0 ? formatearPeso(totalEstimado) : '0'}"
-											class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
-										/>
-									</div>
-									<div class="flex items-end">
-										{#if !baseNecesaria.trim() && totalEstimado > 0}
-											<button
-												type="button"
-												onclick={() => { baseNecesaria = String(totalEstimado); }}
-												class="rounded-xl border border-primary/30 bg-primary-light px-4 py-2.5 text-sm font-semibold text-primary-dark transition hover:bg-primary/20"
-											>
-												Usar total estimado ({formatearPeso(totalEstimado)})
-											</button>
-										{:else if baseNecesaria.trim() && totalEstimado > 0 && Number(baseNecesaria.trim()) !== totalEstimado}
-											<p class="text-xs text-amber-700">
-												⚠ Estás usando un monto diferente al total estimado.
-											</p>
-										{/if}
-									</div>
+						<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+							<h2 class="mb-1 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
+								<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">4</span>
+								Base necesaria
+							</h2>
+							<p class="mb-4 ml-7 text-xs text-slate-400">
+								{#if tipoServicio === 'compra_diligencia'}
+									Efectivo que el domiciliario necesitará adelantar para cubrir la compra o diligencia en el local. Se sugiere automáticamente el total, puedes ajustarlo si es necesario.
+								{:else}
+									Efectivo que el domiciliario necesitará para el pedido (compras, pago, etc.). Si no aplica, déjalo en 0.
+								{/if}
+							</p>
+							<div class="grid gap-4 sm:grid-cols-2">
+								<div>
+									<label for="base-necesaria" class="mb-1.5 block text-sm font-semibold text-slate-700">Monto a adelantar (COP)</label>
+									<input
+										id="base-necesaria"
+										type="number"
+										min="0"
+										step="500"
+										bind:value={baseNecesaria}
+										placeholder="0"
+										class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+									/>
+								</div>
+								<div class="flex items-end">
+									{#if !baseNecesaria.trim() && totalEstimado > 0}
+										<button
+											type="button"
+											onclick={() => { baseNecesaria = String(totalEstimado); }}
+											class="rounded-xl border border-primary/30 bg-primary-light px-4 py-2.5 text-sm font-semibold text-primary-dark transition hover:bg-primary/20"
+										>
+											Usar total estimado ({formatearPeso(totalEstimado)})
+										</button>
+									{/if}
 								</div>
 							</div>
-						{/if}
+						</div>
 
 						<div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
 							<div class="flex items-center justify-between gap-4">
