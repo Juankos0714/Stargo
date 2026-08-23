@@ -222,11 +222,14 @@ describe.skipIf(!RLS_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase 11)', (
 			expect(entregados?.length).toBeGreaterThan(0);
 			for (const p of entregados ?? []) expect(p.comision).toBeGreaterThan(0); // snapshots intactos
 			// El pedido de 15.000 conserva su snapshot de 2200.
+			// Filtrar por domiciliario_id para no confundir con pedidos de corridas
+			// anteriores que pudieran tener comision=0.
 			const { data: caro } = await servicio
 				.from('pedidos')
 				.select('comision')
 				.eq('total', 15000)
 				.eq('estado', 'entregado')
+				.eq('domiciliario_id', domA.domiciliarioId)
 				.limit(1)
 				.single();
 			expect(caro?.comision).toBe(2200);

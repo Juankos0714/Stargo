@@ -135,7 +135,7 @@ export const POST: RequestHandler = async (event) => {
 		p_nombre: nombre,
 		p_telefono: telefono,
 		p_email: emailCuenta,
-		...(tieneUsername ? { p_username: normalizarUsername(username) } : {})
+		p_username: tieneUsername ? normalizarUsername(username) : null
 	});
 	if (err) return json({ error: err.message }, { status: 400 });
 	return json({ data, meta: { cuentaCreada } });

@@ -1,31 +1,60 @@
-import { env } from '$env/dynamic/public';
+import { CapacitorHttp } from '@capacitor/core';
+import { buildCookieHeader, esCapacitor } from '$lib/capacitor-auth';
 
 export interface ApiResult<T> {
 	data: T | null;
-	/** Metadatos del endpoint cuando el body es { data, meta } (p. ej.
-	 * /api/calcular_tarifa devuelve data = número de tarifa y meta = {disponible,
-	 * motivo, barrios, zonas…}). */
 	meta?: Record<string, unknown>;
 	error: string | null;
 }
 
-/**
- * Resuelve la URL de la API: en Capacitor las rutas relativas no funcionan
- * (el origin es capacitor://localhost o similar), así que se antepone
- * PUBLIC_API_BASE_URL (configurar en .env del build de Capacitor).
- */
+/** Hardcoded base URL for Capacitor builds. */
+const CAPACITOR_API_BASE = 'https://stargo-zeta.vercel.app';
+
 function apiUrl(path: string): string {
 	if (/^https?:\/\//.test(path)) return path;
-	const base = (env.PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
-	return base ? `${base}${path}` : path;
+	if (esCapacitor()) return `${CAPACITOR_API_BASE}${path}`;
+	return path;
 }
 
 async function request<T>(path: string, opts: RequestInit = {}): Promise<ApiResult<T>> {
 	try {
-		const res = await fetch(apiUrl(path), {
-			...opts,
-			headers: { 'Content-Type': 'application/json', ...(opts.headers ?? {}) }
-		});
+		const url = apiUrl(path);
+		const baseHeaders: Record<string, string> = {
+			'Content-Type': 'application/json',
+			...((opts.headers as Record<string, string>) ?? {})
+		};
+
+		if (esCapacitor()) {
+			// Capacitor: use native HTTP (bypasses WebView fetch issues)
+			const cookieStr = buildCookieHeader();
+			if (cookieStr) baseHeaders['Cookie'] = cookieStr;
+
+			const response = await CapacitorHttp.request({
+				url,
+				method: (opts.method as string) ?? 'GET',
+				headers: baseHeaders,
+				data: opts.body ? JSON.parse(opts.body as string) : undefined
+			});
+
+			if (response.status < 200 || response.status >= 300) {
+				const errBody = typeof response.data === 'string'
+					? JSON.parse(response.data || '{}')
+					: (response.data ?? {});
+				return { data: null, error: errBody?.error ?? errBody?.message ?? `Error ${response.status}` };
+			}
+
+			const body = typeof response.data === 'string'
+				? JSON.parse(response.data || '{}')
+				: (response.data ?? {});
+			return {
+				data: (body?.data ?? null) as T | null,
+				meta: body?.meta as Record<string, unknown> | undefined,
+				error: null
+			};
+		}
+
+		// Web: normal fetch
+		const res = await fetch(url, { ...opts, headers: baseHeaders });
 		const body = await res.json().catch(() => ({}));
 		if (!res.ok) {
 			return { data: null, error: body?.error ?? body?.message ?? `Error ${res.status}` };
@@ -50,9 +79,34 @@ export const api = {
 
 /**
  * Fetch con resolución de URL para Capacitor.
- * En Capacitor las rutas relativas no resuelven (origin = capacitor://localhost),
- * así que se usa PUBLIC_API_BASE_URL. En el navegador/web usa fetch normal.
+ * En Capacitor usa CapacitorHttp nativo (bypasses WebView fetch issues).
+ * En web usa fetch normal.
  */
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-	return fetch(apiUrl(path), init);
+	const url = apiUrl(path);
+	const existingHeaders = (init?.headers as Record<string, string>) ?? {};
+
+	if (esCapacitor()) {
+		const cookieStr = buildCookieHeader();
+		const headers: Record<string, string> = { ...existingHeaders };
+		if (cookieStr) headers['Cookie'] = cookieStr;
+
+		const response = await CapacitorHttp.request({
+			url,
+			method: (init?.method as string) ?? 'GET',
+			headers
+		});
+
+		// Return a Response-like object for compatibility
+		const data = typeof response.data === 'string'
+			? response.data
+			: JSON.stringify(response.data);
+
+		return new Response(data, {
+			status: response.status,
+			headers: new Headers(response.headers as Record<string, string>)
+		});
+	}
+
+	return fetch(url, { ...init, headers: existingHeaders });
 }

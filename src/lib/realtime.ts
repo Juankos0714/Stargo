@@ -1,6 +1,9 @@
 import { supabaseBrowser } from '$lib/supabase-browser';
+import { esCapacitor } from '$lib/capacitor-auth';
+import { apiFetch } from '$lib/api';
 
-export type RealtimeEstado = 'conectando' | 'conectado' | 'desconectado';	export interface SuscripcionCambios {
+export type RealtimeEstado = 'conectando' | 'conectado' | 'desconectado';
+export interface SuscripcionCambios {
 	tabla:
 		| 'pedidos'
 		| 'pedido_eventos'
@@ -26,13 +29,75 @@ function filtrar(filtro: Record<string, string>): string {
 }
 
 /**
+ * En Capacitor, los WebSockets de Supabase Realtime no funcionan de forma
+ * confiable. Usamos polling HTTP como alternativa: consulta la tabla cada
+ * N segundos y dispara onCambio si hay diferencias.
+ */
+function pollingFallback(opts: SuscripcionCambios): () => void {
+	let active = true;
+	let timer: ReturnType<typeof setInterval> | undefined;
+
+	// Mapear tabla a endpoint API
+	const endpointMap: Record<string, string> = {
+		pedidos: '/api/pedidos',
+		domiciliarios: '/api/domiciliarios',
+		notificaciones: '/api/notificaciones'
+	};
+
+	const endpoint = endpointMap[opts.tabla];
+	if (!endpoint) {
+		// Tabla sin endpoint de polling conocido — marcar como conectado de todos modos
+		opts.onEstado?.('conectado');
+		return () => {};
+	}
+
+	// Marcar como conectado inmediatamente (polling funciona vía REST)
+	opts.onEstado?.('conectado');
+
+	let lastData: string | null = null;
+
+	const poll = async () => {
+		if (!active) return;
+		try {
+			const res = await apiFetch(endpoint, { headers: { Accept: 'application/json' } });
+			if (!res.ok || !active) return;
+			const body = await res.json().catch(() => ({}));
+			const current = JSON.stringify(body?.data ?? null);
+			if (lastData !== null && current !== lastData) {
+				// Detectar INSERT vs UPDATE comparando longitudes
+				const prevLen = JSON.parse(lastData)?.length ?? 0;
+				const currLen = Array.isArray(body?.data) ? body.data.length : 0;
+				const tipo = currLen > prevLen ? 'INSERT' : 'UPDATE';
+				opts.onCambio({ eventType: tipo, new: body?.data });
+			}
+			lastData = current;
+		} catch {
+			// Silently ignore polling errors
+		}
+	};
+
+	// Poll every 15 seconds
+	timer = setInterval(poll, 15_000);
+
+	return () => {
+		active = false;
+		if (timer) clearInterval(timer);
+	};
+}
+
+/**
  * Se suscribe a cambios de una tabla de Supabase. Devuelve una función
  * para cancelar la suscripción.
  *
- * Realtime se reconecta automáticamente; el callback onEstado permite a
- * la UI mostrar un indicador y re-cargar datos al volver la conexión.
+ * En web usa Supabase Realtime (WebSocket). En Capacitor usa polling HTTP.
  */
 export function suscribirCambios(opts: SuscripcionCambios): () => void {
+	// En Capacitor, usar polling en vez de WebSocket
+	if (esCapacitor()) {
+		return pollingFallback(opts);
+	}
+
+	// En web, usar Supabase Realtime (WebSocket)
 	const canal = supabaseBrowser
 		.channel(`cambios-${opts.tabla}-${Math.random().toString(36).slice(2, 8)}`)
 		.on(

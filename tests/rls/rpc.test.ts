@@ -235,13 +235,19 @@ describe.skipIf(!RLS_DISPONIBLE)('RPCs (base real)', () => {
 		});
 
 		test('sin teléfono el pedido NO se crea (Fase 19: obligatorio en la BD)', async () => {
+			// Llamar a la sobrecarga de 10 params (Fase 19) explícitamente para
+			// evitar el error de ambigüedad entre las dos sobrecargas.
 			const r = await anon.rpc('crear_pedido', {
 				p_barrio_origen_id: cat.barrioA,
 				p_direccion_origen: 'x',
 				p_barrio_destino_id: cat.barrioB,
 				p_direccion_destino: 'y',
 				p_observaciones: null,
-				p_recargos: null
+				p_recargos: null,
+				p_tipo_servicio: null,
+				p_recargos_confirmados_no_aplica: null,
+				p_telefono: null,
+				p_nombre_cliente: null
 			});
 			expect(r.data).toBeNull();
 			expect(r.error?.message ?? '').toMatch(/El teléfono es obligatorio/);

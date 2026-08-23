@@ -18,10 +18,10 @@
 		apiFetch('/api/sesion', { headers: { Accept: 'application/json' } })
 			.then((r) => r.json().catch(() => ({ data: null })))
 			.then((body) => {
-				if (!body?.data?.user) {
+				if (!body?.data?.email) {
 					goto('/login');
 				} else {
-					nombre = body.data.user.user_metadata?.nombre ?? '';
+					nombre = body.data.user_metadata?.nombre ?? body.data.email ?? '';
 				}
 			})
 			.catch(() => goto('/login'));

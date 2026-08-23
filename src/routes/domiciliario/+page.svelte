@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { esCapacitor } from '$lib/capacitor-auth';
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
 	import { Ban, Sun, Coins, CircleCheck, TriangleAlert, Clock, Truck, Phone, MapPin } from 'lucide';
@@ -129,8 +130,8 @@
 			// El domiciliario solo recibe cambios de sus propios pedidos
 			// (RLS + filtro por domiciliario_id en el canal).
 			const domId = page.data.domiciliarioId;
-			limpiar = domId
-				? suscribirCambios({
+			if (domId) {
+				limpiar = suscribirCambios({
 						tabla: 'pedidos',
 						filtro: { domiciliario_id: domId },
 						onCambio: () => cargarDebounced(),
@@ -138,8 +139,20 @@
 							estadoRealtime = estado;
 							if (estado === 'conectado') cargarDebounced();
 						}
-					})
-				: undefined;
+					});
+			} else if (esCapacitor()) {
+				// En Capacitor no hay SSR data (page.data vacío).
+				// Marcar como conectado y pollear sin filtro.
+				estadoRealtime = 'conectado';
+				limpiar = suscribirCambios({
+						tabla: 'pedidos',
+						onCambio: () => cargarDebounced(),
+						onEstado: (estado) => {
+							estadoRealtime = estado;
+							if (estado === 'conectado') cargarDebounced();
+						}
+					});
+			}
 		});
 		cargar();
 		cargarCuenta();

@@ -16,7 +16,9 @@ export default defineConfig({
 		// Mismo alias que SvelteKit ($lib → src/lib): los módulos de la app
 		// importan con $lib/… y los tests resuelven esos imports.
 		alias: {
-			$lib: fileURLToPath(new URL('./src/lib', import.meta.url))
+			$lib: fileURLToPath(new URL('./src/lib', import.meta.url)),
+			// $env/static/public: supabase-browser.ts lo importa a nivel de módulo.
+			'$env/static/public': fileURLToPath(new URL('./tests/ui/mocks/env-static-public.ts', import.meta.url))
 		}
 	},
 	test: {

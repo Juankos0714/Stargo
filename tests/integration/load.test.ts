@@ -11,12 +11,32 @@ import { INTEGRACION_DISPONIBLE, peticion, peticionTexto, CookieJar } from './ht
 	} from './helpers';
 
 /**
+ * Detecta si el servidor soporta SSR (necesario para los redirects 303).
+ * adapter-vercel + vite preview NO ejecuta SSR (las funciones serverless
+ * solo corren en el runtime de Vercel), así que los redirects no funcionan.
+ * Este test se salta automáticamente cuando SSR no está disponible.
+ */
+async function detectarSSR(): Promise<boolean> {
+	if (!INTEGRACION_DISPONIBLE) return false;
+	try {
+		const r = await peticion('/admin', { redirect: 'manual' });
+		// Con SSR, sin sesión → 303 redirect a /login.
+		// Sin SSR, siempre devuelve 200 (SPA shell).
+		return r.status === 303 || r.status === 302;
+	} catch {
+		return false;
+	}
+}
+
+const SSR_DISPONIBLE = await detectarSSR();
+
+/**
  * load functions: los guards SSR de los paneles. Lo que la spec exige se
  * prueba aquí contra la app real (SSR de verdad):
  *   - datos correctos según el rol autenticado (el email del layout),
  *   - sesión ausente/expirada → redirect a /login, NUNCA un error 500.
  */
-describe.skipIf(!INTEGRACION_DISPONIBLE)('load functions — guards por rol y sesión', () => {
+describe.skipIf(!INTEGRACION_DISPONIBLE || !SSR_DISPONIBLE)('load functions — guards por rol y sesión', () => {
 	let admin: UsuarioRol;
 	let dom: UsuarioRol & { domiciliarioId: string };
 	let cliente: UsuarioRol;

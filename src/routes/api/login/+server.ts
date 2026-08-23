@@ -50,5 +50,5 @@ export const POST: RequestHandler = async ({ request, cookies, url }) => {
 	}
 
 	setSessionCookies(cookies, data.session, esSecure(url));
-	return json({ data: { email: data.user.email, ...roles } });
+	return json({ data: { email: data.user.email, ...roles, access_token: data.session.access_token, refresh_token: data.session.refresh_token } });
 };

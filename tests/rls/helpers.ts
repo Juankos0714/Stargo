@@ -90,9 +90,11 @@ function emailTest(sufijo: string): string {
 
 // ---------- Provisión de usuarios por rol -----------------------------------
 
+let _userCounter = 0;
+
 async function crearUsuario(sufijo: string): Promise<{ id: string; email: string }> {
 	const env = requerirEntorno();
-	const email = emailTest(sufijo);
+	const email = emailTest(`${sufijo}${_userCounter++}`);
 	const { data, error } = await clienteService().auth.admin.createUser({
 		email,
 		password: env.password,

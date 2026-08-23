@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -14,6 +15,12 @@ import { defineConfig } from 'vitest/config';
  * sin servidor, los suites se auto-saltan (describe.skipIf).
  */
 export default defineConfig({
+	resolve: {
+		alias: {
+			$lib: fileURLToPath(new URL('./src/lib', import.meta.url)),
+			'$env/static/public': fileURLToPath(new URL('./tests/ui/mocks/env-static-public.ts', import.meta.url))
+		}
+	},
 	test: {
 		environment: 'node',
 		include: ['tests/integration/**/*.test.ts'],

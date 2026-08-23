@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api, apiFetch } from '$lib/api';
 	import { supabaseBrowser } from '$lib/supabase-browser';
-	import { esCapacitor } from '$lib/push-capacitor';
+	import { esCapacitor, clearSession } from '$lib/capacitor-auth';
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import CentroNotificaciones from '$lib/components/CentroNotificaciones.svelte';
@@ -23,10 +23,10 @@
 		apiFetch('/api/sesion', { headers: { Accept: 'application/json' } })
 			.then((r) => r.json().catch(() => ({ data: null })))
 			.then((body) => {
-				if (!body?.data?.user) {
+				if (!body?.data?.email) {
 					goto('/login');
 				} else {
-					email = body.data.user.email ?? '';
+					email = body.data.email ?? '';
 				}
 			})
 			.catch(() => goto('/login'));
@@ -99,8 +99,7 @@
 
 	async function salir() {
 		await api.post('/api/salir');
-		// Limpia también la sesión del cliente Supabase del navegador
-		// (localStorage), para que Realtime no siga con tokens obsoletos.
+		clearSession();
 		try {
 			await supabaseBrowser.auth.signOut();
 		} catch {

@@ -25,6 +25,7 @@
  * ⚠️ NUNCA apuntes la suite a un Supabase de producción: crea usuarios y datos.
  */
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, renameSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
@@ -62,18 +63,48 @@ if (EXTERNO) {
 }
 
 // -------- Build con las variables públicas del Supabase de prueba ----------
-// Vite da prioridad a las variables ya presentes en process.env sobre las de
-// .env, así que el build se hace con los URLs locales aunque exista un .env
-// de producción en la raíz.
+// SvelteKit resuelve $env/static/public desde .env en tiempo de build y
+// NO respeta process.env. Renombramos .env temporalmente para que use
+// las variables que pasamos como env vars.
 if (process.env.TEST_SKIP_BUILD !== '1') {
 	console.log(`[test:integration] Compilando la app con PUBLIC_SUPABASE_URL=${SUPABASE_URL}`);
-	const status = correr('bun', ['run', 'build'], {
-		PUBLIC_SUPABASE_URL: SUPABASE_URL,
-		PUBLIC_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY
-	});
-	if (status !== 0) {
-		console.error('[test:integration] Falló el build. Revisa los errores de arriba.');
-		process.exit(status);
+	const envPath = ''; // relative to cwd
+	const dotEnv = '.env';
+	const dotEnvBak = '.env.integration-bak';
+	let envRenamed = false;
+	try {
+		// Sobre-escribimos .env con las variables del Supabase de prueba para
+		// que SvelteKit las incluya en $env/static/public durante el build.
+		if (existsSync(dotEnv)) {
+			const original = readFileSync(dotEnv, 'utf-8');
+			renameSync(dotEnv, dotEnvBak);
+			envRenamed = true;
+			writeFileSync(dotEnv, [
+				`PUBLIC_SUPABASE_URL=${SUPABASE_URL}`,
+				`PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}`,
+				'PUBLIC_VAPID_PUBLIC_KEY=BPfFKxh7iMiE_Xo0XhJuPUYyacCCQjRmJ6nbp9VEKrRK4vgDcFdf2xm_W7ERoeAGkguIKMar1OSZBrjiW5CThC4'
+			].join('\n') + '\n');
+			console.log(`[test:integration] .env sobrescrito con PUBLIC_SUPABASE_URL=${SUPABASE_URL}`);
+		}
+		// Limpiar la caché de svelte-kit sync
+		const skDir = '.svelte-kit';
+		if (existsSync(skDir)) {
+			rmSync(skDir, { recursive: true, force: true });
+			console.log('[test:integration] .svelte-kit limpiado para regenerar env.');
+		}
+		const status = correr('bun', ['run', 'build'], {
+			PUBLIC_SUPABASE_URL: SUPABASE_URL,
+			PUBLIC_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY
+		});
+		if (status !== 0) {
+			console.error('[test:integration] Falló el build. Revisa los errores de arriba.');
+			process.exit(status);
+		}
+	} finally {
+		if (envRenamed && existsSync(dotEnvBak)) {
+			renameSync(dotEnvBak, dotEnv);
+			console.log('[test:integration] .env restaurado.');
+		}
 	}
 } else {
 	console.log('[test:integration] TEST_SKIP_BUILD=1: reutilizando el build existente.');

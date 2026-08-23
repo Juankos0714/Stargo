@@ -29,7 +29,9 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	// Upsert: si ya existe un registro con el mismo usuario + token, actualiza.
-	// Si el usuario tiene un token viejo, lo reemplaza.
+	// El endpoint es estable (no incluye plataforma) para que el upsert
+	// funcione cuando cambia la plataforma.
+	const endpoint = `native://${token.slice(0, 30)}`;
 	const { error: err } = await db
 		.from('push_subscriptions')
 		.upsert(
@@ -37,8 +39,7 @@ export const POST: RequestHandler = async (event) => {
 				usuario_id: sesion.user.id,
 				token,
 				plataforma,
-				// Limpiar campos de Web Push que ya no aplican
-				endpoint: `native://${plataforma}/${token.slice(0, 20)}`,
+				endpoint,
 				p256dh: '',
 				auth: ''
 			},
