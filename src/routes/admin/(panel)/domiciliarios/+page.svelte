@@ -5,7 +5,7 @@
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { Ban, Plus, RotateCw } from 'lucide';
-	import { formatearPeso, type Domiciliario, type PagoDomiciliario } from '$lib/types';
+	import { formatearPeso, type Domiciliario, type DomiciliarioConBase, type PagoDomiciliario } from '$lib/types';
 
 	interface DomiciliarioFila extends Domiciliario {
 		deuda: number;
@@ -15,6 +15,7 @@
 	}
 
 	let lista = $state<DomiciliarioFila[]>([]);
+	let baseData = $state<DomiciliarioConBase[]>([]);
 	let cargando = $state(true);
 	let error = $state<string | null>(null);
 	let mensaje = $state<{ tipo: 'ok' | 'err'; texto: string } | null>(null);
@@ -75,7 +76,10 @@
 
 	async function cargar() {
 		cargando = true;
-		const r = await api.get<DomiciliarioFila[]>('/api/domiciliarios');
+		const [r, rB] = await Promise.all([
+			api.get<DomiciliarioFila[]>('/api/domiciliarios'),
+			api.get<DomiciliarioConBase[]>('/api/domiciliarios/con-base')
+		]);
 		cargando = false;
 		if (r.error) {
 			error = r.error;
@@ -88,6 +92,7 @@
 			total_pagos: d.total_pagos ?? 0,
 			pagos: d.pagos ?? []
 		}));
+		if (!rB.error) baseData = rB.data ?? [];
 	}
 
 	const cargarDebounced = debounce(() => cargar(), 250);
@@ -475,13 +480,32 @@
 								</p>
 								<p class="mt-1 text-lg font-extrabold {d.deuda > 0 ? 'text-red-700' : 'text-green-700'}">
 									{formatearPeso(d.deuda)}
-								</p>
-								<p class="text-[10px] text-slate-500">
-									{formatearPeso(d.total_comision)} generado · {formatearPeso(d.total_pagos)} abonado
-								</p>
-							</div>
+								</p>										<p class="text-[10px] text-slate-500">
+											{formatearPeso(d.total_comision)} generado · {formatearPeso(d.total_pagos)} abonado
+										</p>
+									</div>
 
-							<!-- Acciones de cuenta -->
+								<!-- Base disponible (Fase 21) -->
+								{#if baseData.find((db) => db.domiciliario_id === d.id)?.turno_activo}
+									{@const dBase = baseData.find((db) => db.domiciliario_id === d.id)!}
+									<div class="rounded-xl border border-amber-200 bg-amber-50 p-3">
+										<p class="text-[10px] font-semibold tracking-wide uppercase text-amber-600">
+											💵 Base del turno
+										</p>
+										<p class="mt-1 text-lg font-extrabold text-slate-900">{formatearPeso(dBase.base_disponible_actual ?? 0)}</p>
+										<p class="text-[10px] text-slate-500">
+											declarada {formatearPeso(dBase.base_declarada ?? 0)} · desde {formatearFecha(dBase.iniciado_en ?? '')}
+										</p>
+									</div>
+								{:else}
+									<div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+										<p class="text-[10px] font-semibold tracking-wide uppercase text-slate-400">
+											Sin turno activo
+										</p>
+									</div>
+								{/if}
+
+								<!-- Acciones de cuenta -->
 							<div class="flex flex-wrap content-start gap-1.5">
 								<button
 									type="button"

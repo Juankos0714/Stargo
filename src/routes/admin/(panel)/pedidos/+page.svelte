@@ -12,6 +12,7 @@
 		formatearPeso,
 		mensajeWhatsAppAdmin,
 		type Domiciliario,
+		type DomiciliarioConBase,
 		type EstadoPedido,
 		type HistorialEstado,
 		type Pedido
@@ -26,6 +27,7 @@
 
 	let pedidos = $state<PedidoFila[]>([]);
 	let domiciliarios = $state<Domiciliario[]>([]);
+	let domiciliariosBase = $state<DomiciliarioConBase[]>([]);
 	let cargando = $state(true);
 	let error = $state<string | null>(null);
 	let mensaje = $state<{ tipo: 'ok' | 'err'; texto: string } | null>(null);
@@ -81,9 +83,10 @@
 		error = null;
 		// Se traen todos (hasta 300) y se filtra en el cliente para que los
 		// contadores de las pestañas reflejen el total real por estado.
-		const [r, rD] = await Promise.all([
+		const [r, rD, rB] = await Promise.all([
 			api.get<PedidoFila[]>('/api/pedidos'),
-			api.get<Domiciliario[]>('/api/domiciliarios')
+			api.get<Domiciliario[]>('/api/domiciliarios'),
+			api.get<DomiciliarioConBase[]>('/api/domiciliarios/con-base')
 		]);
 		cargando = false;
 		if (r.error) {
@@ -92,6 +95,7 @@
 		}
 		pedidos = r.data ?? [];
 		if (!rD.error) domiciliarios = rD.data ?? [];
+		if (!rB.error) domiciliariosBase = rB.data ?? [];
 	}
 
 	// Refresco con un pequeño retraso para absorber ráfagas de eventos.
@@ -239,13 +243,13 @@
 		<div class="overflow-x-auto">
 			<table class="w-full text-left text-sm">
 				<thead>
-					<tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-						<th class="px-4 py-3">Pedido</th>
+					<tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">						<th class="px-4 py-3">Pedido</th>
 						<th class="px-4 py-3">Origen → Destino</th>
-					<th class="px-4 py-3">Tarifa</th>
-					<th class="px-4 py-3">Domiciliario</th>
-					<th class="px-4 py-3">Cliente</th>
-					<th class="px-4 py-3">Estado</th>
+						<th class="px-4 py-3">Tarifa</th>
+						<th class="px-4 py-3">Base</th>
+						<th class="px-4 py-3">Domiciliario</th>
+						<th class="px-4 py-3">Cliente</th>
+						<th class="px-4 py-3">Estado</th>
 						<th class="px-4 py-3 text-right">Acción</th>
 					</tr>
 				</thead>
@@ -297,6 +301,15 @@
 								{/if}
 							</td>
 							<td class="px-4 py-3">
+								{#if (p.base_necesaria ?? 0) > 0}
+									<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+										💰 {formatearPeso(p.base_necesaria)}
+									</span>
+								{:else}
+									<span class="text-xs text-slate-300">—</span>
+								{/if}
+							</td>
+							<td class="px-4 py-3">
 								{#if p.domiciliario_nombre}
 									<span class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-800">
 										<span class="flex size-6 items-center justify-center rounded-full bg-primary-light text-[10px] font-bold text-primary">
@@ -339,7 +352,10 @@
 										>
 											<option value="">Elegir domiciliario…</option>
 											{#each activos as d (d.id)}
-												<option value={d.id}>{d.nombre}</option>
+												{@const dBase = domiciliariosBase.find((db) => db.domiciliario_id === d.id)}
+												<option value={d.id}>
+													{d.nombre}{#if dBase?.turno_activo && dBase.base_disponible_actual != null} ({formatearPeso(dBase.base_disponible_actual)}){/if}
+												</option>
 											{/each}
 										</select>
 										<button

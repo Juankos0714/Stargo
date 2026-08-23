@@ -36,6 +36,16 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (nombreCliente.length > 120) {
 		return json({ error: 'El nombre es demasiado largo (máx. 120 caracteres).' }, { status: 400 });
 	}
+	// Base necesaria (Fase 21): efectivo que el domiciliario necesita adelantar.
+	const baseNecesariaRaw = body?.base_necesaria;
+	let baseNecesaria: number | null = null;
+	if (baseNecesariaRaw != null && baseNecesariaRaw !== '') {
+		const bn = Number(baseNecesariaRaw);
+		if (!Number.isFinite(bn) || bn < 0) {
+			return json({ error: 'La base necesaria debe ser un número mayor o igual a 0.' }, { status: 400 });
+		}
+		baseNecesaria = Math.round(bn);
+	}
 	// Recargos elegidos por el cliente (códigos). El total real lo recalcula la BD.
 	const recargos = Array.isArray(body?.recargos)
 		? (body.recargos as unknown[])
@@ -86,7 +96,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		p_tipo_servicio: tipoServicio,
 		p_recargos_confirmados_no_aplica: recargosConfirmadosNoAplica,
 		p_telefono: telefono,
-		p_nombre_cliente: nombreCliente || null
+		p_nombre_cliente: nombreCliente || null,
+		p_base_necesaria: baseNecesaria
 	});
 
 	if (err) {

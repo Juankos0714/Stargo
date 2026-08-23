@@ -94,6 +94,8 @@
 	// Contacto del cliente (Fase 19): el celular es obligatorio y el nombre opcional.
 	let nombreCliente = $state('');
 	let telefono = $state('');
+	// Base necesaria (Fase 21): efectivo que el domiciliario debe adelantar.
+	let baseNecesaria = $state('');
 	let errores = $state<Record<string, string>>({});
 
 	let precio = $state<{ valor: number | null; meta: Record<string, unknown> } | null>(null);
@@ -265,7 +267,8 @@
 		recargos: recargosSel,
 		recargos_confirmados_no_aplica: recargosConfirmadosNoAplica,
 		nombre_cliente: nombreCliente.trim() || undefined,
-		telefono: telefono.trim()
+		telefono: telefono.trim(),
+		base_necesaria: baseNecesaria.trim() ? Number(baseNecesaria.trim()) : undefined
 	});
 		confirmando = false;
 		if (r.error) {
@@ -289,6 +292,7 @@
 		recargosConfirmadosNoAplica = false;
 		nombreCliente = '';
 		telefono = '';
+		baseNecesaria = '';
 		errores = {};
 		precio = null;
 		error = null;
@@ -799,6 +803,38 @@
 								{:else}
 									<span>Este es un <strong>estimado</strong>: el precio final lo confirma el domiciliario según el servicio real que realice (compras, peso, paradas, espera, método de pago, etc.).</span>
 								{/if}
+							</div>
+						{/if}
+
+						{#if tipoServicio === 'compra_diligencia'}
+							<div class="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+								<label for="base-necesaria" class="mb-1.5 block text-sm font-semibold text-slate-700">
+									Base necesaria del domiciliario
+								</label>
+								<p class="mb-2 text-xs text-slate-500">
+									Efectivo que el domiciliario necesitará para pagar en el local. Se sugiere automáticamente el total,
+									puedes ajustarlo si es necesario.
+								</p>
+								<div class="flex items-center gap-3">
+									<input
+										id="base-necesaria"
+										type="number"
+										min="0"
+										step="500"
+										bind:value={baseNecesaria}
+										placeholder="{totalEstimado > 0 ? formatearPeso(totalEstimado) : '0'}"
+										class="w-40 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:outline-none"
+									/>
+									{#if !baseNecesaria.trim() && totalEstimado > 0}
+										<button
+										type="button"
+										onclick={() => { baseNecesaria = String(totalEstimado); }}
+										class="rounded-lg border border-primary/30 bg-primary-light px-3 py-1.5 text-xs font-semibold text-primary-dark transition hover:bg-primary/20"
+									>
+										Usar total ({formatearPeso(totalEstimado)})
+									</button>
+								{/if}
+								</div>
 							</div>
 						{/if}
 

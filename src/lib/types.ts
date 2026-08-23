@@ -251,6 +251,8 @@ export interface Pedido {
 	total: number | null;
 	/** Comisión congelada al entregar (Fase 10); 0/ausente en pedidos previos. */
 	comision?: number;
+	/** Base necesaria: efectivo que el domiciliario debe tener para comprar/pagar en el local (Fase 21). */
+	base_necesaria?: number;
 	motivo_cancelacion: string | null;
 	zona_origen_id: string | null;
 	zona_destino_id: string | null;
@@ -271,6 +273,56 @@ export interface HistorialEstado {
 export interface PedidoConsultado {
 	pedido: Pedido & { barrio_origen_nombre?: string | null; barrio_destino_nombre?: string | null };
 	historial: HistorialEstado[];
+}
+
+// ---------- Turnos y base de domiciliarios (Fase 21) ----------
+
+/**
+ * Turno de un domiciliario: contiene la base declarada (efectivo inicial)
+ * y la base disponible actual (descontando reservas de pedidos en curso).
+ */
+export interface Turno {
+	id: string;
+	domiciliario_id: string;
+	/** Efectivo que el domiciliario declaró al iniciar turno. */
+	base_declarada: number;
+	/** Efectivo disponible descontando reservas de pedidos aceptados. */
+	base_disponible_actual: number;
+	iniciado_en: string;
+	/** NULL si el turno sigue abierto. */
+	finalizado_en: string | null;
+	created_at: string;
+}
+
+/** Tipo de movimiento en el ledger de base. */
+export type TipoMovimientoBase = 'reserva' | 'liberacion' | 'liquidacion';
+
+/**
+ * Movimiento en el ledger de base: cada reserva, liberación o
+ * liquidación queda registrada para auditoría.
+ */
+export interface BaseMovimiento {
+	id: number;
+	turno_id: string;
+	pedido_id: string | null;
+	/** Monto en COP (siempre positivo; el tipo indica si suma o resta). */
+	monto: number;
+	tipo: TipoMovimientoBase;
+	notas: string | null;
+	created_at: string;
+}
+
+/** Resumen de un domiciliario con su turno activo y base disponible (admin dashboard). */
+export interface DomiciliarioConBase {
+	domiciliario_id: string;
+	nombre: string;
+	activo: boolean;
+	bloqueado: boolean;
+	turno_id: string | null;
+	base_declarada: number | null;
+	base_disponible_actual: number | null;
+	turno_activo: boolean;
+	iniciado_en: string | null;
 }
 
 // ---------- Reportes (Fase 6) ----------

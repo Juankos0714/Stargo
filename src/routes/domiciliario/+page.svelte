@@ -20,7 +20,8 @@
 		rangoDeNiveles,
 		type CuentaDomiciliario,
 		type HistorialEstado,
-		type Pedido
+		type Pedido,
+		type Turno
 	} from '$lib/types';
 
 	interface PedidoFila extends Pedido {
@@ -38,6 +39,13 @@
 	let guardando = $state<Record<string, boolean>>({});
 	let notas = $state<Record<string, string>>({});
 	let estadoRealtime = $state<RealtimeEstado>('conectando');
+
+	// ── Turno (Fase 21) ──
+	let turno = $state<Turno | null>(null);
+	let cargandoTurno = $state(true);
+	let baseDeclarada = $state('');
+	let iniciandoTurno = $state(false);
+	let cerrandoTurno = $state(false);
 
 	const activos = $derived(
 		pedidos
@@ -86,6 +94,47 @@
 			return;
 		}
 		pedidos = r.data ?? [];
+	}
+
+	// ── Turno: cargar, iniciar, cerrar ──
+	async function cargarTurno() {
+		cargandoTurno = true;
+		const r = await api.get<Turno>('/api/turnos');
+		cargandoTurno = false;
+		turno = r.data ?? null;
+	}
+
+	async function iniciarTurno() {
+		const bn = Number(baseDeclarada);
+		if (!Number.isFinite(bn) || bn < 0) {
+			mensaje = { tipo: 'err', texto: 'Ingresa un monto válido para tu base.' };
+			return;
+		}
+		iniciandoTurno = true;
+		mensaje = null;
+		const r = await api.post<Turno>('/api/turnos', { base_declarada: Math.round(bn) });
+		iniciandoTurno = false;
+		if (r.error) {
+			mensaje = { tipo: 'err', texto: r.error };
+			return;
+		}
+		turno = r.data;
+		baseDeclarada = '';
+		mensaje = { tipo: 'ok', texto: 'Turno iniciado. ¡Buena ruta!' };
+	}
+
+	async function cerrarTurno() {
+		if (!window.confirm('¿Cerrar tu turno? Debes tener todos los pedidos entregados o cancelados.')) return;
+		cerrandoTurno = true;
+		mensaje = null;
+		const r = await api.put<Turno>('/api/turnos', {});
+		cerrandoTurno = false;
+		if (r.error) {
+			mensaje = { tipo: 'err', texto: r.error };
+			return;
+		}
+		turno = null;
+		mensaje = { tipo: 'ok', texto: 'Turno cerrado.' };
 	}
 
 	async function cargarCuenta() {
@@ -156,6 +205,7 @@
 		});
 		cargar();
 		cargarCuenta();
+		cargarTurno();
 		// Red de seguridad: refresco periódico por si un evento se pierde
 		// (p. ej. cancelación con domiciliario_id nulo o cambios de red).
 		const reloj = setInterval(() => {
@@ -208,6 +258,82 @@
 	>
 		{mensaje.texto}
 	</div>
+{/if}
+
+<!-- ═══ Turno (Fase 21) ═══ -->
+{#if cargandoTurno}
+	<!-- skeleton -->
+{:else if !turno}
+	<!-- Sin turno abierto: formulario para iniciar -->
+	<section class="mb-6 rounded-2xl border-2 border-dashed border-primary/30 bg-primary-light/20 p-6">
+		<div class="flex items-center gap-3">
+			<div class="flex size-10 items-center justify-center rounded-full bg-primary text-white">
+				<Icon icon={Clock} class="size-5" />
+			</div>
+			<div>
+				<h2 class="text-lg font-bold text-slate-900">Iniciar turno</h2>
+				<p class="text-sm text-slate-500">Declara cuánto efectivo tienes disponible ahora para entregar pedidos.</p>
+			</div>
+		</div>
+		<form
+			onsubmit={(e) => { e.preventDefault(); iniciarTurno(); }}
+			class="mt-4 flex flex-wrap items-end gap-3"
+		>
+			<div>
+				<label for="base-declarada" class="mb-1 block text-xs font-semibold text-slate-600">Efectivo disponible (COP)</label>
+				<input
+					id="base-declarada"
+					type="number"
+					min="0"
+					step="500"
+					bind:value={baseDeclarada}
+					placeholder="Ej: 50000"
+					required
+					class="w-48 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:outline-none"
+			/>
+			</div>
+			<button
+				type="submit"
+				disabled={iniciandoTurno || !baseDeclarada}
+				class="rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-primary-dark disabled:opacity-60"
+			>
+				{iniciandoTurno ? 'Abriendo…' : 'Abrir turno'}
+			</button>
+		</form>
+	</section>
+{:else}
+	<!-- Turno activo: info + botón cerrar -->
+	<section class="mb-6 rounded-2xl border border-primary/25 bg-primary-light/40 p-4 shadow-sm">
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<div class="flex items-center gap-3">
+				<div class="flex size-9 items-center justify-center rounded-full bg-primary text-white">
+					<Icon icon={Coins} class="size-4" />
+				</div>
+				<div>
+					<p class="text-xs font-semibold tracking-wide text-primary-dark uppercase">Turno abierto</p>
+					<p class="text-xs text-slate-500">Abierto {formatearFecha(turno.iniciado_en)}</p>
+				</div>
+			</div>
+			<div class="flex items-center gap-4">
+				<div class="text-right">
+					<p class="text-xs text-slate-500">Base declarada</p>
+					<p class="text-lg font-extrabold text-slate-900">{formatearPeso(turno.base_declarada)}</p>
+				</div>
+				<div class="text-right">
+					<p class="text-xs text-slate-500">Disponible</p>
+					<p class="text-lg font-extrabold {turno.base_disponible_actual > 0 ? 'text-green-700' : 'text-red-600'}">{formatearPeso(turno.base_disponible_actual)}</p>
+				</div>
+				<button
+					type="button"
+					onclick={cerrarTurno}
+					disabled={cerrandoTurno}
+					class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
+				>
+					{cerrandoTurno ? 'Cerrando…' : 'Cerrar turno'}
+				</button>
+			</div>
+		</div>
+	</section>
 {/if}
 
 <!-- Mi cuenta: comisión diaria, niveles y deuda -->
