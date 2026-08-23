@@ -21,7 +21,7 @@ export const load: PageServerLoad = async () => {
 		const [rBarrios, rZonas, rRecargos, rHorario] = await Promise.all([
 			db.from('barrios').select('id,nombre,zona_id').order('nombre'),
 			db.from('zonas').select('id,nombre,tipo'),
-			db.from('recargos').select('*'),
+			db.from('recargos').select('*').gte('valor', 0),
 			db.rpc('horario_hoy')
 		]);
 		return {
