@@ -296,7 +296,7 @@
 							</div>
 						{:else}
 							<div class="flex items-center justify-between">
-								<span class="text-sm font-semibold text-slate-600">Tarifa</span>
+								<span class="text-sm font-semibold text-slate-600">Tarifa base</span>
 								<span class="text-xl font-extrabold text-primary-dark">{formatearPeso(resultado.pedido.tarifa_base)}</span>
 							</div>
 						{/if}

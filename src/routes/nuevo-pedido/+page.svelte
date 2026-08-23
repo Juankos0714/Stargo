@@ -144,9 +144,12 @@
 	// En un Domicilio normal los recargos de tipo «compra» no aplican (son de
 	// compras/diligencias): se ocultan para simplificar el proceso. En
 	// Compra/diligencia se ofrecen todos.
+	// Filtra recargos activos con datos válidos: valor >= 0 y nombre no vacío.
+	// Esto excluye registros de prueba o corruptos que hayan quedado en la BD
+	// (la migración CHECK recargos_valor_no_negativo puede no haberse ejecutado).
 	const recargosActivos = $derived(
 		recargos
-			.filter((r) => r.activo)
+			.filter((r) => r.activo && r.valor >= 0 && r.nombre?.trim())
 			.sort((a, b) => a.tipo.localeCompare(b.tipo) || a.nombre.localeCompare(b.nombre, 'es'))
 	);
 
@@ -767,7 +770,7 @@
 							{/if}
 						</div>
 
-						{#if recargosAplicados.length > 0}
+						{#if precioDisponible || recargosAplicados.length > 0}
 							<div class="mt-4 space-y-1.5 rounded-xl bg-white p-4 text-sm shadow-sm">
 								{#if precioDisponible}
 									<p class="flex justify-between text-slate-600">

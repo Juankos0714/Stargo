@@ -113,7 +113,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 			})
 		);
 		// es-CO formatea con espacio: «$ 6.000».
-		await waitFor(() => expect(screen.getByText(/6\.000/)).toBeInTheDocument());
+		await waitFor(() => expect(screen.getAllByText(/6\.000/).length).toBeGreaterThan(0));
 		const boton = screen.getByRole('button', { name: 'Confirmar pedido' });
 		expect(boton).not.toBeDisabled();
 	});
@@ -138,7 +138,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 
 		resolver(tarifaOk());
 		await waitFor(() => expect(screen.queryByText('Calculando…')).not.toBeInTheDocument());
-		await waitFor(() => expect(screen.getByText(/6\.000/)).toBeInTheDocument());
+		await waitFor(() => expect(screen.getAllByText(/6\.000/).length).toBeGreaterThan(0));
 	});
 
 	test('sin tarifa para la ruta muestra el error y bloquea la confirmación', async () => {
@@ -242,7 +242,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		await formularioListo();
 		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
-		await waitFor(() => expect(screen.getByText(/6\.000/)).toBeInTheDocument());
+		await waitFor(() => expect(screen.getAllByText(/6\.000/).length).toBeGreaterThan(0));
 
 		// Dos checkboxes: «No aplica» (Fase 14) + el recargo de PESO. El de
 		// compra queda oculto en un Domicilio normal (Fase 16) y el inactivo
