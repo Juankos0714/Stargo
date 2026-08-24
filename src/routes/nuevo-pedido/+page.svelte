@@ -84,6 +84,19 @@
 	let tipoDiligencia = $state('');
 	let necesitaRecoger = $state<boolean | null>(null);
 
+	// --- Campos específicos por tipo de diligencia ---
+	let dilDescripcion = $state('');
+	let dilValorFactura = $state('');
+	let dilCostoDiligencia = $state('');
+	let dilEntidad = $state('');
+	let dilProductos = $state('');
+	let dilCantidad = $state('');
+	let dilPresupuesto = $state('');
+	let dilTramite = $state('');
+	let dilInstrucciones = $state('');
+	let dilLugarTramite = $state('');
+	let dilOtraDescripcion = $state('');
+
 	let origen = $state<string | null>(null);
 	let dirOrigen = $state('');
 	let destino = $state<string | null>(null);
@@ -227,14 +240,29 @@
 		error = null;
 	}
 
+	function limpiarCamposDiligencia() {
+		tipoDiligencia = '';
+		necesitaRecoger = null;
+		dilDescripcion = '';
+		dilValorFactura = '';
+		dilCostoDiligencia = '';
+		dilEntidad = '';
+		dilProductos = '';
+		dilCantidad = '';
+		dilPresupuesto = '';
+		dilTramite = '';
+		dilInstrucciones = '';
+		dilLugarTramite = '';
+		dilOtraDescripcion = '';
+	}
+
 	function elegirTipo(tipo: TipoServicio) {
 		tipoServicio = tipo;
 		// Al cambiar de tipo se limpian los campos que ya no aplican y el precio.
 		precio = null;
 		error = null;
 		if (tipo === 'domicilio') {
-			tipoDiligencia = '';
-			necesitaRecoger = null;
+			limpiarCamposDiligencia();
 		}
 		if (tipo === 'compra_diligencia' && !mostrarOrigen) {
 			origen = null;
@@ -251,18 +279,41 @@
 		errores = {};
 	}
 
+	/** Empaqueta los datos de la diligencia en observaciones como texto estructurado. */
+	function empaquetarObservaciones(): string {
+		const parts: string[] = [];
+		if (tipoServicio === 'compra_diligencia' && tipoDiligencia) {
+			parts.push(`[DILIGENCIA: ${TIPOS_DILIGENCIA.find((t) => t.valor === tipoDiligencia)?.label ?? tipoDiligencia}]`);
+		}
+		if (dilDescripcion.trim()) parts.push(`Descripción: ${dilDescripcion.trim()}`);
+		if (dilEntidad.trim()) parts.push(`Entidad: ${dilEntidad.trim()}`);
+		if (dilValorFactura.trim()) parts.push(`Valor a pagar: $${dilValorFactura.trim()}`);
+		if (dilCostoDiligencia.trim()) parts.push(`Costo diligencia: $${dilCostoDiligencia.trim()}`);
+		if (dilProductos.trim()) parts.push(`Productos: ${dilProductos.trim()}`);
+		if (dilCantidad.trim()) parts.push(`Cantidad: ${dilCantidad.trim()}`);
+		if (dilPresupuesto.trim()) parts.push(`Presupuesto: $${dilPresupuesto.trim()}`);
+		if (dilTramite.trim()) parts.push(`Trámite: ${dilTramite.trim()}`);
+		if (dilInstrucciones.trim()) parts.push(`Instrucciones: ${dilInstrucciones.trim()}`);
+		if (dilLugarTramite.trim()) parts.push(`Lugar: ${dilLugarTramite.trim()}`);
+		if (dilOtraDescripcion.trim()) parts.push(`Detalle: ${dilOtraDescripcion.trim()}`);
+		// Agregar observaciones libres del usuario si existen.
+		if (observaciones.trim()) parts.push(observaciones.trim());
+		return parts.join('\n');
+	}
+
 	async function confirmar(e: SubmitEvent) {
 		e.preventDefault();
 		if (!puedeConfirmar) return;
 		if (!validar()) return;
 		confirmando = true;
 		error = null;
+		const obs = empaquetarObservaciones();
 		const r = await api.post<typeof creado>('/api/pedidos', {
 			barrio_origen: origen,
 			direccion_origen: dirOrigen,
 			barrio_destino: destino,
 			direccion_destino: dirDestino,
-		observaciones: observaciones || undefined,
+		observaciones: obs || undefined,
 		tipo_servicio: tipoServicio,
 		recargos: recargosSel,
 		recargos_confirmados_no_aplica: recargosConfirmadosNoAplica,
@@ -281,8 +332,7 @@
 	function reiniciar() {
 		creado = null;
 		tipoServicio = 'domicilio';
-		tipoDiligencia = '';
-		necesitaRecoger = null;
+		limpiarCamposDiligencia();
 		origen = null;
 		destino = null;
 		dirOrigen = '';
@@ -474,58 +524,51 @@
 								</span>
 								<span class="mt-1 block text-xs text-slate-500">Comprar, pagar facturas o hacer trámites.</span>
 							</button>
-						</div>
-
-						{#if tipoServicio === 'compra_diligencia'}
+						</div>						{#if tipoServicio === 'compra_diligencia'}
+							<!-- Tipo de diligencia: radio cards -->
 							<div class="mt-5 rounded-xl border border-primary/20 bg-primary-light/30 p-4">
-								<p class="text-xs font-bold tracking-wide text-primary-dark uppercase">Cuéntanos sobre la diligencia</p>
+								<p class="text-xs font-bold tracking-wide text-primary-dark uppercase">¿Qué tipo de diligencia necesitas?</p>
+								<div class="mt-3 grid gap-2 sm:grid-cols-2">
+									{#each TIPOS_DILIGENCIA as td (td.valor)}
+										<label
+											class="flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 transition has-[:checked]:border-primary has-[:checked]:bg-white {tipoDiligencia === td.valor ? 'border-primary bg-white' : 'border-slate-200 hover:border-primary/50'}"
+										>
+											<input
+												type="radio"
+												name="tipo-diligencia"
+												value={td.valor}
+												bind:group={tipoDiligencia}
+												class="mt-1 size-4 accent-[#1768FF]"
+											/>
+											<span class="min-w-0">
+												<span class="block text-sm font-semibold text-slate-800">{td.label}</span>
+												<span class="block text-xs text-slate-500">{td.desc}</span>
+											</span>
+										</label>
+									{/each}
+								</div>
 
-								<fieldset class="mt-3">
-									<legend class="text-sm font-semibold text-slate-800">¿Qué tipo de diligencia necesitas?</legend>
-									<div class="mt-2 grid gap-2 sm:grid-cols-2">
-										{#each TIPOS_DILIGENCIA as td (td.valor)}
-											<label
-												class="flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 transition has-[:checked]:border-primary has-[:checked]:bg-white {tipoDiligencia === td.valor ? 'border-primary bg-white' : 'border-slate-200 hover:border-primary/50'}"
-											>
-												<input
-													type="radio"
-													name="tipo-diligencia"
-													value={td.valor}
-													bind:group={tipoDiligencia}
-													class="mt-1 size-4 accent-[#1768FF]"
-												/>
-												<span class="min-w-0">
-													<span class="block text-sm font-semibold text-slate-800">{td.label}</span>
-													<span class="block text-xs text-slate-500">{td.desc}</span>
-												</span>
-											</label>
-										{/each}
-									</div>
-								</fieldset>
-
+								<!-- Pregunta de recogida -->
 								<fieldset class="mt-4">
 									<legend class="text-sm font-semibold text-slate-800">¿Se debe recoger algo o a alguien antes?</legend>
 									<div class="mt-2 flex gap-2">
 										<button
 											type="button"
-											onclick={() => {
-												necesitaRecoger = true;
-												error = null;
-											}}
+											onclick={() => { necesitaRecoger = true; error = null; }}
 											class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {necesitaRecoger === true ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
 										>
 											Sí, hay recogida
 										</button>
 										<button
 											type="button"
-												onclick={() => {
-													necesitaRecoger = false;
-													origen = null;
-													dirOrigen = '';
-													errores.origen = '';
-													errores.dirOrigen = '';
-													error = null;
-												}}
+											onclick={() => {
+												necesitaRecoger = false;
+												origen = null;
+												dirOrigen = '';
+												errores.origen = '';
+												errores.dirOrigen = '';
+												error = null;
+											}}
 											class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {necesitaRecoger === false ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
 										>
 											No, solo el destino
@@ -533,6 +576,282 @@
 									</div>
 								</fieldset>
 							</div>
+
+							<!-- Campos específicos por tipo de diligencia -->
+							{#if tipoDiligencia}
+								<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+									<h2 class="mb-1 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
+										<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">A</span>
+										Datos de la diligencia
+									</h2>
+									<p class="mb-4 ml-7 text-xs text-slate-400">
+										{TIPOS_DILIGENCIA.find((t) => t.valor === tipoDiligencia)?.label ?? ''}
+									</p>
+
+									<!-- Pago de factura o servicio -->
+									{#if tipoDiligencia === 'pago'}
+										<div class="space-y-4">
+											<div>
+												<label for="dil-desc" class="mb-1.5 block text-sm font-semibold text-slate-700">Descripción <span class="text-amber-600">(obligatorio)</span></label>
+												<input
+													id="dil-desc"
+													type="text"
+													bind:value={dilDescripcion}
+													maxlength="300"
+													placeholder="Ej: Pago de factura de luz, recibo de agua…"
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+												/>
+											</div>
+											<div class="grid gap-4 sm:grid-cols-2">
+												<div>
+													<label for="dil-valor-pagar" class="mb-1.5 block text-sm font-semibold text-slate-700">Valor de la factura <span class="text-amber-600">(obligatorio)</span></label>
+													<div class="relative">
+														<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+														<input
+															id="dil-valor-pagar"
+															type="number"
+															min="0"
+															step="1000"
+															bind:value={dilValorFactura}
+															placeholder="Ej: 85000"
+															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+														/>
+													</div>
+											</div>
+											<div>
+												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
+												<div class="relative">
+													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+													<input
+														id="dil-costo"
+														type="number"
+														min="0"
+														step="500"
+														bind:value={dilCostoDiligencia}
+														placeholder="Ej: 5000"
+														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+													/>
+												</div>
+											</div>
+											</div>
+										</div>
+
+									<!-- Pago bancario o corresponsal -->
+									{:else if tipoDiligencia === 'banco'}
+										<div class="space-y-4">
+											<div>
+												<label for="dil-entidad" class="mb-1.5 block text-sm font-semibold text-slate-700">Entidad / banco <span class="text-amber-600">(obligatorio)</span></label>
+												<input
+													id="dil-entidad"
+													type="text"
+													bind:value={dilEntidad}
+													maxlength="200"
+													placeholder="Ej: Bancolombia, Daviplata, Efecty…"
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+												/>
+											</div>
+											<div>
+												<label for="dil-desc-banco" class="mb-1.5 block text-sm font-semibold text-slate-700">Descripción del pago <span class="text-amber-600">(obligatorio)</span></label>
+												<input
+													id="dil-desc-banco"
+													type="text"
+													bind:value={dilDescripcion}
+													maxlength="300"
+													placeholder="Ej: Consignación, pago de cuota…"
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+												/>
+											</div>
+											<div class="grid gap-4 sm:grid-cols-2">
+												<div>
+													<label for="dil-valor-pagar" class="mb-1.5 block text-sm font-semibold text-slate-700">Valor a pagar <span class="text-amber-600">(obligatorio)</span></label>
+													<div class="relative">
+														<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+														<input
+															id="dil-valor-pagar"
+															type="number"
+															min="0"
+															step="1000"
+															bind:value={dilValorFactura}
+															placeholder="Ej: 150000"
+															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+														/>
+													</div>
+											</div>
+											<div>
+												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
+												<div class="relative">
+													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+													<input
+														id="dil-costo"
+														type="number"
+														min="0"
+														step="500"
+														bind:value={dilCostoDiligencia}
+														placeholder="Ej: 12000"
+														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+													/>
+												</div>
+											</div>
+											</div>
+										</div>
+
+									<!-- Compra de productos -->
+									{:else if tipoDiligencia === 'compra'}
+										<div class="space-y-4">
+											<div>
+												<label for="dil-productos" class="mb-1.5 block text-sm font-semibold text-slate-700">Productos / descripción <span class="text-amber-600">(obligatorio)</span></label>
+												<textarea
+													id="dil-productos"
+													bind:value={dilProductos}
+													rows="3"
+													maxlength="500"
+													placeholder="Ej: 2 paquetes de arroz, 1 leche, 1 medicamento X"
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+												></textarea>
+											</div>
+											<div>
+												<label for="dil-cantidad" class="mb-1.5 block text-sm font-semibold text-slate-700">Cantidad</label>
+												<input
+													id="dil-cantidad"
+													type="text"
+													bind:value={dilCantidad}
+													maxlength="100"
+													placeholder="Ej: 3 artículos, 1 paquete…"
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+												/>
+											</div>
+											<div class="grid gap-4 sm:grid-cols-2">
+												<div>
+													<label for="dil-presupuesto" class="mb-1.5 block text-sm font-semibold text-slate-700">Presupuesto / valor estimado</label>
+													<div class="relative">
+														<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+														<input
+															id="dil-presupuesto"
+															type="number"
+															min="0"
+															step="1000"
+															bind:value={dilPresupuesto}
+															placeholder="Ej: 50000"
+															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+														/>
+													</div>
+											</div>
+											<div>
+												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
+												<div class="relative">
+													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+													<input
+														id="dil-costo"
+														type="number"
+														min="0"
+														step="500"
+														bind:value={dilCostoDiligencia}
+														placeholder="Ej: 8000"
+														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+													/>
+												</div>
+											</div>
+											</div>
+										</div>
+
+									<!-- Trámite o documento -->
+									{:else if tipoDiligencia === 'tramite'}
+										<div class="space-y-4">
+											<div>
+												<label for="dil-tramite" class="mb-1.5 block text-sm font-semibold text-slate-700">¿Qué trámite necesitas? <span class="text-amber-600">(obligatorio)</span></label>
+												<input
+													id="dil-tramite"
+													type="text"
+													bind:value={dilTramite}
+													maxlength="300"
+													placeholder="Ej: Radicar documento, recoger certificado…"
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+												/>
+											</div>
+											<div>
+												<label for="dil-instrucciones" class="mb-1.5 block text-sm font-semibold text-slate-700">Descripción / instrucciones <span class="text-amber-600">(obligatorio)</span></label>
+												<textarea
+													id="dil-instrucciones"
+													bind:value={dilInstrucciones}
+													rows="3"
+													maxlength="500"
+													placeholder="Detalla qué debe hacer el domiciliario, qué documentos llevar, etc."
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+												></textarea>
+											</div>
+											<div class="grid gap-4 sm:grid-cols-2">
+												<div>
+													<label for="dil-lugar" class="mb-1.5 block text-sm font-semibold text-slate-700">Lugar del trámite</label>
+													<input
+														id="dil-lugar"
+														type="text"
+														bind:value={dilLugarTramite}
+														maxlength="200"
+														placeholder="Ej: Alcaldía, notaría, etc."
+														class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+													/>
+											</div>
+											<div>
+												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
+												<div class="relative">
+													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+													<input
+														id="dil-costo"
+														type="number"
+														min="0"
+														step="500"
+														bind:value={dilCostoDiligencia}
+														placeholder="Ej: 10000"
+														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+													/>
+												</div>
+											</div>
+											</div>
+										</div>
+
+									<!-- Otra diligencia -->
+									{:else if tipoDiligencia === 'otro'}
+										<div class="space-y-4">
+											<div>
+												<label for="dil-otra" class="mb-1.5 block text-sm font-semibold text-slate-700">Describe la diligencia <span class="text-amber-600">(obligatorio)</span></label>
+												<textarea
+													id="dil-otra"
+													bind:value={dilOtraDescripcion}
+													rows="3"
+													maxlength="500"
+													placeholder="Describe con detalle qué necesitas que haga el domiciliario."
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+												></textarea>
+											</div>
+											<div>
+												<label for="dil-instrucciones" class="mb-1.5 block text-sm font-semibold text-slate-700">Instrucciones adicionales</label>
+												<textarea
+													id="dil-instrucciones"
+													bind:value={dilInstrucciones}
+													rows="2"
+													maxlength="500"
+													placeholder="Detalles extra, horarios, referencias, etc."
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+												></textarea>
+											</div>
+											<div>
+												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
+												<div class="relative">
+													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+													<input
+														id="dil-costo"
+														type="number"
+														min="0"
+														step="500"
+														bind:value={dilCostoDiligencia}
+														placeholder="Ej: 7000"
+														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+													/>
+												</div>
+											</div>
+										</div>										{/if}
+								</div>
+							{/if}
 						{/if}
 					</div>
 
