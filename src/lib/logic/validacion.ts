@@ -60,6 +60,14 @@ export interface DatosPedido {
 	dilOtraDescripcion?: string;
 	/** El usuario necesita recoger algo antes (compra/diligencia). */
 	necesitaRecoger?: boolean | null;
+
+	// ---- Campos de peso y transferencia (domicilio, obligatorios) ----
+	/** Peso del paquete en kg. */
+	peso?: string;
+	/** Si hay transferencia bancaria ('si' o 'no'). */
+	transferencia?: string;
+	/** Monto de la transferencia (requerido si transferencia = 'si'). */
+	transferenciaMonto?: string;
 }
 
 /**
@@ -105,11 +113,32 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 		errores.observaciones = `Máximo ${LIMITES.observaciones} caracteres.`;
 	}
 
-	if ((d.recargos?.length ?? 0) > LIMITES.recargos) {
-		errores.recargos = `Selecciona máximo ${LIMITES.recargos} recargos.`;
-	} else if ((d.recargos?.length ?? 0) === 0 && d.recargosConfirmadosNoAplica !== true) {
-		// Decisión explícita de recargos: elegir o marcar «No aplica».
-		errores.recargos = 'Indica si aplican recargos a tu pedido o marca «No aplica».';
+	if (tipoServicio === 'domicilio') {
+		// Peso obligatorio en domicilio
+		if (!String(d.peso ?? '').trim()) {
+			errores.peso = 'El peso del paquete es obligatorio.';
+		} else if (Number(String(d.peso)) < 0) {
+			errores.peso = 'El peso no puede ser negativo.';
+		}
+		// Transferencia obligatoria en domicilio
+		if (!d.transferencia) {
+			errores.transferencia = 'Indica si hay transferencia bancaria.';
+		} else if (d.transferencia === 'si') {
+			if (!String(d.transferenciaMonto ?? '').trim()) {
+				errores.transferenciaMonto = 'Indica el monto de la transferencia.';
+			} else if (Number(String(d.transferenciaMonto)) < 0) {
+				errores.transferenciaMonto = 'El monto no puede ser negativo.';
+			}
+		}
+		// Recargos opcionales en domicilio
+		if ((d.recargos?.length ?? 0) > LIMITES.recargos) {
+			errores.recargos = `Selecciona máximo ${LIMITES.recargos} recargos.`;
+		}
+	} else {
+		// Compra/diligencia: "No aplica" es obligatorio (sin recargos)
+		if (d.recargosConfirmadosNoAplica !== true) {
+			errores.recargos = 'Confirma que no aplica ningún recargo.';
+		}
 	}
 
 	// Teléfono del cliente (Fase 19): obligatorio y en formato colombiano.

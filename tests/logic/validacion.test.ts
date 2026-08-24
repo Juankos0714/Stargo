@@ -16,7 +16,10 @@ const pedidoValido: DatosPedido = {
 	// Decisión explícita de recargos: se marca «No aplica» (Fase 14).
 	recargosConfirmadosNoAplica: true,
 	// Teléfono del cliente (Fase 19): obligatorio.
-	telefono: '3001234567'
+	telefono: '3001234567',
+	// Peso y transferencia obligatorios en domicilio.
+	peso: '2',
+	transferencia: 'no'
 };
 
 describe('validarPedido (formulario de pedido)', () => {
@@ -70,21 +73,21 @@ describe('validarPedido (formulario de pedido)', () => {
 	});
 
 	test('sin recargos y sin «No aplica» el pedido NO se puede enviar (Fase 14)', () => {
-		const e = validarPedido({ ...pedidoValido, recargos: undefined, recargosConfirmadosNoAplica: false });
-		expect(e.recargos).toBe('Indica si aplican recargos a tu pedido o marca «No aplica».');
+		// En domicilio los recargos son opcionales; sin 'No aplica' no se exige nada.
+	const e = validarPedido({ ...pedidoValido, recargos: undefined, recargosConfirmadosNoAplica: false });
+		expect(e.recargos).toBeUndefined();
 
 		const e2 = validarPedido({ ...pedidoValido, recargos: [], recargosConfirmadosNoAplica: false });
-		expect(e2.recargos).toBe('Indica si aplican recargos a tu pedido o marca «No aplica».');
+		expect(e2.recargos).toBeUndefined();
 	});
 
-	test('marcar «No aplica» habilita el envío aunque no haya recargos', () => {
-		expect(validarPedido({ ...pedidoValido, recargos: [], recargosConfirmadosNoAplica: true })).toEqual({});
+	test('peso y transferencia son obligatorios en domicilio', () => {
+		expect(validarPedido({ ...pedidoValido, peso: '', transferencia: '' }).peso).toBe('El peso del paquete es obligatorio.');
+		expect(validarPedido({ ...pedidoValido, peso: '', transferencia: '' }).transferencia).toBe('Indica si hay transferencia bancaria.');
 	});
 
-	test('elegir recargos habilita el envío aunque no se marque «No aplica»', () => {
-		expect(
-			validarPedido({ ...pedidoValido, recargos: ['rc-compra'], recargosConfirmadosNoAplica: false })
-		).toEqual({});
+	test('transferencia "si" exige monto', () => {
+		expect(validarPedido({ ...pedidoValido, transferencia: 'si', transferenciaMonto: '' }).transferenciaMonto).toBe('Indica el monto de la transferencia.');
 	});
 
 	test('el teléfono es obligatorio para coordinar la entrega (Fase 19)', () => {
@@ -104,14 +107,14 @@ describe('validarPedido (formulario de pedido)', () => {
 	});
 
 	test('el teléfono acepta formato con espacios/guiones y prefijo +57 (Fase 19)', () => {
-		expect(validarPedido({ ...pedidoValido, telefono: '+57 300 123 4567' })).toEqual({});
+		expect(validarPedido({ ...pedidoValido, telefono: '+57 300 123 4567', peso: '1', transferencia: 'no' })).toEqual({});
 	});
 
 	test(`el nombre del cliente opcional se rechaza si pasa de ${LIMITES.nombreCliente} caracteres`, () => {
 		const e = validarPedido({ ...pedidoValido, nombreCliente: 'x'.repeat(LIMITES.nombreCliente + 1) });
 		expect(e.nombreCliente).toBe(`Máximo ${LIMITES.nombreCliente} caracteres.`);
 
-		expect(validarPedido({ ...pedidoValido, nombreCliente: '' })).toEqual({});
+		expect(validarPedido({ ...pedidoValido, nombreCliente: '', peso: '1', transferencia: 'no' })).toEqual({});
 	});
 });
 

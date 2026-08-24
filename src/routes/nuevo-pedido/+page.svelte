@@ -97,6 +97,11 @@
 	let dilLugarTramite = $state('');
 	let dilOtraDescripcion = $state('');
 
+	// --- Peso y transferencia obligatorios (domicilio) ---
+	let pesoKg = $state('');
+	let transferencia = $state<'si' | 'no' | ''>('');
+	let transferenciaMonto = $state('');
+
 	let origen = $state<string | null>(null);
 	let dirOrigen = $state('');
 	let destino = $state<string | null>(null);
@@ -243,7 +248,10 @@
 			dilTramite,
 			dilInstrucciones,
 			dilLugarTramite,
-			dilOtraDescripcion
+			dilOtraDescripcion,
+			peso: pesoKg,
+			transferencia,
+			transferenciaMonto
 		});
 		return Object.keys(errores).length === 0;
 	}
@@ -283,6 +291,9 @@
 		dilInstrucciones = '';
 		dilLugarTramite = '';
 		dilOtraDescripcion = '';
+		pesoKg = '';
+		transferencia = '';
+		transferenciaMonto = '';
 	}
 
 	function elegirTipo(tipo: TipoServicio) {
@@ -330,9 +341,30 @@
 		return parts.join('\n');
 	}
 
+	function sincronizarRecargos() {
+		// Sincronizar peso y transferencia con recargosSel
+		const peso = recargosActivos.find((r) => r.tipo === 'peso');
+		const pago = recargosActivos.find((r) => r.tipo === 'pago');
+		if (peso) {
+			if (String(pesoKg ?? '').trim()) {
+				if (!recargosSel.includes(peso.codigo)) recargosSel = [...recargosSel, peso.codigo];
+			} else {
+				recargosSel = recargosSel.filter((c) => c !== peso.codigo);
+			}
+		}
+		if (pago) {
+			if (transferencia === 'si') {
+				if (!recargosSel.includes(pago.codigo)) recargosSel = [...recargosSel, pago.codigo];
+			} else {
+				recargosSel = recargosSel.filter((c) => c !== pago.codigo);
+			}
+		}
+	}
+
 	async function confirmar(e: SubmitEvent) {
 		e.preventDefault();
 		if (!puedeConfirmar) return;
+		sincronizarRecargos();
 		if (!validar()) return;
 		confirmando = true;
 		error = null;
@@ -981,67 +1013,119 @@
 					</div>					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 						<h2 class="mb-1 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
 							<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">3</span>
-							Recargos <span class="font-normal normal-case text-amber-600">(obligatorio)</span>
+							{tipoServicio === 'domicilio' ? 'Detalles del pedido' : 'Confirmación'}
 						</h2>
 						<p class="mb-4 ml-7 text-xs text-slate-400">
 							{tipoServicio === 'domicilio'
-								? 'Marca lo que aplica a tu pedido (peso, espera, paradas o método de pago) o confirma que no aplica.'
-								: 'Marca lo que aplica a tu pedido: compras, espera, paradas, peso o método de pago — o confirma que no aplica.'}
+								? 'Indica el peso y si aplica transferencia. Luego marca recargos adicionales si es necesario.'
+								: 'Confirma que no aplica ningún recargo adicional.'}
 						</p>
-					<!-- Siempre mostrar "No aplica" aunque no haya recargos filtrados (p. ej. pago sin peso/compra) -->
-						<label
-							class="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
-						>
-							<input
-								type="checkbox"
-								checked={recargosConfirmadosNoAplica}
-								onchange={(e) => {
-									const marcado = e.currentTarget.checked;
-									recargosConfirmadosNoAplica = marcado;
-									if (marcado) recargosSel = [];
-								}}
-								class="mt-1 size-4 accent-[#1768FF]"
-							/>
-							<span class="min-w-0 flex-1">
-								<span class="block text-sm font-semibold text-slate-800">No aplica</span>
-								<span class="block text-xs text-slate-500">
-									{tipoServicio === 'domicilio'
-										? 'Este pedido no tiene peso, esperas, paradas ni pagos especiales.'
-										: 'Este pedido no tiene compras, esperas, paradas, peso ni pagos especiales.'}
-								</span>
-							</span>
-						</label>
-					{#if recargosDisponibles.length > 0}
-						<div class="grid gap-5 sm:grid-cols-2">
-							{#each grupos as g (g.tipo)}
-								<fieldset>
-										<legend class="text-xs font-bold tracking-wide text-slate-500 uppercase">{g.label}</legend>
-										<div class="mt-2 space-y-2">
-											{#each g.items as r (r.codigo)}
-												<label
-													class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
-												>
-													<input
-														type="checkbox"
-														value={r.codigo}
-														bind:group={recargosSel}
-														onchange={desmarcarNoAplica}
-														class="mt-1 size-4 accent-[#1768FF]"
-													/>
-													<span class="min-w-0 flex-1">
-														<span class="block text-sm font-semibold text-slate-800">{r.nombre}</span>
-														{#if r.descripcion}
-															<span class="block text-xs text-slate-500">{r.descripcion}</span>
-														{/if}
-													</span>
-													<span class="shrink-0 text-sm font-bold text-slate-900">{formatearPeso(r.valor)}</span>
-													</label>
-												{/each}
-												</div>
-											</fieldset>
+
+						{#if tipoServicio === 'domicilio'}
+							<!-- Campo obligatorio: peso -->
+							<div class="mb-4">
+								<label for="domicilio-peso" class="mb-1.5 block text-sm font-semibold text-slate-700">Peso del paquete <span class="text-amber-600">(obligatorio)</span></label>
+								<div class="relative">
+									<input
+										id="domicilio-peso"
+										type="number"
+										min="0"
+										step="0.5"
+										bind:value={pesoKg}																					placeholder="Ej: 2.5"
+																					oninput={() => sincronizarRecargos()}
+																					class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.peso ? 'border-red-400' : ''}"
+									/>
+									<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">kg</span>
+								</div>
+								{#if errores.peso}<p class="mt-1 text-xs text-red-600">{errores.peso}</p>{/if}
+							</div>
+
+							<!-- Campo obligatorio: transferencia -->
+							<div class="mb-4">
+								<label class="mb-1.5 block text-sm font-semibold text-slate-700">Transferencia bancaria <span class="text-amber-600">(obligatorio)</span></label>
+								<div class="flex gap-2">
+									<button
+										type="button"
+										onclick={() => { transferencia = 'si'; error = null; sincronizarRecargos(); }}
+										class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {transferencia === 'si' ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
+									>
+										Sí, hay transferencia
+									</button>
+									<button
+										type="button"
+										onclick={() => { transferencia = 'no'; transferenciaMonto = ''; error = null; sincronizarRecargos(); }}
+										class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {transferencia === 'no' ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
+									>
+										No hay transferencia
+									</button>
+								</div>
+								{#if errores.transferencia}<p class="mt-1 text-xs text-red-600">{errores.transferencia}</p>{/if}
+
+								{#if transferencia === 'si'}
+									<div class="mt-3 relative">
+										<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+										<input
+											type="number"
+											min="0"
+											step="1000"
+											bind:value={transferenciaMonto}
+											placeholder="Monto a transferir"
+											class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.transferenciaMonto ? 'border-red-400' : ''}"
+										/>
+										{#if errores.transferenciaMonto}<p class="mt-1 text-xs text-red-600">{errores.transferenciaMonto}</p>{/if}
+									</div>
+								{/if}
+							</div>
+
+							<!-- Otros recargos opcionales -->
+							{@const otrosRecargos = recargosActivos.filter((r) => r.tipo !== 'peso' && r.tipo !== 'pago')}
+							{#if otrosRecargos.length > 0}
+								<div>
+									<p class="mb-2 text-sm font-semibold text-slate-700">Recargos adicionales <span class="font-normal text-slate-400">(opcional)</span></p>
+									<div class="grid gap-3 sm:grid-cols-2">
+										{#each otrosRecargos as r (r.codigo)}
+											<label
+												class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
+											>
+												<input
+													type="checkbox"
+													value={r.codigo}
+													bind:group={recargosSel}
+													class="mt-1 size-4 accent-[#1768FF]"
+												/>
+												<span class="min-w-0 flex-1">
+													<span class="block text-sm font-semibold text-slate-800">{r.nombre}</span>
+													{#if r.descripcion}<span class="block text-xs text-slate-500">{r.descripcion}</span>{/if}
+												</span>
+												<span class="shrink-0 text-sm font-bold text-slate-900">{formatearPeso(r.valor)}</span>
+											</label>
 										{/each}
-										</div>
-									{/if}
+									</div>
+								</div>
+							{/if}
+
+						{:else}
+							<!-- Compra/diligencia: sin recargos, solo "No aplica" -->
+							<label
+								class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
+							>
+								<input
+									type="checkbox"
+									checked={recargosConfirmadosNoAplica}
+									onchange={(e) => {
+										const marcado = e.currentTarget.checked;
+										recargosConfirmadosNoAplica = marcado;
+										if (marcado) recargosSel = [];
+									}}
+									class="mt-1 size-4 accent-[#1768FF]"
+								/>
+								<span class="min-w-0 flex-1">
+									<span class="block text-sm font-semibold text-slate-800">No aplica ningún recargo</span>
+									<span class="block text-xs text-slate-500">Este pedido no tiene recargos adicionales.</span>
+								</span>
+							</label>
+						{/if}
+
 						{#if errores.recargos}
 							<p class="mt-2 text-xs text-red-600">{errores.recargos}</p>
 						{/if}

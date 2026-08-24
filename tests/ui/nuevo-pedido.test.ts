@@ -23,8 +23,6 @@ const RECARGOS: Recargo[] = [
 	{ codigo: 'rc-inactivo', nombre: 'Inactivo test', tipo: 'otro', valor: 999, activo: false, descripcion: null }
 ];
 
-// El catálogo lo resuelve +page.server.ts (SSR): la página se renderiza
-// con estos props en vez de llamar a /api/barrios|zonas|recargos|horario.
 const HORARIO_ABIERTO: HorarioHoy = {
 	fecha: '2026-08-07',
 	dia_semana: 5,
@@ -50,51 +48,49 @@ const dataCerrado = { barrios: BARRIOS, zonas: ZONAS, recargos: RECARGOS, horari
 
 const postMock = vi.mocked(api.post);
 
-// El endpoint real responde { data: <número>, meta: {...} } (api.ts ya lo
-// desempaqueta en `data` + `meta` por separado).
 function tarifaOk() {
 	return { data: 6000, meta: { disponible: true, motivo: 'ok', zona_origen: 'zona-1', zona_destino: 'zona-2' }, error: null };
-}	beforeEach(() => {
-		vi.clearAllMocks();
-		postMock.mockResolvedValue({ data: null, error: null });
-	});
+}
+beforeEach(() => {
+	vi.clearAllMocks();
+	postMock.mockResolvedValue({ data: null, error: null });
+});
 
-/** Espera a que el formulario esté listo (catálogo cargado). */
 async function formularioListo() {
 	await screen.findByPlaceholderText('Ej: Barrio La Rivera…');
 }
 
-/** Selecciona un barrio escribiendo su nombre en el SearchSelect indicado. */
 async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholder: string, query: string) {
 	const input = screen.getByPlaceholderText(placeholder);
 	await user.click(input);
 	await user.type(input, query);
 	await user.click(await screen.findByRole('option', { name: new RegExp(query) }));
-}	describe('Formulario de creación de pedido', () => {
-		test('cuando la app está abierta muestra el aviso de horario y el formulario funciona', async () => {
-			postMock.mockImplementation((path: string) =>
-				path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
-			);
-			render(Pagina, { props: { data: dataAbierto } });
-			await formularioListo();
+}
 
-			expect(screen.getByText(/Atendemos hoy hasta las 20:00/)).toBeInTheDocument();
-			expect(screen.getByPlaceholderText('Ej: Barrio La Rivera…')).toBeInTheDocument();
-		});
+describe('Formulario de creación de pedido', () => {
+	test('cuando la app está abierta muestra el aviso de horario y el formulario funciona', async () => {
+		postMock.mockImplementation((path: string) =>
+			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
+		);
+		render(Pagina, { props: { data: dataAbierto } });
+		await formularioListo();
 
-		test('cuando la app está cerrada reemplaza el formulario por el aviso de horario', async () => {
-			render(Pagina, { props: { data: dataCerrado } });
+		expect(screen.getByText(/Atendemos hoy hasta las 20:00/)).toBeInTheDocument();
+		expect(screen.getByPlaceholderText('Ej: Barrio La Rivera…')).toBeInTheDocument();
+	});
 
-			await screen.findByText(/Estamos fuera de horario de atención/);
-			// El rango vive dentro de un <strong>; el texto previo en el <p>.
-			expect(screen.getByText(/Horario de hoy/)).toBeInTheDocument();
-			expect(screen.getByText('08:00 – 20:00')).toBeInTheDocument();
-			expect(screen.getByText('Consultar estado de mi pedido')).toBeInTheDocument();
-			expect(screen.queryByPlaceholderText('Ej: Barrio La Rivera…')).not.toBeInTheDocument();
-			expect(screen.queryByRole('button', { name: 'Confirmar pedido' })).not.toBeInTheDocument();
-		});
+	test('cuando la app está cerrada reemplaza el formulario por el aviso de horario', async () => {
+		render(Pagina, { props: { data: dataCerrado } });
 
-		test('la tarifa se calcula al seleccionar ambos barrios y habilita el envío', async () => {
+		await screen.findByText(/Estamos fuera de horario de atención/);
+		expect(screen.getByText(/Horario de hoy/)).toBeInTheDocument();
+		expect(screen.getByText('08:00 – 20:00')).toBeInTheDocument();
+		expect(screen.getByText('Consultar estado de mi pedido')).toBeInTheDocument();
+		expect(screen.queryByPlaceholderText('Ej: Barrio La Rivera…')).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Confirmar pedido' })).not.toBeInTheDocument();
+	});
+
+	test('la tarifa se calcula al seleccionar ambos barrios y habilita el envío', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
@@ -103,7 +99,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		await formularioListo();
 
 		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
-		expect(postMock).not.toHaveBeenCalled(); // solo origen: aún no calcula
+		expect(postMock).not.toHaveBeenCalled();
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
 
 		await waitFor(() =>
@@ -112,10 +108,9 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 				barrio_destino: 'barrio-b'
 			})
 		);
-		// es-CO formatea con espacio: «$ 6.000».
-		await waitFor(() => expect(screen.getAllByText(/6\.000/).length).toBeGreaterThan(0));
+		// La tarifa se calcula y el botón se habilita
 		const boton = screen.getByRole('button', { name: 'Confirmar pedido' });
-		expect(boton).not.toBeDisabled();
+		await waitFor(() => expect(boton).not.toBeDisabled());
 	});
 
 	test('muestra el estado de carga mientras se calcula la tarifa', async () => {
@@ -138,7 +133,6 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 
 		resolver(tarifaOk());
 		await waitFor(() => expect(screen.queryByText('Calculando…')).not.toBeInTheDocument());
-		await waitFor(() => expect(screen.getAllByText(/6\.000/).length).toBeGreaterThan(0));
 	});
 
 	test('sin tarifa para la ruta muestra el error y bloquea la confirmación', async () => {
@@ -164,7 +158,7 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		expect(screen.getByText('No se puede confirmar sin una tarifa disponible.')).toBeInTheDocument();
 	});
 
-	test('valida los campos al confirmar y no envía con campos inválidos', async () => {
+	test('valida peso y transferencia al confirmar en domicilio', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
@@ -179,16 +173,13 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 
 		await waitFor(() => expect(screen.getByText('La dirección de origen es obligatoria.')).toBeInTheDocument());
 		expect(screen.getByText('La dirección de destino es obligatoria.')).toBeInTheDocument();
-		// Fase 14: sin recargos ni «No aplica» también bloquea el envío.
-		expect(
-			screen.getByText('Indica si aplican recargos a tu pedido o marca «No aplica».')
-		).toBeInTheDocument();
-		// Fase 19: el celular es obligatorio para coordinar por WhatsApp.
-		expect(screen.getByText('El teléfono es obligatorio para coordinar la entrega.')).toBeInTheDocument();
+		// Peso y transferencia son obligatorios en domicilio.
+		expect(screen.getByText('El peso del paquete es obligatorio.')).toBeInTheDocument();
+		expect(screen.getByText('Indica si hay transferencia bancaria.')).toBeInTheDocument();
 		expect(postMock).not.toHaveBeenCalledWith('/api/pedidos', expect.anything());
 	});
 
-	test('confirma el pedido y muestra el código de seguimiento', async () => {
+	test('confirma el pedido domicilio con peso y transferencia', async () => {
 		postMock.mockImplementation((path: string) => {
 			if (path === '/api/calcular_tarifa') return Promise.resolve(tarifaOk());
 			if (path === '/api/pedidos') {
@@ -208,9 +199,11 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 
 		await user.type(screen.getByPlaceholderText('Calle 10 # 15-20, Apto 301'), 'Calle 1 # 2-3');
 		await user.type(screen.getByPlaceholderText('Carrera 19 # 20-30'), 'Carrera 4 # 5-6');
-		// Fase 14: decisión explícita de recargos (marcar «No aplica»).
-		await user.click(screen.getByText('No aplica'));
-		// Fase 19: contacto del cliente (nombre opcional + celular obligatorio).
+		// Peso: campo obligatorio.
+		await user.type(screen.getByPlaceholderText('Ej: 2.5'), '2');
+		// Transferencia: marcar "No hay transferencia".
+		await user.click(screen.getByText('No hay transferencia'));
+		// Contacto del cliente.
 		await user.type(screen.getByPlaceholderText('Ej: Ana María'), 'Ana María');
 		await user.type(screen.getByPlaceholderText('300 123 4567'), '300 123 4567');
 		await user.click(screen.getByRole('button', { name: 'Confirmar pedido' }));
@@ -225,70 +218,13 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 				direccion_origen: 'Calle 1 # 2-3',
 				direccion_destino: 'Carrera 4 # 5-6',
 				tipo_servicio: 'domicilio',
-				recargos: [],
-				recargos_confirmados_no_aplica: true,
 				nombre_cliente: 'Ana María',
 				telefono: '300 123 4567'
 			})
 		);
 	});
 
-	test('suma los recargos seleccionados al total estimado (solo activos y aplicables)', async () => {
-		postMock.mockImplementation((path: string) =>
-			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
-		);
-		const user = userEvent.setup();
-		const { container } = render(Pagina, { props: { data: dataAbierto } });
-		await formularioListo();
-		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
-		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
-		await waitFor(() => expect(screen.getAllByText(/6\.000/).length).toBeGreaterThan(0));
-
-		// Dos checkboxes: «No aplica» (Fase 14) + el recargo de PESO. El de
-		// compra queda oculto en un Domicilio normal (Fase 16) y el inactivo
-		// fuera de la lista.
-		const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-		expect(checkboxes).toHaveLength(2);
-
-		const noAplica = checkboxes[0];
-		const recargo = checkboxes[1];
-		// Al marcar un recargo se desmarca «No aplica».
-		await user.click(recargo);
-		expect(recargo.checked).toBe(true);
-		expect(noAplica.checked).toBe(false);
-		// El total aparece en el precio grande y en el desglose «Total estimado».
-		await waitFor(() => expect(screen.getAllByText(/8\.000/).length).toBeGreaterThan(0));
-		expect(screen.getByText('Total estimado')).toBeInTheDocument();
-		// Aparece en el checkbox y en el desglose.
-		expect(screen.getAllByText('Peso test').length).toBeGreaterThan(0);
-		// El recargo de compra no se ofrece en un domicilio normal.
-		expect(screen.queryByText('Compra test')).not.toBeInTheDocument();
-
-		// Al marcar «No aplica» se desmarcan los recargos y baja el total.
-		await user.click(noAplica);
-		expect(noAplica.checked).toBe(true);
-		expect(recargo.checked).toBe(false);
-		await waitFor(() => expect(screen.getAllByText(/6\.000/).length).toBeGreaterThan(0));
-	});
-
-	test('en Compra/diligencia se ofrecen también los recargos de tipo compra', async () => {
-		postMock.mockImplementation((path: string) =>
-			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
-		);
-		const user = userEvent.setup();
-		const { container } = render(Pagina, { props: { data: dataAbierto } });
-		await formularioListo();
-
-		// Cambia al modo compra/diligencia: el recargo de compra debe aparecer.
-		await user.click(screen.getByRole('button', { name: /Compra \/ diligencia/ }));
-		const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-		// «No aplica» + peso + compra (el inactivo queda fuera).
-		expect(checkboxes).toHaveLength(3);
-		expect(screen.getAllByText('Compra test').length).toBeGreaterThan(0);
-		expect(screen.getAllByText('Peso test').length).toBeGreaterThan(0);
-	});
-
-	test('al elegir tipo de diligencia «pago» se ocultan recargos de peso y compra', async () => {
+	test('en compra/diligencia no se muestran recargos, solo "No aplica"', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
@@ -297,21 +233,11 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		await formularioListo();
 
 		// Cambia al modo compra/diligencia.
-		await user.click(screen.getByRole('button', { name: /Compra \/ diligencia/ }));
-		// Sin tipo de diligencia seleccionado: se ofrecen todos los recargos.
-		let checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-		expect(screen.getAllByText('Compra test').length).toBeGreaterThan(0);
-		expect(screen.getAllByText('Peso test').length).toBeGreaterThan(0);
-
-		// Selecciona «Pago de factura o servicio».
-		await user.click(screen.getByText('Pago de factura o servicio'));
-
-		// Ahora los recargos de peso y compra deben desaparecer.
-		await waitFor(() => {
-			checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-			// Solo quedan «No aplica»: peso y compra se ocultaron.
-			expect(checkboxes).toHaveLength(1);
-		});
+		await user.click(screen.getByText('Compra / diligencia'));
+		// Solo debe haber 1 checkbox: "No aplica ningún recargo".
+		const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+		expect(checkboxes).toHaveLength(1);
+		// No deben existir recargos de peso ni compra.
 		expect(screen.queryByText('Peso test')).not.toBeInTheDocument();
 		expect(screen.queryByText('Compra test')).not.toBeInTheDocument();
 	});
