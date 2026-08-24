@@ -287,4 +287,32 @@ async function elegirBarrio(user: ReturnType<typeof userEvent.setup>, placeholde
 		expect(screen.getAllByText('Compra test').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('Peso test').length).toBeGreaterThan(0);
 	});
+
+	test('al elegir tipo de diligencia «pago» se ocultan recargos de peso y compra', async () => {
+		postMock.mockImplementation((path: string) =>
+			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
+		);
+		const user = userEvent.setup();
+		const { container } = render(Pagina, { props: { data: dataAbierto } });
+		await formularioListo();
+
+		// Cambia al modo compra/diligencia.
+		await user.click(screen.getByRole('button', { name: /Compra \/ diligencia/ }));
+		// Sin tipo de diligencia seleccionado: se ofrecen todos los recargos.
+		let checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+		expect(screen.getAllByText('Compra test').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Peso test').length).toBeGreaterThan(0);
+
+		// Selecciona «Pago de factura o servicio».
+		await user.click(screen.getByText('Pago de factura o servicio'));
+
+		// Ahora los recargos de peso y compra deben desaparecer.
+		await waitFor(() => {
+			checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+			// Solo quedan «No aplica»: peso y compra se ocultaron.
+			expect(checkboxes).toHaveLength(1);
+		});
+		expect(screen.queryByText('Peso test')).not.toBeInTheDocument();
+		expect(screen.queryByText('Compra test')).not.toBeInTheDocument();
+	});
 });

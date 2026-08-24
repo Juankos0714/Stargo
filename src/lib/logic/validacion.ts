@@ -14,6 +14,9 @@ export const LIMITES = {
 	nombreCliente: 120
 } as const;
 
+/** Tipo de diligencia dentro de compra/diligencia. */
+export type TipoDiligencia = 'pago' | 'banco' | 'compra' | 'tramite' | 'otro' | '';
+
 export interface DatosPedido {
 	barrioOrigen: string | null;
 	barrioDestino: string | null;
@@ -29,6 +32,34 @@ export interface DatosPedido {
 	telefono: string;
 	/** Nombre del cliente, opcional (Fase 19): saluda en el mensaje de WhatsApp cuando existe. */
 	nombreCliente?: string;
+
+	// ---- Campos de diligencia (compra/diligencia) ----
+	/** Tipo de diligencia seleccionado (pago, banco, compra, tramite, otro). */
+	tipoDiligencia?: TipoDiligencia;
+	/** Descripción de la diligencia (pago, banco). */
+	dilDescripcion?: string;
+	/** Valor de la factura / valor a pagar (pago, banco). */
+	dilValorFactura?: string;
+	/** Costo de la diligencia (todos los tipos). */
+	dilCostoDiligencia?: string;
+	/** Entidad / banco (banco). */
+	dilEntidad?: string;
+	/** Productos / descripción (compra). */
+	dilProductos?: string;
+	/** Cantidad (compra). */
+	dilCantidad?: string;
+	/** Presupuesto / valor estimado (compra). */
+	dilPresupuesto?: string;
+	/** Tipo de trámite (tramite). */
+	dilTramite?: string;
+	/** Instrucciones (tramite, otro). */
+	dilInstrucciones?: string;
+	/** Lugar del trámite (tramite). */
+	dilLugarTramite?: string;
+	/** Descripción de "otra" diligencia (otro). */
+	dilOtraDescripcion?: string;
+	/** El usuario necesita recoger algo antes (compra/diligencia). */
+	necesitaRecoger?: boolean | null;
 }
 
 /**
@@ -41,6 +72,13 @@ export interface DatosPedido {
  *     bancario solo va al banco).
  * Recargos: se exige una decisión explícita — elegir recargos o marcar
  * «No aplica» (recargosConfirmadosNoAplica) — antes de poder enviar.
+ *
+ * Reglas por tipo de diligencia:
+ *   - pago:     descripción, valor factura, costo obligatorios.
+ *   - banco:    entidad, descripción, valor, costo obligatorios.
+ *   - compra:   productos, costo obligatorios.
+ *   - tramite:  trámite, instrucciones, costo obligatorios.
+ *   - otro:     descripción, costo obligatorios.
  */
 export function validarPedido(d: DatosPedido): Record<string, string> {
 	const errores: Record<string, string> = {};
@@ -84,6 +122,62 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 	// Nombre del cliente (opcional, Fase 19): solo tope de longitud.
 	if ((d.nombreCliente ?? '').length > LIMITES.nombreCliente) {
 		errores.nombreCliente = `Máximo ${LIMITES.nombreCliente} caracteres.`;
+	}
+
+	// ---- Validaciones por tipo de diligencia ----
+	if (tipoServicio === 'compra_diligencia') {
+		const td = d.tipoDiligencia ?? '';
+
+		if (!td) {
+			errores.tipoDiligencia = 'Selecciona el tipo de diligencia.';
+		} else {
+			// Costo de la diligencia siempre obligatorio
+			const costo = (d.dilCostoDiligencia ?? '').trim();
+			if (!costo) {
+				errores.dilCostoDiligencia = 'El costo de la diligencia es obligatorio.';
+			} else if (Number(costo) < 0) {
+				errores.dilCostoDiligencia = 'El costo no puede ser negativo.';
+			}
+
+			if (td === 'pago') {
+				// Pago de factura o servicio
+				if (!(d.dilDescripcion ?? '').trim()) {
+					errores.dilDescripcion = 'La descripción del pago es obligatoria.';
+				}
+				if (!(d.dilValorFactura ?? '').trim()) {
+					errores.dilValorFactura = 'El valor de la factura es obligatorio.';
+				}
+			} else if (td === 'banco') {
+				// Pago bancario o corresponsal
+				if (!(d.dilEntidad ?? '').trim()) {
+					errores.dilEntidad = 'La entidad o banco es obligatorio.';
+				}
+				if (!(d.dilDescripcion ?? '').trim()) {
+					errores.dilDescripcion = 'La descripción del pago es obligatoria.';
+				}
+				if (!(d.dilValorFactura ?? '').trim()) {
+					errores.dilValorFactura = 'El valor a pagar es obligatorio.';
+				}
+			} else if (td === 'compra') {
+				// Compra de productos
+				if (!(d.dilProductos ?? '').trim()) {
+					errores.dilProductos = 'Describe los productos que necesitas.';
+				}
+			} else if (td === 'tramite') {
+				// Trámite o documento
+				if (!(d.dilTramite ?? '').trim()) {
+					errores.dilTramite = 'Indica qué trámite necesitas.';
+				}
+				if (!(d.dilInstrucciones ?? '').trim()) {
+					errores.dilInstrucciones = 'Las instrucciones son obligatorias.';
+				}
+			} else if (td === 'otro') {
+				// Otra diligencia
+				if (!(d.dilOtraDescripcion ?? '').trim()) {
+					errores.dilOtraDescripcion = 'Describe la diligencia.';
+				}
+			}
+		}
 	}
 
 	return errores;

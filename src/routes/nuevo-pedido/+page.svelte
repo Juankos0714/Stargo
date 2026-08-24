@@ -14,7 +14,7 @@
 		type Zona
 	} from '$lib/types';
 	import { calcularRecargos } from '$lib/logic/recargos';
-	import { validarPedido } from '$lib/logic/validacion';
+	import { validarPedido, type TipoDiligencia } from '$lib/logic/validacion';
 	import { page } from '$app/state';
 	import type { HorarioHoy } from '$lib/types';
 	import { apiFetch } from '$lib/api';
@@ -168,11 +168,28 @@
 			.sort((a, b) => a.tipo.localeCompare(b.tipo) || a.nombre.localeCompare(b.nombre, 'es'))
 	);
 
-	const recargosDisponibles = $derived(
-		tipoServicio === 'domicilio'
-			? recargosActivos.filter((r) => r.tipo !== 'compra')
-			: recargosActivos
-	);
+	// ---------- Filtros de recargos por tipo de diligencia ----------
+	// Cada tipo de diligencia solo muestra los recargos que le corresponden.
+	const RECARGOS_POR_DILIGENCIA: Record<string, string[]> = {
+		pago: ['pago', 'tiempo_espera', 'paradas', 'otro'],
+		banco: ['pago', 'tiempo_espera', 'paradas', 'otro'],
+		compra: ['compra', 'peso', 'tiempo_espera', 'paradas', 'pago', 'otro'],
+		tramite: ['tiempo_espera', 'paradas', 'otro'],
+		otro: ['tiempo_espera', 'paradas', 'otro']
+	};
+
+	const recargosDisponibles = $derived.by(() => {
+		if (tipoServicio === 'domicilio') {
+			return recargosActivos.filter((r) => r.tipo !== 'compra');
+		}
+		// En compra/diligencia: filtrar por tipo de diligencia seleccionado.
+		if (tipoDiligencia && RECARGOS_POR_DILIGENCIA[tipoDiligencia]) {
+			const permitidos = new Set(RECARGOS_POR_DILIGENCIA[tipoDiligencia]);
+			return recargosActivos.filter((r) => permitidos.has(r.tipo));
+		}
+		// Sin tipo de diligencia seleccionado: ofrecer todos.
+		return recargosActivos;
+	});
 
 	const grupos = $derived.by(() => {
 		const m = new Map<string, Recargo[]>();
@@ -214,7 +231,19 @@
 			tipoServicio,
 			recargosConfirmadosNoAplica,
 			telefono,
-			nombreCliente
+			nombreCliente,
+			tipoDiligencia: tipoDiligencia as TipoDiligencia,
+			dilDescripcion,
+			dilValorFactura,
+			dilCostoDiligencia,
+			dilEntidad,
+			dilProductos,
+			dilCantidad,
+			dilPresupuesto,
+			dilTramite,
+			dilInstrucciones,
+			dilLugarTramite,
+			dilOtraDescripcion
 		});
 		return Object.keys(errores).length === 0;
 	}
@@ -313,13 +342,13 @@
 			direccion_origen: dirOrigen,
 			barrio_destino: destino,
 			direccion_destino: dirDestino,
-		observaciones: obs || undefined,
-		tipo_servicio: tipoServicio,
-		recargos: recargosSel,
-		recargos_confirmados_no_aplica: recargosConfirmadosNoAplica,
-		nombre_cliente: nombreCliente.trim() || undefined,
-		telefono: telefono.trim(),
-		base_necesaria: baseNecesaria.trim() ? Number(baseNecesaria.trim()) : undefined
+			observaciones: obs || undefined,
+			tipo_servicio: tipoServicio,
+			recargos: recargosSel,
+			recargos_confirmados_no_aplica: recargosConfirmadosNoAplica,
+			nombre_cliente: nombreCliente.trim() || undefined,
+			telefono: telefono.trim(),
+			base_necesaria: baseNecesaria.trim() ? Number(baseNecesaria.trim()) : undefined
 	});
 		confirmando = false;
 		if (r.error) {
@@ -539,7 +568,8 @@
 								</span>
 								<span class="mt-1 block text-xs text-slate-500">Comprar, pagar facturas o hacer trámites.</span>
 							</button>
-						</div>						{#if tipoServicio === 'compra_diligencia'}
+						</div>
+						{#if tipoServicio === 'compra_diligencia'}
 							<!-- Tipo de diligencia: radio cards -->
 							<div class="mt-5 rounded-xl border border-primary/20 bg-primary-light/30 p-4">
 								<p class="text-xs font-bold tracking-wide text-primary-dark uppercase">¿Qué tipo de diligencia necesitas?</p>
@@ -561,35 +591,40 @@
 											</span>
 										</label>
 									{/each}
-								</div>
-
-								<!-- Pregunta de recogida -->
-								<fieldset class="mt-4">
-									<legend class="text-sm font-semibold text-slate-800">¿Se debe recoger algo o a alguien antes?</legend>
-									<div class="mt-2 flex gap-2">
-										<button
-											type="button"
-											onclick={() => { necesitaRecoger = true; error = null; }}
-											class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {necesitaRecoger === true ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
-										>
-											Sí, hay recogida
-										</button>
-										<button
-											type="button"
-											onclick={() => {
-												necesitaRecoger = false;
-												origen = null;
-												dirOrigen = '';
-												errores.origen = '';
-												errores.dirOrigen = '';
-												error = null;
-											}}
-											class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {necesitaRecoger === false ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
-										>
-											No, solo el destino
-										</button>
 									</div>
-								</fieldset>
+									{#if errores.tipoDiligencia}
+										<p class="mt-2 text-xs text-red-600">{errores.tipoDiligencia}</p>
+									{/if}
+
+									<!-- Pregunta de recogida: solo para tipos que pueden requerir recogida previa -->
+								{#if tipoDiligencia === 'compra' || tipoDiligencia === 'tramite' || tipoDiligencia === 'otro'}
+									<fieldset class="mt-4">
+										<legend class="text-sm font-semibold text-slate-800">¿Se debe recoger algo o a alguien antes?</legend>
+										<div class="mt-2 flex gap-2">
+											<button
+												type="button"
+												onclick={() => { necesitaRecoger = true; error = null; }}
+												class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {necesitaRecoger === true ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
+											>
+												Sí, hay recogida
+											</button>
+											<button
+												type="button"
+												onclick={() => {
+													necesitaRecoger = false;
+													origen = null;
+													dirOrigen = '';
+													errores.origen = '';
+													errores.dirOrigen = '';
+													error = null;
+												}}
+												class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {necesitaRecoger === false ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
+											>
+												No, solo el destino
+											</button>
+										</div>
+									</fieldset>
+								{/if}
 							</div>
 
 							<!-- Campos específicos por tipo de diligencia -->
@@ -612,12 +647,11 @@
 													id="dil-desc"
 													type="text"
 													bind:value={dilDescripcion}
-													maxlength="300"
-													placeholder="Ej: Pago de factura de luz, recibo de agua…"
-													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
-												/>
-											</div>
-											<div class="grid gap-4 sm:grid-cols-2">
+													maxlength="300"												placeholder="Ej: Pago de factura de luz, recibo de agua…"
+												class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilDescripcion ? 'border-red-400' : ''}"
+													/>
+													{#if errores.dilDescripcion}<p class="mt-1 text-xs text-red-600">{errores.dilDescripcion}</p>{/if}						</div>
+					<div class="grid gap-4 sm:grid-cols-2">
 												<div>
 													<label for="dil-valor-pagar" class="mb-1.5 block text-sm font-semibold text-slate-700">Valor de la factura <span class="text-amber-600">(obligatorio)</span></label>
 													<div class="relative">
@@ -625,15 +659,16 @@
 														<input
 															id="dil-valor-pagar"
 															type="number"
-															min="0"
-															step="1000"
-															bind:value={dilValorFactura}
-															placeholder="Ej: 85000"
-															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+														min="0"
+														step="1000"
+														bind:value={dilValorFactura}
+														placeholder="Ej: 85000"
+														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
 														/>
+														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}
 													</div>
-											</div>
-											<div>
+												</div>
+												<div>
 												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
 												<div class="relative">
 													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
@@ -644,10 +679,11 @@
 														step="500"
 														bind:value={dilCostoDiligencia}
 														placeholder="Ej: 5000"
-														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilCostoDiligencia ? 'border-red-400' : ''}"
 													/>
+														{#if errores.dilCostoDiligencia}<p class="mt-1 text-xs text-red-600">{errores.dilCostoDiligencia}</p>{/if}
+													</div>
 												</div>
-											</div>
 											</div>
 										</div>
 
@@ -662,21 +698,20 @@
 													bind:value={dilEntidad}
 													maxlength="200"
 													placeholder="Ej: Bancolombia, Daviplata, Efecty…"
-													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilEntidad ? 'border-red-400' : ''}"
 												/>
-											</div>
-											<div>
+													{#if errores.dilEntidad}<p class="mt-1 text-xs text-red-600">{errores.dilEntidad}</p>{/if}						</div>
+					<div>
 												<label for="dil-desc-banco" class="mb-1.5 block text-sm font-semibold text-slate-700">Descripción del pago <span class="text-amber-600">(obligatorio)</span></label>
 												<input
 													id="dil-desc-banco"
 													type="text"
 													bind:value={dilDescripcion}
-													maxlength="300"
-													placeholder="Ej: Consignación, pago de cuota…"
-													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
-												/>
-											</div>
-											<div class="grid gap-4 sm:grid-cols-2">
+													maxlength="300"														placeholder="Ej: Consignación, pago de cuota…"
+														class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilDescripcion ? 'border-red-400' : ''}"
+													/>
+													{#if errores.dilDescripcion}<p class="mt-1 text-xs text-red-600">{errores.dilDescripcion}</p>{/if}						</div>
+					<div class="grid gap-4 sm:grid-cols-2">
 												<div>
 													<label for="dil-valor-pagar" class="mb-1.5 block text-sm font-semibold text-slate-700">Valor a pagar <span class="text-amber-600">(obligatorio)</span></label>
 													<div class="relative">
@@ -688,11 +723,11 @@
 															step="1000"
 															bind:value={dilValorFactura}
 															placeholder="Ej: 150000"
-															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
 														/>
-													</div>
-											</div>
-											<div>
+														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}
+													</div>						</div>
+					<div>
 												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
 												<div class="relative">
 													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
@@ -703,9 +738,10 @@
 														step="500"
 														bind:value={dilCostoDiligencia}
 														placeholder="Ej: 12000"
-														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilCostoDiligencia ? 'border-red-400' : ''}"
 													/>
-												</div>
+														{#if errores.dilCostoDiligencia}<p class="mt-1 text-xs text-red-600">{errores.dilCostoDiligencia}</p>{/if}
+													</div>
 											</div>
 											</div>
 										</div>
@@ -721,21 +757,19 @@
 													rows="3"
 													maxlength="500"
 													placeholder="Ej: 2 paquetes de arroz, 1 leche, 1 medicamento X"
-													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilProductos ? 'border-red-400' : ''}"
 												></textarea>
-											</div>
-											<div>
+													{#if errores.dilProductos}<p class="mt-1 text-xs text-red-600">{errores.dilProductos}</p>{/if}						</div>
+					<div>
 												<label for="dil-cantidad" class="mb-1.5 block text-sm font-semibold text-slate-700">Cantidad</label>
 												<input
 													id="dil-cantidad"
 													type="text"
-													bind:value={dilCantidad}
-													maxlength="100"
-													placeholder="Ej: 3 artículos, 1 paquete…"
+													bind:value={dilCantidad}														maxlength="100"
+														placeholder="Ej: 3 artículos, 1 paquete…"
 													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
-												/>
-											</div>
-											<div class="grid gap-4 sm:grid-cols-2">
+													/>						</div>
+					<div class="grid gap-4 sm:grid-cols-2">
 												<div>
 													<label for="dil-presupuesto" class="mb-1.5 block text-sm font-semibold text-slate-700">Presupuesto / valor estimado</label>
 													<div class="relative">
@@ -749,9 +783,8 @@
 															placeholder="Ej: 50000"
 															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
 														/>
-													</div>
-											</div>
-											<div>
+													</div>						</div>
+					<div>
 												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
 												<div class="relative">
 													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
@@ -762,10 +795,11 @@
 														step="500"
 														bind:value={dilCostoDiligencia}
 														placeholder="Ej: 8000"
-														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilCostoDiligencia ? 'border-red-400' : ''}"
 													/>
+														{#if errores.dilCostoDiligencia}<p class="mt-1 text-xs text-red-600">{errores.dilCostoDiligencia}</p>{/if}
+													</div>
 												</div>
-											</div>
 											</div>
 										</div>
 
@@ -780,10 +814,10 @@
 													bind:value={dilTramite}
 													maxlength="300"
 													placeholder="Ej: Radicar documento, recoger certificado…"
-													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilTramite ? 'border-red-400' : ''}"
 												/>
-											</div>
-											<div>
+													{#if errores.dilTramite}<p class="mt-1 text-xs text-red-600">{errores.dilTramite}</p>{/if}						</div>
+					<div>
 												<label for="dil-instrucciones" class="mb-1.5 block text-sm font-semibold text-slate-700">Descripción / instrucciones <span class="text-amber-600">(obligatorio)</span></label>
 												<textarea
 													id="dil-instrucciones"
@@ -791,10 +825,10 @@
 													rows="3"
 													maxlength="500"
 													placeholder="Detalla qué debe hacer el domiciliario, qué documentos llevar, etc."
-													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilInstrucciones ? 'border-red-400' : ''}"
 												></textarea>
-											</div>
-											<div class="grid gap-4 sm:grid-cols-2">
+													{#if errores.dilInstrucciones}<p class="mt-1 text-xs text-red-600">{errores.dilInstrucciones}</p>{/if}						</div>
+					<div class="grid gap-4 sm:grid-cols-2">
 												<div>
 													<label for="dil-lugar" class="mb-1.5 block text-sm font-semibold text-slate-700">Lugar del trámite</label>
 													<input
@@ -804,9 +838,8 @@
 														maxlength="200"
 														placeholder="Ej: Alcaldía, notaría, etc."
 														class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
-													/>
-											</div>
-											<div>
+													/>						</div>
+					<div>
 												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
 												<div class="relative">
 													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
@@ -817,9 +850,10 @@
 														step="500"
 														bind:value={dilCostoDiligencia}
 														placeholder="Ej: 10000"
-														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilCostoDiligencia ? 'border-red-400' : ''}"
 													/>
-												</div>
+														{#if errores.dilCostoDiligencia}<p class="mt-1 text-xs text-red-600">{errores.dilCostoDiligencia}</p>{/if}
+													</div>
 											</div>
 											</div>
 										</div>
@@ -835,10 +869,10 @@
 													rows="3"
 													maxlength="500"
 													placeholder="Describe con detalle qué necesitas que haga el domiciliario."
-													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilOtraDescripcion ? 'border-red-400' : ''}"
 												></textarea>
-											</div>
-											<div>
+													{#if errores.dilOtraDescripcion}<p class="mt-1 text-xs text-red-600">{errores.dilOtraDescripcion}</p>{/if}						</div>
+					<div>
 												<label for="dil-instrucciones" class="mb-1.5 block text-sm font-semibold text-slate-700">Instrucciones adicionales</label>
 												<textarea
 													id="dil-instrucciones"
@@ -847,9 +881,8 @@
 													maxlength="500"
 													placeholder="Detalles extra, horarios, referencias, etc."
 													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
-												></textarea>
-											</div>
-											<div>
+												></textarea>						</div>
+					<div>
 												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
 												<div class="relative">
 													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
@@ -860,11 +893,13 @@
 														step="500"
 														bind:value={dilCostoDiligencia}
 														placeholder="Ej: 7000"
-														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilCostoDiligencia ? 'border-red-400' : ''}"
 													/>
-												</div>
+														{#if errores.dilCostoDiligencia}<p class="mt-1 text-xs text-red-600">{errores.dilCostoDiligencia}</p>{/if}
+													</div>
 											</div>
-										</div>										{/if}
+										</div>
+										{/if}
 								</div>
 							{/if}
 						{/if}
@@ -890,7 +925,8 @@
 								{#if errores.origen}
 									<p class="mt-1 text-xs text-red-600">{errores.origen}</p>
 								{/if}
-							</div>									<div>
+							</div>
+									<div>
 										<label for="dir-origen" class="mb-1.5 block text-sm font-semibold text-slate-700">Dirección</label>
 										<input
 											id="dir-origen"
@@ -903,7 +939,8 @@
 										{#if errores.dirOrigen}
 											<p class="mt-1 text-xs text-red-600">{errores.dirOrigen}</p>
 										{/if}
-									</div>						</div>
+									</div>
+								</div>
 						</div>
 					{/if}
 
@@ -951,34 +988,33 @@
 								? 'Marca lo que aplica a tu pedido (peso, espera, paradas o método de pago) o confirma que no aplica.'
 								: 'Marca lo que aplica a tu pedido: compras, espera, paradas, peso o método de pago — o confirma que no aplica.'}
 						</p>
-					{#if recargosDisponibles.length === 0}
-						<p class="text-sm text-slate-400">No hay recargos aplicables a este tipo de pedido.</p>
-					{:else}
-							<label
-								class="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
-							>
-								<input
-									type="checkbox"
-									checked={recargosConfirmadosNoAplica}
-									onchange={(e) => {
-										const marcado = e.currentTarget.checked;
-										recargosConfirmadosNoAplica = marcado;
-										if (marcado) recargosSel = [];
-									}}
-									class="mt-1 size-4 accent-[#1768FF]"
-								/>
-								<span class="min-w-0 flex-1">
-									<span class="block text-sm font-semibold text-slate-800">No aplica</span>
-									<span class="block text-xs text-slate-500">
-										{tipoServicio === 'domicilio'
-											? 'Este pedido no tiene peso, esperas, paradas ni pagos especiales.'
-											: 'Este pedido no tiene compras, esperas, paradas, peso ni pagos especiales.'}
-									</span>
+					<!-- Siempre mostrar "No aplica" aunque no haya recargos filtrados (p. ej. pago sin peso/compra) -->
+						<label
+							class="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
+						>
+							<input
+								type="checkbox"
+								checked={recargosConfirmadosNoAplica}
+								onchange={(e) => {
+									const marcado = e.currentTarget.checked;
+									recargosConfirmadosNoAplica = marcado;
+									if (marcado) recargosSel = [];
+								}}
+								class="mt-1 size-4 accent-[#1768FF]"
+							/>
+							<span class="min-w-0 flex-1">
+								<span class="block text-sm font-semibold text-slate-800">No aplica</span>
+								<span class="block text-xs text-slate-500">
+									{tipoServicio === 'domicilio'
+										? 'Este pedido no tiene peso, esperas, paradas ni pagos especiales.'
+										: 'Este pedido no tiene compras, esperas, paradas, peso ni pagos especiales.'}
 								</span>
-							</label>
-							<div class="grid gap-5 sm:grid-cols-2">
-								{#each grupos as g (g.tipo)}
-									<fieldset>
+							</span>
+						</label>
+					{#if recargosDisponibles.length > 0}
+						<div class="grid gap-5 sm:grid-cols-2">
+							{#each grupos as g (g.tipo)}
+								<fieldset>
 										<legend class="text-xs font-bold tracking-wide text-slate-500 uppercase">{g.label}</legend>
 										<div class="mt-2 space-y-2">
 											{#each g.items as r (r.codigo)}
