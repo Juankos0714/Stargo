@@ -365,6 +365,21 @@
 	$effect(() => {
 		if (origen && destino) calcular();
 	});
+
+	// Refrescar horario cada 30 s para detectar excepciones nuevas
+	// que el admin haya creado (p. ej. ampliar el horario de hoy).
+	$effect(() => {
+		const interval = setInterval(async () => {
+			try {
+				const r = await apiFetch('/api/horario');
+				const body = await r.json().catch(() => ({}));
+				if (body?.data) horario = body.data;
+			} catch {
+				// Silenciar errores de red en polling
+			}
+		}, 30_000);
+		return () => clearInterval(interval);
+	});
 </script>
 
 <svelte:head>
