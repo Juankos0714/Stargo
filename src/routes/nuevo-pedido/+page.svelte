@@ -1002,32 +1002,6 @@
 								{/if}
 							</div>
 
-							<!-- Otros recargos opcionales -->
-							{@const otrosRecargos = recargosActivos.filter((r) => r.tipo !== 'peso' && r.tipo !== 'pago')}
-							{#if otrosRecargos.length > 0}
-								<div>
-									<p class="mb-2 text-sm font-semibold text-slate-700">Recargos adicionales <span class="font-normal text-slate-400">(opcional)</span></p>
-									<div class="grid gap-3 sm:grid-cols-2">
-										{#each otrosRecargos as r (r.codigo)}
-											<label
-												class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
-											>
-												<input
-													type="checkbox"
-													value={r.codigo}
-													bind:group={recargosSel}
-													class="mt-1 size-4 accent-[#1768FF]"
-												/>
-												<span class="min-w-0 flex-1">
-													<span class="block text-sm font-semibold text-slate-800">{r.nombre}</span>
-													{#if r.descripcion}<span class="block text-xs text-slate-500">{r.descripcion}</span>{/if}
-												</span>
-												<span class="shrink-0 text-sm font-bold text-slate-900">{formatearPeso(r.valor)}</span>
-											</label>
-										{/each}
-									</div>
-								</div>
-							{/if}
 
 						{:else}
 							<!-- Compra/diligencia: sin recargos, solo "No aplica" -->
