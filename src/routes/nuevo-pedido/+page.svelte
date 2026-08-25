@@ -283,13 +283,17 @@
 	}
 
 	async function calcular() {
-		if (!origen || !destino) return;
+		// En compra/diligencia solo se necesita destino (origen es opcional).
+		if (!destino) return;
+		if (tipoServicio === 'domicilio' && !origen) return;
 		const id = ++calcId;
 		calculando = true;
 
 		// Construir payload según el tipo de servicio.
+		// Para compra/diligencia sin origen, usar el destino como origen
+		// (el domiciliario parte del destino o zona cercana).
 		const payload: Record<string, unknown> = {
-			barrio_origen: origen,
+			barrio_origen: tipoServicio === 'compra_diligencia' ? (origen ?? destino) : origen,
 			barrio_destino: destino
 		};
 
