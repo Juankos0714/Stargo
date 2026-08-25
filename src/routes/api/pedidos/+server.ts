@@ -55,14 +55,8 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (recargos.length > 15) {
 		return json({ error: 'Demasiados recargos (máx. 15).' }, { status: 400 });
 	}
-	// Decisión explícita de recargos: elegir o marcar «No aplica» (Fase 14).
+	// Recargos son opcionales: pueden ir vacíos.
 	const recargosConfirmadosNoAplica = body?.recargos_confirmados_no_aplica === true;
-	if (recargos.length === 0 && !recargosConfirmadosNoAplica) {
-		return json(
-			{ error: 'Indica si aplican recargos a tu pedido o marca «No aplica».' },
-			{ status: 400 }
-		);
-	}
 
 	// Domicilio: origen y destino obligatorios. Compra/diligencia: solo destino.
 	if (!barrioDestino) {

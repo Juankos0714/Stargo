@@ -77,8 +77,8 @@ describe('validarPedido — compra/diligencia sin origen', () => {
 	});
 });
 
-describe('validarPedido — recargos obligatorios (Fase 14)', () => {
-	test('sin recargos y sin marcar "No aplica" → error', () => {
+describe('validarPedido — recargos opcionales (Fase 14+)', () => {
+	test('sin recargos y sin marcar "No aplica" → sin error (recargos son opcionales)', () => {
 		const errores = validarPedido({
 			barrioOrigen: 'barrio-a',
 			barrioDestino: 'barrio-b',
@@ -92,8 +92,7 @@ describe('validarPedido — recargos obligatorios (Fase 14)', () => {
 			recargosConfirmadosNoAplica: false,
 			telefono: '3001234567'
 		});
-		expect(errores.recargos).toBeTruthy();
-		expect(errores.recargos).toMatch(/aplica/);
+		expect(errores.recargos).toBeUndefined();
 	});
 
 	test('marcar "No aplica" satisface la validación', () => {
