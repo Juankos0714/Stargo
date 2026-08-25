@@ -22,7 +22,9 @@ export const POST: RequestHandler = async ({ request }) => {
 	const tipoDiligencia = String(body?.tipo_diligencia ?? '') as TipoDiligencia;
 	const subtipoPago = body?.subtipo_pago as TipoPago | undefined;
 
-	// Legacy: domicilio normal
+	// Domicilio normal: resolver tarifa de zona.
+	// Los recargos de peso/transferencia se calculan dinámicamente en el frontend
+	// con recargoPeso() y recargoTransferencia() (valores escalonados).
 	if (!tipoDiligencia || tipoDiligencia === 'domicilio') {
 		const resultado = await calcularTarifa(barrioOrigen, barrioDestino);
 		return json({ data: resultado.valor, meta: resultado.meta });

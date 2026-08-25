@@ -256,6 +256,134 @@ describe('constantess LIMITES', () => {
  * el rendering real es responsabilidad del componente Svelte, pero la
  * lógica de negocio no debe inyectar tags HTML en los strings.
  */
+describe('validarPedido — compra/diligencia con peso y transferencia obligatorios', () => {
+	test('compra_diligencia sin peso → error', () => {
+		const errores = validarPedido({
+			barrioOrigen: null,
+			barrioDestino: 'barrio-destino',
+			direccionOrigen: '',
+			direccionDestino: 'Carrera 19 # 20-30',
+			observaciones: '',
+			recargos: [],
+			tipoServicio: 'compra_diligencia',
+			tipoDiligencia: 'compra',
+			dilProductos: 'Arroz, leche',
+			telefono: '3001234567',
+			peso: '',
+			transferencia: 'no'
+		});
+		expect(errores.peso).toBeTruthy();
+		expect(errores.peso).toMatch(/obligatorio/);
+	});
+
+	test('compra_diligencia sin transferencia → error', () => {
+		const errores = validarPedido({
+			barrioOrigen: null,
+			barrioDestino: 'barrio-destino',
+			direccionOrigen: '',
+			direccionDestino: 'Carrera 19 # 20-30',
+			observaciones: '',
+			recargos: [],
+			tipoServicio: 'compra_diligencia',
+			tipoDiligencia: 'compra',
+			dilProductos: 'Arroz, leche',
+			telefono: '3001234567',
+			peso: '5',
+			transferencia: ''
+		});
+		expect(errores.transferencia).toBeTruthy();
+		expect(errores.transferencia).toMatch(/transferencia/);
+	});
+
+	test('compra_diligencia con transferencia=sí sin monto → error', () => {
+		const errores = validarPedido({
+			barrioOrigen: null,
+			barrioDestino: 'barrio-destino',
+			direccionOrigen: '',
+			direccionDestino: 'Carrera 19 # 20-30',
+			observaciones: '',
+			recargos: [],
+			tipoServicio: 'compra_diligencia',
+			tipoDiligencia: 'compra',
+			dilProductos: 'Arroz, leche',
+			telefono: '3001234567',
+			peso: '5',
+			transferencia: 'si',
+			transferenciaMonto: ''
+		});
+		expect(errores.transferenciaMonto).toBeTruthy();
+		expect(errores.transferenciaMonto).toMatch(/monto/);
+	});
+
+	test('compra_diligencia con todos los campos obligatorios → sin error de peso/transferencia', () => {
+		const errores = validarPedido({
+			barrioOrigen: null,
+			barrioDestino: 'barrio-destino',
+			direccionOrigen: '',
+			direccionDestino: 'Carrera 19 # 20-30',
+			observaciones: '',
+			recargos: [],
+			tipoServicio: 'compra_diligencia',
+			tipoDiligencia: 'compra',
+			dilProductos: 'Arroz, leche',
+			telefono: '3001234567',
+			peso: '10',
+			transferencia: 'no'
+		});
+		expect(errores.peso).toBeUndefined();
+		expect(errores.transferencia).toBeUndefined();
+	});
+
+	test('domicilio sin peso → error (regla existente)', () => {
+		const errores = validarPedido({
+			barrioOrigen: 'barrio-a',
+			barrioDestino: 'barrio-b',
+			direccionOrigen: 'Calle 10',
+			direccionDestino: 'Carrera 19',
+			observaciones: '',
+			recargos: [],
+			tipoServicio: 'domicilio',
+			telefono: '3001234567',
+			peso: '',
+			transferencia: 'no'
+		});
+		expect(errores.peso).toBeTruthy();
+	});
+
+	test('domicilio con peso negativo → error', () => {
+		const errores = validarPedido({
+			barrioOrigen: 'barrio-a',
+			barrioDestino: 'barrio-b',
+			direccionOrigen: 'Calle 10',
+			direccionDestino: 'Carrera 19',
+			observaciones: '',
+			recargos: [],
+			tipoServicio: 'domicilio',
+			telefono: '3001234567',
+			peso: '-5',
+			transferencia: 'no'
+		});
+		expect(errores.peso).toMatch(/negativo/);
+	});
+
+	test('domicilio con transferencia monto negativo → error', () => {
+		const errores = validarPedido({
+			barrioOrigen: 'barrio-a',
+			barrioDestino: 'barrio-b',
+			direccionOrigen: 'Calle 10',
+			direccionDestino: 'Carrera 19',
+			observaciones: '',
+			recargos: [],
+			tipoServicio: 'domicilio',
+			telefono: '3001234567',
+			peso: '10',
+			transferencia: 'si',
+			transferenciaMonto: '-100'
+		});
+		expect(errores.transferenciaMonto).toMatch(/negativo/);
+	});
+});
+
 describe('strong tag no se inyecta en strings de lógica', () => {
 	test('los mensajes de validación no contienen tags HTML', () => {
 		const errores = validarPedido({

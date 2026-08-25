@@ -1,0 +1,76 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "Domicilio: peso 25kg + transferencia $150k",
+  "planSteps": [
+    {
+      "type": "action",
+      "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify the page shows 'Hacer un pedido' as the main heading"
+    },
+    {
+      "type": "action",
+      "description": "Click on 'Domicilio normal' option in step 0"
+    },
+    {
+      "type": "action",
+      "description": "Click on the origin barrio search input and type 'Centro'"
+    },
+    {
+      "type": "action",
+      "description": "Select the first 'Centro' option from the dropdown"
+    },
+    {
+      "type": "action",
+      "description": "Click on the destination barrio search input and type 'Norte'"
+    },
+    {
+      "type": "action",
+      "description": "Select the first option with 'Norte' in the name from the dropdown"
+    },
+    {
+      "type": "action",
+      "description": "Enter 'Calle 10 # 15-20' in the origin direction field"
+    },
+    {
+      "type": "action",
+      "description": "Enter 'Carrera 15 # 20-30' in the destination direction field"
+    },
+    {
+      "type": "action",
+      "description": "Enter '25' in the peso (kg) field"
+    },
+    {
+      "type": "action",
+      "description": "Click the 'Sí, hay transferencia' button"
+    },
+    {
+      "type": "action",
+      "description": "Enter '150000' in the transferencia monto field"
+    },
+    {
+      "type": "action",
+      "description": "Enter '3001234567' in the telefono field"
+    },
+    {
+      "type": "assertion",
+      "description": "The price summary section should show a 'Tarifa base' line with a value greater than 0"
+    },
+    {
+      "type": "assertion",
+      "description": "The price summary section should show a line with text 'Entre 16 a 30 kg' and value '$ 2.000' (peso recargo for 25kg)"
+    },
+    {
+      "type": "assertion",
+      "description": "The price summary section should show a line with text 'Más de $100.000' and value '$ 2.000' (transferencia recargo for $150k)"
+    },
+    {
+      "type": "assertion",
+      "description": "The total at the bottom should be the sum of tarifa base + $2.000 (peso) + $2.000 (transferencia)"
+    }
+  ]
+}

@@ -113,14 +113,14 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 		errores.observaciones = `Máximo ${LIMITES.observaciones} caracteres.`;
 	}
 
-	if (tipoServicio === 'domicilio') {
-		// Peso obligatorio en domicilio
+	if (tipoServicio === 'domicilio' || tipoServicio === 'compra_diligencia') {
+		// Peso obligatorio en domicilio y compra/diligencia
 		if (!String(d.peso ?? '').trim()) {
 			errores.peso = 'El peso del paquete es obligatorio.';
 		} else if (Number(String(d.peso)) < 0) {
 			errores.peso = 'El peso no puede ser negativo.';
 		}
-		// Transferencia obligatoria en domicilio
+		// Transferencia obligatoria en domicilio y compra/diligencia
 		if (!d.transferencia) {
 			errores.transferencia = 'Indica si hay transferencia bancaria.';
 		} else if (d.transferencia === 'si') {
@@ -130,7 +130,7 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 				errores.transferenciaMonto = 'El monto no puede ser negativo.';
 			}
 		}
-		// Recargos opcionales en domicilio
+		// Recargos opcionales
 		if ((d.recargos?.length ?? 0) > LIMITES.recargos) {
 			errores.recargos = `Selecciona máximo ${LIMITES.recargos} recargos.`;
 		}

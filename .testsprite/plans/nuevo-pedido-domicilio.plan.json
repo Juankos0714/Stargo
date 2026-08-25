@@ -1,0 +1,76 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "Crear pedido domicilio con peso y transferencia",
+  "planSteps": [
+    {
+      "type": "action",
+      "description": "Navigate to the home page at https://stargo-zeta.vercel.app"
+    },
+    {
+      "type": "action",
+      "description": "Click on 'Nuevo pedido' or navigate to /nuevo-pedido"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify the page title shows 'Hacer un pedido' and the service type selection step 0 is visible"
+    },
+    {
+      "type": "action",
+      "description": "Click on the 'Domicilio normal' option in step 0"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify that 'Domicilio normal' is selected (highlighted) and the form shows origin and destination fields"
+    },
+    {
+      "type": "action",
+      "description": "Select a barrio de origen by clicking the origin search input and typing 'Centro'"
+    },
+    {
+      "type": "action",
+      "description": "Select a barrio de destino by clicking the destination search input and typing 'Norte'"
+    },
+    {
+      "type": "action",
+      "description": "Enter a direction for origin like 'Calle 10 # 15-20'"
+    },
+    {
+      "type": "action",
+      "description": "Enter a direction for destination like 'Carrera 15 # 20-30'"
+    },
+    {
+      "type": "action",
+      "description": "In the 'Detalles del pedido' step, enter '25' in the peso (kg) field"
+    },
+    {
+      "type": "action",
+      "description": "Click 'Sí, hay transferencia' button"
+    },
+    {
+      "type": "action",
+      "description": "Enter '150000' in the transferencia monto field"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify that the price summary section shows a tarifa base and a recargo for peso (should be $2,000 for 25kg)"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify that the price summary shows a recargo for transferencia (should be $2,000 for $150,000)"
+    },
+    {
+      "type": "action",
+      "description": "Enter a phone number '3001234567' in the celular field"
+    },
+    {
+      "type": "action",
+      "description": "Click the 'Confirmar pedido' button"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify that either a success confirmation appears or validation errors are shown for missing fields"
+    }
+  ]
+}
