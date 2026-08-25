@@ -238,5 +238,91 @@ describe.skipIf(!RLS_DISPONIBLE)('Horarios de operación (Fase 13)', () => {
 			expect(r.error).toBeNull();
 			expect((r.data as { pedido: unknown } | null)?.pedido).toBeTruthy();
 		});
+
+		test('excepción 00:00–23:00 (activo=true) permite crear pedido', async () => {
+			// Escenario del usuario: excepción "casi todo el día" -> la app debe estar abierta.
+			await servicio.from('horario_excepcion').upsert({
+				fecha: HOY(),
+				apertura: '00:00',
+				cierre: '23:00',
+				activo: true,
+				motivo: 'Prueba 00-23'
+			});
+			const hoy = await estadoHoy(anon);
+			// Solo passa si estamos antes de las 23:00 hora Bogotá.
+			if (hoy.abierto) {
+				const { data, error } = await anon.rpc('crear_pedido', {
+					p_barrio_origen_id: cat.barrioA,
+					p_direccion_origen: 'Dir origen 00-23',
+					p_barrio_destino_id: cat.barrioB,
+					p_direccion_destino: 'Dir destino 00-23',
+					p_observaciones: null,
+					p_recargos: null,
+					p_telefono: '3001234567'
+				});
+				expect(error, `crear_pedido falló: ${error?.message}`).toBeNull();
+				expect(data).not.toBeNull();
+			} else {
+				// Después de las 23:00 Bogotá, 00:00–23:00 ya no cubre la hora.
+				const { data, error } = await anon.rpc('crear_pedido', {
+					p_barrio_origen_id: cat.barrioA,
+					p_direccion_origen: 'Dir origen 00-23',
+					p_barrio_destino_id: cat.barrioB,
+					p_direccion_destino: 'Dir destino 00-23',
+					p_observaciones: null,
+					p_recargos: null,
+					p_telefono: '3001234567'
+				});
+				expect(data).toBeNull();
+				expect(error?.message ?? '').toMatch(/fuera de horario/i);
+			}
+		});
+
+		test('excepción con rango que no cubre la hora actual bloquea el pedido', async () => {
+			// Excepción activa pero de 02:00 a 03:00: a menos que sean las 02:xx,
+			// la app debe estar cerrada.
+			await servicio.from('horario_excepcion').upsert({
+				fecha: HOY(),
+				apertura: '02:00',
+				cierre: '03:00',
+				activo: true,
+				motivo: 'Madrugada solamente'
+			});
+			const hoy = await estadoHoy(anon);
+			if (!hoy.abierto) {
+				const { data, error } = await anon.rpc('crear_pedido', {
+					p_barrio_origen_id: cat.barrioA,
+					p_direccion_origen: 'Dir origen rango acotado',
+					p_barrio_destino_id: cat.barrioB,
+					p_direccion_destino: 'Dir destino rango acotado',
+					p_observaciones: null,
+					p_recargos: null,
+					p_telefono: '3001234567'
+				});
+				expect(data).toBeNull();
+				expect(error?.message ?? '').toMatch(/fuera de horario/i);
+			}
+		});
+
+		test('sin excepción + día semanal desactivado bloquea el pedido', async () => {
+			await servicio.from('horario_excepcion').delete().eq('fecha', HOY());
+			const dia = (await estadoHoy(anon)).dia_semana;
+			await servicio.from('horario_operacion').update({ activo: false }).eq('dia_semana', dia);
+
+			const { data, error } = await anon.rpc('crear_pedido', {
+				p_barrio_origen_id: cat.barrioA,
+				p_direccion_origen: 'Dir origen cerrado semanal',
+				p_barrio_destino_id: cat.barrioB,
+				p_direccion_destino: 'Dir destino cerrado semanal',
+				p_observaciones: null,
+				p_recargos: null,
+				p_telefono: '3001234567'
+			});
+			expect(data).toBeNull();
+			expect(error?.message ?? '').toMatch(/fuera de horario/i);
+
+			// Restaura el día.
+			await servicio.from('horario_operacion').update({ activo: true }).eq('dia_semana', dia);
+		});
 	});
 });

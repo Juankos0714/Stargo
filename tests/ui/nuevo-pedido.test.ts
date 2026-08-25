@@ -224,21 +224,20 @@ describe('Formulario de creación de pedido', () => {
 		);
 	});
 
-	test('en compra/diligencia no se muestran recargos, solo "No aplica"', async () => {
+	test('en compra/diligencia no se muestran recargos (se ocultan por completo)', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
 		const user = userEvent.setup();
-		const { container } = render(Pagina, { props: { data: dataAbierto } });
+		render(Pagina, { props: { data: dataAbierto } });
 		await formularioListo();
 
 		// Cambia al modo compra/diligencia.
 		await user.click(screen.getByText('Compra / diligencia'));
-		// Solo debe haber 1 checkbox: "No aplica ningún recargo".
-		const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-		expect(checkboxes).toHaveLength(1);
-		// No deben existir recargos de peso ni compra.
+		// No deben existir recargos ni checkboxes de recargos.
 		expect(screen.queryByText('Peso test')).not.toBeInTheDocument();
 		expect(screen.queryByText('Compra test')).not.toBeInTheDocument();
+		expect(screen.queryByText('No aplica ningún recargo')).not.toBeInTheDocument();
+		expect(screen.queryByText('Recargos adicionales')).not.toBeInTheDocument();
 	});
 });

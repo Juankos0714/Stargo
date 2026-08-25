@@ -170,38 +170,14 @@
 			.sort((a, b) => a.tipo.localeCompare(b.tipo) || a.nombre.localeCompare(b.nombre, 'es'))
 	);
 
-	// ---------- Filtros de recargos por tipo de diligencia ----------
-	// Cada tipo de diligencia solo muestra los recargos que le corresponden.
-	const RECARGOS_POR_DILIGENCIA: Record<string, string[]> = {
-		pago: ['pago', 'tiempo_espera', 'paradas', 'otro'],
-		banco: ['pago', 'tiempo_espera', 'paradas', 'otro'],
-		compra: ['compra', 'peso', 'tiempo_espera', 'paradas', 'pago', 'otro'],
-		tramite: ['tiempo_espera', 'paradas', 'otro'],
-		otro: ['tiempo_espera', 'paradas', 'otro']
-	};
-
-	const recargosDisponibles = $derived.by(() => {
-		if (tipoServicio === 'domicilio') {
-			return recargosActivos.filter((r) => r.tipo !== 'compra');
-		}
-		// En compra/diligencia: filtrar por tipo de diligencia seleccionado.
-		if (tipoDiligencia && RECARGOS_POR_DILIGENCIA[tipoDiligencia]) {
-			const permitidos = new Set(RECARGOS_POR_DILIGENCIA[tipoDiligencia]);
-			return recargosActivos.filter((r) => permitidos.has(r.tipo));
-		}
-		// Sin tipo de diligencia seleccionado: ofrecer todos.
-		return recargosActivos;
-	});
-
-	const grupos = $derived.by(() => {
-		const m = new Map<string, Recargo[]>();
-		for (const r of recargosDisponibles) {
-			const arr = m.get(r.tipo) ?? [];
-			arr.push(r);
-			m.set(r.tipo, arr);
-		}
-		return [...m.entries()].map(([tipo, items]) => ({ tipo, label: etiquetaTipoRecargo(tipo), items }));
-	});
+	// ---------- Recargos disponibles ----------
+	// En compra/diligencia no se muestran recargos: la info se captura en
+	// los campos específicos de la diligencia, así que se devuelve vacío.
+	const recargosDisponibles = $derived(
+		tipoServicio === 'domicilio'
+			? recargosActivos.filter((r) => r.tipo !== 'compra')
+			: []
+	);
 
 	const calculoRecargos = $derived(calcularRecargos(recargosDisponibles, recargosSel));
 	const recargosAplicados = $derived(calculoRecargos.aplicados);
@@ -295,30 +271,34 @@
 		pesoKg = '';
 		transferencia = '';
 		transferenciaMonto = '';
-	}
-
-	function elegirTipo(tipo: TipoServicio) {
-		tipoServicio = tipo;
-		// Al cambiar de tipo se limpian los campos que ya no aplican y el precio.
-		precio = null;
-		error = null;
-		if (tipo === 'domicilio') {
-			limpiarCamposDiligencia();
-		}
-		if (tipo === 'compra_diligencia' && !mostrarOrigen) {
-			origen = null;
-			dirOrigen = '';
-		}
-		// Al volver a Domicilio, se descartan recargos de compra ya elegidos
-		// (quedaron seleccionados del modo compra/diligencia).
-		if (tipo === 'domicilio') {
-			const codigosCompra = new Set(
-				recargosActivos.filter((r) => r.tipo === 'compra').map((r) => r.codigo)
-			);
-			recargosSel = recargosSel.filter((c) => !codigosCompra.has(c));
-		}
-		errores = {};
-	}
+	}			function elegirTipo(tipo: TipoServicio) {
+				tipoServicio = tipo;
+				// Al cambiar de tipo se limpian los campos que ya no aplican y el precio.
+				precio = null;
+				error = null;
+				if (tipo === 'domicilio') {
+					limpiarCamposDiligencia();
+				}
+				if (tipo === 'compra_diligencia' && !mostrarOrigen) {
+					origen = null;
+					dirOrigen = '';
+				}
+				// En compra/diligencia no se muestran recargos (ya se capturan en
+				// los campos específicos de la diligencia), así que se fuerza "No aplica".
+				if (tipo === 'compra_diligencia') {
+					recargosSel = [];
+					recargosConfirmadosNoAplica = true;
+				}
+				// Al volver a Domicilio, se descartan recargos de compra ya elegidos
+				// (quedaron seleccionados del modo compra/diligencia).
+				if (tipo === 'domicilio') {
+					const codigosCompra = new Set(
+						recargosActivos.filter((r) => r.tipo === 'compra').map((r) => r.codigo)
+					);
+					recargosSel = recargosSel.filter((c) => !codigosCompra.has(c));
+				}
+				errores = {};
+			}
 
 	/** Empaqueta los datos de la diligencia en observaciones como texto estructurado. */
 	function empaquetarObservaciones(): string {
@@ -432,10 +412,10 @@
 		if (origen && destino) calcular();
 	});
 
-	// Refrescar horario cada 30 s para detectar excepciones nuevas
-	// que el admin haya creado (p. ej. ampliar el horario de hoy).
+	// Refrescar horario inmediatamente y cada 30 s para detectar
+	// excepciones nuevas que el admin haya creado (p. ej. ampliar el horario de hoy).
 	$effect(() => {
-		const interval = setInterval(async () => {
+		async function refrescarHorario() {
 			try {
 				const r = await apiFetch('/api/horario');
 				const body = await r.json().catch(() => ({}));
@@ -443,7 +423,11 @@
 			} catch {
 				// Silenciar errores de red en polling
 			}
-		}, 30_000);
+		}
+		// Refresco inmediato al montar (captura excepciones creadas
+		// después del render inicial del servidor).
+		refrescarHorario();
+		const interval = setInterval(refrescarHorario, 30_000);
 		return () => clearInterval(interval);
 	});
 </script>
@@ -932,15 +916,15 @@
 								{/if}
 							</div>
 						</div>
-					</div>					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+					</div>					{#if tipoServicio === 'domicilio'}
+					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 						<h2 class="mb-1 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
-							<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">3</span>								{tipoServicio === 'domicilio' ? 'Detalles del pedido' : 'Recargos adicionales'}
+							<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">3</span>
+							Detalles del pedido
 						</h2>
 						<p class="mb-4 ml-7 text-xs text-slate-400">
-							{tipoServicio === 'domicilio'
-								? 'Indica el peso y si aplica transferencia.'
-								: 'Selecciona los recargos que apliquen para tu pedido, o marca «No aplica» si no tiene ninguno.'}
-						</p>							{#if tipoServicio === 'domicilio'}
+							Indica el peso y si aplica transferencia.
+						</p>
 								<!-- Campo obligatorio: peso -->
 								<div class="mb-4">
 									<label for="domicilio-peso" class="mb-1.5 block text-sm font-semibold text-slate-700">Peso del paquete <span class="text-amber-600">(obligatorio)</span></label>
@@ -997,66 +981,8 @@
 								</div>
 
 
-						{:else}
-							<!-- Compra/diligencia: recargos agrupados por tipo -->
-							{#if grupos.length > 0}
-								<div class="space-y-4">
-									{#each grupos as grupo (grupo.tipo)}
-										<div>
-											<p class="mb-2 text-xs font-bold tracking-wide text-slate-500 uppercase">{grupo.label}</p>
-											<div class="grid gap-2 sm:grid-cols-2">
-												{#each grupo.items as r (r.codigo)}
-													<label
-														class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
-													>
-														<input
-															type="checkbox"
-															value={r.codigo}
-															bind:group={recargosSel}
-															onchange={() => { recargosConfirmadosNoAplica = false; }}
-															class="mt-1 size-4 accent-[#1768FF]"
-														/>
-														<span class="min-w-0 flex-1">
-															<span class="block text-sm font-semibold text-slate-800">{r.nombre}</span>
-															{#if r.descripcion}<span class="block text-xs text-slate-500">{r.descripcion}</span>{/if}
-														</span>
-														<span class="shrink-0 text-sm font-bold text-slate-900">{formatearPeso(r.valor)}</span>
-													</label>
-												{/each}
-											</div>
-										</div>
-									{/each}
-
-									<!-- Opción: No aplica ningún recargo -->
-									<label
-										class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
-									>
-										<input
-											type="checkbox"
-											checked={recargosConfirmadosNoAplica}
-											onchange={(e) => {
-											const marcado = e.currentTarget.checked;
-											recargosConfirmadosNoAplica = marcado;
-											if (marcado) recargosSel = [];
-										}}
-											class="mt-1 size-4 accent-[#1768FF]"
-										/>
-										<span class="min-w-0 flex-1">
-											<span class="block text-sm font-semibold text-slate-800">No aplica ningún recargo</span>
-											<span class="block text-xs text-slate-500">Este pedido no tiene recargos adicionales.</span>
-										</span>
-									</label>
-								</div>
-							{:else}
-								<p class="text-sm text-slate-400">No hay recargos disponibles para este tipo de diligencia.</p>
-							{/if}
-
-						{/if}
-
-						{#if errores.recargos}
-							<p class="mt-2 text-xs text-red-600">{errores.recargos}</p>
-						{/if}
 					</div>
+					{/if}
 
 					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 						<h2 class="mb-4 text-sm font-bold tracking-wide text-slate-500 uppercase">Observaciones <span class="font-normal normal-case text-slate-400">(opcional)</span></h2>

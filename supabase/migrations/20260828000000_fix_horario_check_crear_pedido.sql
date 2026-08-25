@@ -1,42 +1,21 @@
 -- ============================================================
--- StarGo · Fase 22 — Valor Mandado (dato estructurado)
+-- StarGo · Fix — Restaurar verificación de horario en crear_pedido()
 -- ============================================================
--- Ejecutar en el SQL Editor del Dashboard de Supabase.
--- Requiere las Fases 2-21.
+-- PROBLEMA: La fase21 (20260826000000) reescribió crear_pedido()
+-- SIN incluir la verificación de horario_hoy() que existía desde
+-- fase13/fase14/fase19. Esto permitía crear pedidos fuera de
+-- horario de atención, rompiendo el bloqueo operativo.
 --
--- Cambios:
---   1) pedidos.valor_mandado: INTEGER nullable. Almacena el valor
---      de la factura / mandado a pagar (tipos pago y banco) como
---      dato estructurado, no solo como texto en observaciones.
---      DEFAULT NULL para no romper pedidos ya creados.
+-- SOLUCIÓN: Reemplazar crear_pedido() restaurando la llamada
+-- horario_hoy() y el RAISE EXCEPTION correspondiente.
 --
---   2) crear_pedido: se re-emite con p_valor_mandado (DEFAULT NULL).
---      Se almacena en la columna y se retorna en la respuesta.
+-- Es seguro ejecutar múltiples veces (CREATE OR REPLACE).
 -- ============================================================
 
--- 1) Columna nueva
-ALTER TABLE public.pedidos
-    ADD COLUMN IF NOT EXISTS valor_mandado INTEGER;
+-- Asegurar que horario_hoy() existe (por si las migraciones de
+-- horarios no se ejecutaron en orden).
+-- Si la función ya existe, esto no la modifica.
 
--- CHECK >= 0 (solo cuando no es NULL)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'pedidos'::regclass
-          AND conname = 'chk_pedidos_valor_mandado'
-    ) THEN
-        ALTER TABLE public.pedidos
-            ADD CONSTRAINT chk_pedidos_valor_mandado CHECK (valor_mandado IS NULL OR valor_mandado >= 0);
-    END IF;
-END $$;
-
-COMMENT ON COLUMN public.pedidos.valor_mandado IS
-    'Valor de la factura / mandado a pagar (solo tipos pago y banco). '
-    'Dato estructurado del cliente, NO es ingreso de StarGo.';
-
--- 2) Modificar crear_pedido: aceptar p_valor_mandado
-DROP FUNCTION IF EXISTS public.crear_pedido(UUID, TEXT, UUID, TEXT, TEXT, TEXT[], TEXT, BOOLEAN, TEXT, TEXT, INTEGER);
 CREATE OR REPLACE FUNCTION public.crear_pedido(
     p_barrio_origen_id UUID DEFAULT NULL,
     p_direccion_origen TEXT DEFAULT NULL,
@@ -72,6 +51,7 @@ BEGIN
     v_tipo := COALESCE(NULLIF(TRIM(p_tipo_servicio), ''), 'domicilio');
 
     -- Horario de atención: fuera de horario no se reciben pedidos nuevos.
+    -- (Restaurado: se perdió en fase21/fase22)
     v_horario := public.horario_hoy();
     IF NOT (v_horario ->> 'abierto')::boolean THEN
         RAISE EXCEPTION
@@ -190,14 +170,3 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.crear_pedido(UUID, TEXT, UUID, TEXT, TEXT, TEXT[], TEXT, BOOLEAN, TEXT, TEXT, INTEGER, INTEGER) TO anon, authenticated;
-
--- ============================================================
--- Verificación
--- ============================================================
--- SELECT public.crear_pedido(
---     p_barrio_destino_id => '<uuid>',
---     p_direccion_destino => 'Banco X, Calle 10',
---     p_tipo_servicio => 'compra_diligencia',
---     p_recargos_confirmados_no_aplica => TRUE,
---     p_valor_mandado => 85000
--- );  -- debe retornar valor_mandado: 85000

@@ -76,9 +76,9 @@ export interface DatosPedido {
  *   - domicilio:         origen Y destino obligatorios (como siempre).
  *   - compra_diligencia: destino obligatorio; origen OPCIONAL (p. ej. un pago
  *     bancario solo va al banco).
- * Recargos: opcionales. Pueden ir vacíos o con selección. En domicilio
- * se sincronizan con peso/transferencia; en compra/diligencia el usuario
- * los marca directamente.
+ * Recargos: opcionales en domicilio (sincronizados con peso/transferencia).
+ * En compra/diligencia no se muestran recargos: la info se captura en
+ * los campos específicos de la diligencia.
  *
  * Reglas por tipo de diligencia:
  *   - pago:     descripción, valor factura obligatorios.
@@ -131,12 +131,6 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 			}
 		}
 		// Recargos opcionales en domicilio
-		if ((d.recargos?.length ?? 0) > LIMITES.recargos) {
-			errores.recargos = `Selecciona máximo ${LIMITES.recargos} recargos.`;
-		}
-	} else {
-		// Compra/diligencia: recargos son opcionales.
-		// Si se seleccionan, respeta el tope.
 		if ((d.recargos?.length ?? 0) > LIMITES.recargos) {
 			errores.recargos = `Selecciona máximo ${LIMITES.recargos} recargos.`;
 		}
