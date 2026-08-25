@@ -157,7 +157,7 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 		} else {
 		// Validar dilValorFactura como numérico >= 0 para pago/banco.
 		if (td === 'pago' || td === 'banco') {
-			const vf = (d.dilValorFactura ?? '').trim();
+			const vf = String(d.dilValorFactura ?? '').trim();
 			if (!vf) {
 				errores.dilValorFactura = td === 'pago' ? 'El valor de la factura es obligatorio.' : 'El valor a pagar es obligatorio.';
 			} else if (Number(vf) < 0) {

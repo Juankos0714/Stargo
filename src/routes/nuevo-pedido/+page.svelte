@@ -237,8 +237,8 @@
 	const tieneRutaCompleta = $derived(Boolean(origen && destino));
 	// valor_mandado: dinero del cliente que el domiciliario adelanta (solo pago/banco).
 	const valorMandadoNum = $derived(
-		(tipoDiligencia === 'pago' || tipoDiligencia === 'banco') && dilValorFactura.trim()
-			? Number(dilValorFactura.trim()) || 0
+		(tipoDiligencia === 'pago' || tipoDiligencia === 'banco') && String(dilValorFactura ?? '').trim()
+			? Number(String(dilValorFactura ?? '')) || 0
 			: 0
 	);
 
@@ -401,10 +401,10 @@
 		}
 		if (dilDescripcion.trim()) parts.push(`Descripción: ${dilDescripcion.trim()}`);
 		if (dilEntidad.trim()) parts.push(`Entidad: ${dilEntidad.trim()}`);
-		if (dilValorFactura.trim()) parts.push(`Valor a pagar: $${dilValorFactura.trim()}`);
+		if (String(dilValorFactura ?? '').trim()) parts.push(`Valor a pagar: $${String(dilValorFactura ?? '')}`);
 		if (dilProductos.trim()) parts.push(`Productos: ${dilProductos.trim()}`);
 		if (dilCantidad.trim()) parts.push(`Cantidad: ${dilCantidad.trim()}`);
-		if (dilPresupuesto.trim()) parts.push(`Presupuesto: $${dilPresupuesto.trim()}`);
+		if (String(dilPresupuesto ?? '').trim()) parts.push(`Presupuesto: $${String(dilPresupuesto ?? '')}`);
 		if (dilTramite.trim()) parts.push(`Trámite: ${dilTramite.trim()}`);
 		if (dilInstrucciones.trim()) parts.push(`Instrucciones: ${dilInstrucciones.trim()}`);
 		if (dilLugarTramite.trim()) parts.push(`Lugar: ${dilLugarTramite.trim()}`);
@@ -451,8 +451,8 @@
 		error = null;
 		const obs = empaquetarObservaciones();
 		// valor_mandado: solo para pago/banco cuando hay valor de factura.
-		const valorMandado = (tipoDiligencia === 'pago' || tipoDiligencia === 'banco') && dilValorFactura.trim()
-			? Math.round(Number(dilValorFactura.trim()))
+		const valorMandado = (tipoDiligencia === 'pago' || tipoDiligencia === 'banco') && String(dilValorFactura ?? '').trim()
+			? Math.round(Number(String(dilValorFactura ?? '')))
 			: undefined;
 		const r = await api.post<typeof creado>('/api/pedidos', {
 			barrio_origen: origen,
@@ -808,14 +808,13 @@
 												<div>
 													<label for="dil-valor-pagar" class="mb-1.5 block text-sm font-semibold text-slate-700">Valor de la factura <span class="text-amber-600">(obligatorio)</span></label>
 													<div class="relative">
-														<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-														<input
-															id="dil-valor-pagar"
-															type="number"
-														min="0"
-														step="1000"
-														bind:value={dilValorFactura}
-														placeholder="Ej: 85000"
+														<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>															<input
+																id="dil-valor-pagar"
+																type="text"
+																inputmode="numeric"
+																pattern="[0-9]*"
+																bind:value={dilValorFactura}
+																placeholder="Ej: 85000"
 														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
 														/>														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}
 													</div>
@@ -851,14 +850,13 @@
 												<div>
 													<label for="dil-valor-pagar" class="mb-1.5 block text-sm font-semibold text-slate-700">Valor a pagar <span class="text-amber-600">(obligatorio)</span></label>
 													<div class="relative">
-														<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-														<input
-															id="dil-valor-pagar"
-															type="number"
-															min="0"
-															step="1000"
-															bind:value={dilValorFactura}
-															placeholder="Ej: 150000"
+														<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>															<input
+																id="dil-valor-pagar"
+																type="text"
+																inputmode="numeric"
+																pattern="[0-9]*"
+																bind:value={dilValorFactura}
+																placeholder="Ej: 150000"
 															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
 														/>
 														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}														</div>						</div>
@@ -892,14 +890,13 @@
 												<div>
 													<label for="dil-presupuesto" class="mb-1.5 block text-sm font-semibold text-slate-700">Presupuesto / valor estimado</label>
 													<div class="relative">
-														<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-														<input
-															id="dil-presupuesto"
-															type="number"
-															min="0"
-															step="1000"
-															bind:value={dilPresupuesto}
-															placeholder="Ej: 50000"
+														<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>															<input
+																id="dil-presupuesto"
+																type="text"
+																inputmode="numeric"
+																pattern="[0-9]*"
+																bind:value={dilPresupuesto}
+																placeholder="Ej: 50000"
 															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
 														/>
 													</div>						</div>
@@ -1060,14 +1057,12 @@
 							<!-- Campo obligatorio: peso -->
 							<div class="mb-4">
 								<label for="domicilio-peso" class="mb-1.5 block text-sm font-semibold text-slate-700">Peso del paquete <span class="text-amber-600">(obligatorio)</span></label>
-								<div class="relative">
-									<input
-										id="domicilio-peso"
-										type="number"
-										min="0"
-										step="0.5"
-										bind:value={pesoKg}
-										placeholder="Ej: 2.5"
+								<div class="relative">										<input
+											id="domicilio-peso"
+											type="text"
+											inputmode="decimal"
+											bind:value={pesoKg}
+											placeholder="Ej: 2.5"
 										oninput={() => sincronizarRecargos()}
 										class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.peso ? 'border-red-400' : ''}"
 									/>
@@ -1100,12 +1095,11 @@
 								{#if transferencia === 'si'}
 									<div class="mt-3 relative">
 										<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-										<input
-											type="number"
-											min="0"
-											step="1000"
-											bind:value={transferenciaMonto}
-											placeholder="Monto a transferir"
+										<input												type="text"
+												inputmode="numeric"
+												pattern="[0-9]*"
+												bind:value={transferenciaMonto}
+												placeholder="Monto a transferir"
 											class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.transferenciaMonto ? 'border-red-400' : ''}"
 										/>
 										{#if errores.transferenciaMonto}<p class="mt-1 text-xs text-red-600">{errores.transferenciaMonto}</p>{/if}
@@ -1257,14 +1251,13 @@
 							</p>
 							<div class="grid gap-4 sm:grid-cols-2">
 								<div>
-									<label for="base-necesaria" class="mb-1.5 block text-sm font-semibold text-slate-700">Monto a adelantar (COP)</label>
-									<input
-										id="base-necesaria"
-										type="number"
-										min="0"
-										step="500"
-										bind:value={baseNecesaria}
-										placeholder="0"
+									<label for="base-necesaria" class="mb-1.5 block text-sm font-semibold text-slate-700">Monto a adelantar (COP)</label>										<input
+											id="base-necesaria"
+											type="text"
+											inputmode="numeric"
+											pattern="[0-9]*"
+											bind:value={baseNecesaria}
+											placeholder="0"
 										class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
 									/>
 								</div>
