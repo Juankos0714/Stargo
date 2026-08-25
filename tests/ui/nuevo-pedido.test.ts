@@ -20,6 +20,9 @@ const ZONAS: Zona[] = [
 const RECARGOS: Recargo[] = [
 	{ codigo: 'rc-peso', nombre: 'Peso test', tipo: 'peso', valor: 2000, activo: true, descripcion: null },
 	{ codigo: 'rc-compra', nombre: 'Compra test', tipo: 'compra', valor: 3000, activo: true, descripcion: null },
+	{ codigo: 'rc-pago', nombre: 'Pago test', tipo: 'pago', valor: 1500, activo: true, descripcion: null },
+	{ codigo: 'rc-tiempo', nombre: 'Tiempo espera test', tipo: 'tiempo_espera', valor: 1000, activo: true, descripcion: null },
+	{ codigo: 'rc-paradas', nombre: 'Paradas test', tipo: 'paradas', valor: 500, activo: true, descripcion: null },
 	{ codigo: 'rc-inactivo', nombre: 'Inactivo test', tipo: 'otro', valor: 999, activo: false, descripcion: null }
 ];
 
@@ -224,7 +227,7 @@ describe('Formulario de creación de pedido', () => {
 		);
 	});
 
-	test('en compra/diligencia no se muestran recargos (se ocultan por completo)', async () => {
+	test('en compra/diligencia los recargos redundantes no se muestran', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
@@ -234,10 +237,59 @@ describe('Formulario de creación de pedido', () => {
 
 		// Cambia al modo compra/diligencia.
 		await user.click(screen.getByText('Compra / diligencia'));
-		// No deben existir recargos ni checkboxes de recargos.
+		// Selecciona tipo de diligencia "pago".
+		await user.click(screen.getByText('Pago de factura o servicio'));
+		// Recargos redundantes NO deben aparecer: "pago" y "peso".
+		expect(screen.queryByText('Pago test')).not.toBeInTheDocument();
 		expect(screen.queryByText('Peso test')).not.toBeInTheDocument();
-		expect(screen.queryByText('Compra test')).not.toBeInTheDocument();
-		expect(screen.queryByText('No aplica ningún recargo')).not.toBeInTheDocument();
-		expect(screen.queryByText('Recargos adicionales')).not.toBeInTheDocument();
+		// Pero otros recargos SÍ deben aparecer.
+		expect(screen.getByText('No aplica ningún recargo')).toBeInTheDocument();
+	});
+
+	test('al cambiar tipo de diligencia se descartan recargos redundantes seleccionados', async () => {
+		postMock.mockImplementation((path: string) =>
+			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
+		);
+		const user = userEvent.setup();
+		render(Pagina, { props: { data: dataAbierto } });
+		await formularioListo();
+
+		// Cambia al modo compra/diligencia.
+		await user.click(screen.getByText('Compra / diligencia'));
+
+		// 1) Selecciona "Otra diligencia": todos los recargos disponibles aparecen.
+		await user.click(screen.getByText('Otra diligencia'));
+		expect(screen.getByText('Tiempo espera test')).toBeInTheDocument();
+		expect(screen.getByText('Paradas test')).toBeInTheDocument();
+		expect(screen.getByText('Pago test')).toBeInTheDocument();
+
+		// 2) Selecciona el recargo "Pago test" manualmente.
+		await user.click(screen.getByText('Pago test'));
+
+		// 3) Cambia a "Pago de factura o servicio".
+		await user.click(screen.getByText('Pago de factura o servicio'));
+
+		// El recargo "Pago test" ya NO debe estar visible (es redundante).
+		expect(screen.queryByText('Pago test')).not.toBeInTheDocument();
+	});
+
+	test('al cambiar de domicilio a compra/diligencia se limpian recargos de domicilio', async () => {
+		postMock.mockImplementation((path: string) =>
+			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
+		);
+		const user = userEvent.setup();
+		render(Pagina, { props: { data: dataAbierto } });
+		await formularioListo();
+
+		// 1) En modo domicilio, ingresa peso (esto sincroniza el recargo "peso").
+		await user.type(screen.getByPlaceholderText('Ej: 2.5'), '3');
+
+		// 2) Cambia a compra/diligencia.
+		await user.click(screen.getByText('Compra / diligencia'));
+		await user.click(screen.getByText('Otra diligencia'));
+
+		// Los recargos de domicilio (peso, pago) NO deben estar seleccionados.
+		// El checkbox "Peso test" no debe existir en compra/diligencia.
+		expect(screen.queryByText('Peso test')).not.toBeInTheDocument();
 	});
 });

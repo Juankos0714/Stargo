@@ -170,16 +170,56 @@
 			.sort((a, b) => a.tipo.localeCompare(b.tipo) || a.nombre.localeCompare(b.nombre, 'es'))
 	);
 
-	// ---------- Recargos disponibles ----------
-	// En compra/diligencia no se muestran recargos: la info se captura en
-	// los campos específicos de la diligencia, así que se devuelve vacío.
-	const recargosDisponibles = $derived(
-		tipoServicio === 'domicilio'
-			? recargosActivos.filter((r) => r.tipo !== 'compra')
-			: []
-	);
+	// ---------- Recargos redundantes por tipo de diligencia ----------
+	// Estos recargos ya se capturan en los campos específicos de la diligencia,
+	// por lo que no tiene sentido mostrarlos como recargo adicional.
+	const RECARGOS_REDUNDANTES: Record<string, string[]> = {
+		pago: ['pago'], // El valor de la factura ya se pregunta
+		banco: ['pago'], // El valor a pagar ya se pregunta
+		compra: ['compra'], // Los productos ya se preguntan
+		tramite: [], // Ninguno es redundante
+		otro: [] // Ninguno es redundante
+	};
 
-	const calculoRecargos = $derived(calcularRecargos(recargosDisponibles, recargosSel));
+	// Recargos que no aplican para compra/diligencia en general.
+	const RECARGOS_NO_APLICAN_COMPRA = new Set(['peso']);
+
+	// ---------- Recargos disponibles ----------
+	// En domicilio: todos excepto tipo «compra».
+	// En compra/diligencia: se excluyen los redundantes con los campos
+	// de la diligencia y los que no aplican (peso).
+	const recargosDisponibles = $derived.by(() => {
+		if (tipoServicio === 'domicilio') {
+			return recargosActivos.filter((r) => r.tipo !== 'compra');
+		}
+		// Compra/diligencia: excluir redundantes y no aplicables.
+		const redundantes = new Set(RECARGOS_REDUNDANTES[tipoDiligencia] ?? []);
+		return recargosActivos.filter(
+			(r) => !redundantes.has(r.tipo) && !RECARGOS_NO_APLICAN_COMPRA.has(r.tipo)
+		);
+	});
+
+	const grupos = $derived.by(() => {
+		const m = new Map<string, Recargo[]>();
+		for (const r of recargosDisponibles) {
+			const arr = m.get(r.tipo) ?? [];
+			arr.push(r);
+			m.set(r.tipo, arr);
+		}
+		return [...m.entries()].map(([tipo, items]) => ({ tipo, label: etiquetaTipoRecargo(tipo), items }));
+	});
+
+	// Filtrar recargos redundantes al calcular (no al seleccionar).
+	const recargosSelFiltrados = $derived.by(() => {
+		if (tipoServicio !== 'compra_diligencia' || !tipoDiligencia) return recargosSel;
+		const redundantes = new Set(RECARGOS_REDUNDANTES[tipoDiligencia] ?? []);
+		return recargosSel.filter((c) => {
+			const rec = recargosActivos.find((r) => r.codigo === c);
+			return rec && !redundantes.has(rec.tipo) && !RECARGOS_NO_APLICAN_COMPRA.has(rec.tipo);
+		});
+	});
+
+	const calculoRecargos = $derived(calcularRecargos(recargosDisponibles, recargosSelFiltrados));
 	const recargosAplicados = $derived(calculoRecargos.aplicados);
 	const recargoTotal = $derived(calculoRecargos.total);
 	const precioDisponible = $derived(precio?.meta?.disponible === true && precio?.valor != null);
@@ -283,20 +323,23 @@
 					origen = null;
 					dirOrigen = '';
 				}
-				// En compra/diligencia no se muestran recargos (ya se capturan en
-				// los campos específicos de la diligencia), así que se fuerza "No aplica".
-				if (tipo === 'compra_diligencia') {
-					recargosSel = [];
-					recargosConfirmadosNoAplica = true;
-				}
-				// Al volver a Domicilio, se descartan recargos de compra ya elegidos
-				// (quedaron seleccionados del modo compra/diligencia).
-				if (tipo === 'domicilio') {
-					const codigosCompra = new Set(
-						recargosActivos.filter((r) => r.tipo === 'compra').map((r) => r.codigo)
-					);
-					recargosSel = recargosSel.filter((c) => !codigosCompra.has(c));
-				}
+
+			// Al volver a Domicilio, se descartan recargos de compra ya elegidos
+			// (quedaron seleccionados del modo compra/diligencia).
+			if (tipo === 'domicilio') {
+				const codigosCompra = new Set(
+					recargosActivos.filter((r) => r.tipo === 'compra').map((r) => r.codigo)
+				);
+				recargosSel = recargosSel.filter((c) => !codigosCompra.has(c));
+			}
+			// Al cambiar a compra/diligencia, se descartan recargos de domicilio
+			// (peso, pago) que se sincronizan con campos que ya no existen.
+			if (tipo === 'compra_diligencia') {
+				const codigosDomicilio = new Set(
+					recargosActivos.filter((r) => r.tipo === 'peso' || r.tipo === 'pago').map((r) => r.codigo)
+				);
+				recargosSel = recargosSel.filter((c) => !codigosDomicilio.has(c));
+			}
 				errores = {};
 			}
 
@@ -411,6 +454,8 @@
 	$effect(() => {
 		if (origen && destino) calcular();
 	});
+
+
 
 	// Refrescar horario inmediatamente y cada 30 s para detectar
 	// excepciones nuevas que el admin haya creado (p. ej. ampliar el horario de hoy).
@@ -925,62 +970,130 @@
 						<p class="mb-4 ml-7 text-xs text-slate-400">
 							Indica el peso y si aplica transferencia.
 						</p>
-								<!-- Campo obligatorio: peso -->
-								<div class="mb-4">
-									<label for="domicilio-peso" class="mb-1.5 block text-sm font-semibold text-slate-700">Peso del paquete <span class="text-amber-600">(obligatorio)</span></label>
-									<div class="relative">
+							<!-- Campo obligatorio: peso -->
+							<div class="mb-4">
+								<label for="domicilio-peso" class="mb-1.5 block text-sm font-semibold text-slate-700">Peso del paquete <span class="text-amber-600">(obligatorio)</span></label>
+								<div class="relative">
+									<input
+										id="domicilio-peso"
+										type="number"
+										min="0"
+										step="0.5"
+										bind:value={pesoKg}
+										placeholder="Ej: 2.5"
+										oninput={() => sincronizarRecargos()}
+										class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.peso ? 'border-red-400' : ''}"
+									/>
+									<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">kg</span>
+								</div>
+								{#if errores.peso}<p class="mt-1 text-xs text-red-600">{errores.peso}</p>{/if}
+							</div>
+
+							<!-- Campo obligatorio: transferencia -->
+							<div class="mb-4">
+								<label class="mb-1.5 block text-sm font-semibold text-slate-700">Transferencia bancaria <span class="text-amber-600">(obligatorio)</span></label>
+								<div class="flex gap-2">
+									<button
+										type="button"
+										onclick={() => { transferencia = 'si'; error = null; sincronizarRecargos(); }}
+										class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {transferencia === 'si' ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
+									>
+										Sí, hay transferencia
+									</button>
+									<button
+										type="button"
+										onclick={() => { transferencia = 'no'; transferenciaMonto = ''; error = null; sincronizarRecargos(); }}
+										class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {transferencia === 'no' ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
+									>
+										No hay transferencia
+									</button>
+								</div>
+								{#if errores.transferencia}<p class="mt-1 text-xs text-red-600">{errores.transferencia}</p>{/if}
+
+								{#if transferencia === 'si'}
+									<div class="mt-3 relative">
+										<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
 										<input
-											id="domicilio-peso"
 											type="number"
 											min="0"
-											step="0.5"
-											bind:value={pesoKg}																						placeholder="Ej: 2.5"
-																						oninput={() => sincronizarRecargos()}
-																						class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.peso ? 'border-red-400' : ''}"
+											step="1000"
+											bind:value={transferenciaMonto}
+											placeholder="Monto a transferir"
+											class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.transferenciaMonto ? 'border-red-400' : ''}"
 										/>
-										<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">kg</span>
+										{#if errores.transferenciaMonto}<p class="mt-1 text-xs text-red-600">{errores.transferenciaMonto}</p>{/if}
 									</div>
-									{#if errores.peso}<p class="mt-1 text-xs text-red-600">{errores.peso}</p>{/if}
-								</div>
+								{/if}
+							</div>
 
-								<!-- Campo obligatorio: transferencia -->
-								<div class="mb-4">
-									<label class="mb-1.5 block text-sm font-semibold text-slate-700">Transferencia bancaria <span class="text-amber-600">(obligatorio)</span></label>
-									<div class="flex gap-2">
-										<button
-											type="button"
-											onclick={() => { transferencia = 'si'; error = null; sincronizarRecargos(); }}
-											class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {transferencia === 'si' ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
-										>
-											Sí, hay transferencia
-										</button>
-										<button
-											type="button"
-											onclick={() => { transferencia = 'no'; transferenciaMonto = ''; error = null; sincronizarRecargos(); }}
-											class="rounded-xl border-2 px-4 py-2 text-sm font-semibold transition {transferencia === 'no' ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 text-slate-600 hover:border-primary/50'}"
-										>
-											No hay transferencia
-										</button>
-									</div>
-									{#if errores.transferencia}<p class="mt-1 text-xs text-red-600">{errores.transferencia}</p>{/if}
 
-									{#if transferencia === 'si'}
-										<div class="mt-3 relative">
-											<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-											<input
-												type="number"
-												min="0"
-												step="1000"
-												bind:value={transferenciaMonto}
-												placeholder="Monto a transferir"
-												class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.transferenciaMonto ? 'border-red-400' : ''}"
-											/>
-											{#if errores.transferenciaMonto}<p class="mt-1 text-xs text-red-600">{errores.transferenciaMonto}</p>{/if}
+					</div>
+
+					{:else if tipoServicio === 'compra_diligencia' && tipoDiligencia}
+					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+						<h2 class="mb-1 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
+							<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">3</span>
+							Recargos adicionales
+						</h2>
+						<p class="mb-4 ml-7 text-xs text-slate-400">
+							Selecciona los recargos que apliquen para tu pedido, o marca «No aplica» si no tiene ninguno.
+						</p>
+
+						{#if grupos.length > 0}
+							<div class="space-y-4">
+								{#each grupos as grupo (grupo.tipo)}
+									<div>
+										<p class="mb-2 text-xs font-bold tracking-wide text-slate-500 uppercase">{grupo.label}</p>
+										<div class="grid gap-2 sm:grid-cols-2">
+											{#each grupo.items as r (r.codigo)}
+												<label
+													class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
+												>
+													<input
+														type="checkbox"
+														value={r.codigo}
+														bind:group={recargosSel}
+														onchange={() => { recargosConfirmadosNoAplica = false; }}
+														class="mt-1 size-4 accent-[#1768FF]"
+													/>
+													<span class="min-w-0 flex-1">
+														<span class="block text-sm font-semibold text-slate-800">{r.nombre}</span>
+														{#if r.descripcion}<span class="block text-xs text-slate-500">{r.descripcion}</span>{/if}
+													</span>
+													<span class="shrink-0 text-sm font-bold text-slate-900">{formatearPeso(r.valor)}</span>
+												</label>
+											{/each}
 										</div>
-									{/if}
-								</div>
+									</div>
+								{/each}
 
+								<!-- Opción: No aplica ningún recargo -->
+								<label
+									class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
+								>
+									<input
+										type="checkbox"
+										checked={recargosConfirmadosNoAplica}
+										onchange={(e) => {
+										const marcado = e.currentTarget.checked;
+										recargosConfirmadosNoAplica = marcado;
+										if (marcado) recargosSel = [];
+									}}
+										class="mt-1 size-4 accent-[#1768FF]"
+									/>
+									<span class="min-w-0 flex-1">
+										<span class="block text-sm font-semibold text-slate-800">No aplica ningún recargo</span>
+										<span class="block text-xs text-slate-500">Este pedido no tiene recargos adicionales.</span>
+									</span>
+								</label>
+							</div>
+						{:else}
+							<p class="text-sm text-slate-400">No hay recargos adicionales para este tipo de diligencia.</p>
+						{/if}
 
+						{#if errores.recargos}
+							<p class="mt-2 text-xs text-red-600">{errores.recargos}</p>
+						{/if}
 					</div>
 					{/if}
 
