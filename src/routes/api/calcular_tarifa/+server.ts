@@ -63,16 +63,24 @@ export const POST: RequestHandler = async ({ request }) => {
 	// Resolver barrio → sector de la matriz (el cliente envía UUIDs, la matriz usa IDs descriptivos).
 	const resolverSector = async (barrioId: string): Promise<SectorId | null> => {
 		const supabase = getSupabaseAnon();
-		const { data } = await supabase
+		// Primero obtener el barrio para saber su zona_id.
+		const { data: barrio } = await supabase
 			.from('barrios')
-			.select('zona_id, nombre')
+			.select('zona_id')
 			.eq('id', barrioId)
 			.limit(1);
-		if (!data || data.length === 0) return null;
-		const zona = data[0];
-		// Mapear zona de la BD → sector de la matriz.
-		// La zona debe tener un nombre que contenga el sector.
-		return mapearZonaASector(zona.nombre, zona.zona_id);
+		if (!barrio || barrio.length === 0 || !barrio[0].zona_id) return null;
+
+		// Luego obtener el nombre de la zona.
+		const { data: zona } = await supabase
+			.from('zonas')
+			.select('nombre')
+			.eq('id', barrio[0].zona_id)
+			.limit(1);
+		if (!zona || zona.length === 0) return null;
+
+		const nombreZona = String(zona[0].nombre ?? '');
+		return mapearZonaASector(nombreZona, barrio[0].zona_id);
 	};
 
 	const sectorOrigen = (body?.sector_origen as SectorId) ?? (await resolverSector(barrioOrigen)) ?? 'centro';
