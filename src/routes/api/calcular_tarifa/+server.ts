@@ -11,6 +11,36 @@ import {
 import type { SectorId } from '$lib/logic/matriz-domicilio';
 import type { TipoPago } from '$lib/logic/tabla-recargos';
 
+/**
+ * Mapea el nombre/zona de la BD al sector de la matriz_domicilio.
+ * Busca coincidencia parcial en el nombre de la zona.
+ */
+function mapearZonaASector(nombreZona: string, zonaId: string): SectorId {
+	const nombre = (nombreZona ?? '').toLowerCase();
+	const id = (zonaId ?? '').toLowerCase();
+
+	// Mapeo por nombre de zona (coincidencia parcial)
+	if (nombre.includes('centro')) return 'centro';
+	if (nombre.includes('norte')) {
+		if (nombre.includes('50') || nombre.includes('38')) return 'norte_38_50';
+		if (nombre.includes('19') || nombre.includes('37')) return 'norte_19_37';
+		return 'norte_1_18';
+	}
+	if (nombre.includes('sur')) {
+		if (nombre.includes('puerto') || nombre.includes('espejo')) return 'sur_despues_puerto_espejo';
+		if (nombre.includes('naranjo')) return 'sur_despues_naranjos';
+		return 'sur_27_50';
+	}
+
+	// Mapeo por ID de zona (fallback)
+	if (id.includes('centro')) return 'centro';
+	if (id.includes('norte')) return 'norte_1_18';
+	if (id.includes('sur')) return 'sur_27_50';
+
+	// Default: centro
+	return 'centro';
+}
+
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json().catch(() => ({}));
 	const barrioOrigen = String(body?.barrio_origen ?? '').trim();
@@ -30,8 +60,23 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	// Motor nuevo: modelo de tramos para compra/diligencia_bancaria/tramite
-	const sectorOrigen = (body?.sector_origen ?? barrioOrigen) as SectorId;
-	const sectorDestino = (body?.sector_destino ?? barrioDestino) as SectorId;
+	// Resolver barrio → sector de la matriz (el cliente envía UUIDs, la matriz usa IDs descriptivos).
+	const resolverSector = async (barrioId: string): Promise<SectorId | null> => {
+		const supabase = getSupabaseAnon();
+		const { data } = await supabase
+			.from('barrios')
+			.select('zona_id, nombre')
+			.eq('id', barrioId)
+			.limit(1);
+		if (!data || data.length === 0) return null;
+		const zona = data[0];
+		// Mapear zona de la BD → sector de la matriz.
+		// La zona debe tener un nombre que contenga el sector.
+		return mapearZonaASector(zona.nombre, zona.zona_id);
+	};
+
+	const sectorOrigen = (body?.sector_origen as SectorId) ?? (await resolverSector(barrioOrigen)) ?? 'centro';
+	const sectorDestino = (body?.sector_destino as SectorId) ?? (await resolverSector(barrioDestino)) ?? 'centro';
 	const tramoPrincipal = crearTramoPrincipal(sectorOrigen, sectorDestino, tipoDiligencia);
 
 	// Tramos adicionales (recogidas extra)
