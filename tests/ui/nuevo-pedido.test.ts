@@ -292,4 +292,45 @@ describe('Formulario de creación de pedido', () => {
 		// El checkbox "Peso test" no debe existir en compra/diligencia.
 		expect(screen.queryByText('Peso test')).not.toBeInTheDocument();
 	});
+
+	test('al cambiar de compra a diligencia_bancaria se limpian valores residuales', async () => {
+		postMock.mockImplementation((path: string) =>
+			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
+		);
+		const user = userEvent.setup();
+		render(Pagina, { props: { data: dataAbierto } });
+		await formularioListo();
+
+		// 1) Selecciona "Compra" y ve todos los recargos.
+		await user.click(screen.getByText('Compra / diligencia'));
+		await user.click(screen.getByText('Compra de productos'));
+		expect(screen.getAllByText('Compra test').length).toBeGreaterThanOrEqual(1);
+		expect(screen.getByText('Peso test')).toBeInTheDocument();
+		expect(screen.getByText('Pago test')).toBeInTheDocument();
+
+		// 2) Cambia a "Pago bancario" (diligencia_bancaria).
+		await user.click(screen.getByText('Pago bancario o corresponsal'));
+
+		// Solo "Tiempo espera", "Paradas" y "Otro" deben quedar visibles.
+		expect(screen.getByText('Tiempo espera test')).toBeInTheDocument();
+		expect(screen.getByText('Paradas test')).toBeInTheDocument();
+		expect(screen.queryByText('Compra test')).not.toBeInTheDocument();
+		expect(screen.queryByText('Peso test')).not.toBeInTheDocument();
+		expect(screen.queryByText('Pago test')).not.toBeInTheDocument();
+	});
+
+	test('texto de ayuda contextual aparece al seleccionar tipo de diligencia', async () => {
+		postMock.mockImplementation((path: string) =>
+			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
+		);
+		const user = userEvent.setup();
+		render(Pagina, { props: { data: dataAbierto } });
+		await formularioListo();
+
+		await user.click(screen.getByText('Compra / diligencia'));
+		await user.click(screen.getByText('Pago de factura o servicio'));
+
+		// Debe aparecer el texto de ayuda contextual.
+		expect(screen.getByText(/El pago que va a realizar el domiciliario/)).toBeInTheDocument();
+	});
 });

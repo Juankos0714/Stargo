@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fly } from 'svelte/transition';
 	import SearchSelect, { type SearchItem } from '$lib/components/SearchSelect.svelte';
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
@@ -15,6 +16,7 @@
 	} from '$lib/types';
 	import { calcularRecargos } from '$lib/logic/recargos';
 	import { validarPedido, type TipoDiligencia } from '$lib/logic/validacion';
+	import { MATRIZ_RECARGOS } from '$lib/logic/matriz-recargos';
 	import { calcularBaseSugerida } from '$lib/logic/base-necesaria';
 	import { page } from '$app/state';
 	import type { HorarioHoy } from '$lib/types';
@@ -170,33 +172,37 @@
 			.sort((a, b) => a.tipo.localeCompare(b.tipo) || a.nombre.localeCompare(b.nombre, 'es'))
 	);
 
-	// ---------- Recargos redundantes por tipo de diligencia ----------
-	// Estos recargos ya se capturan en los campos específicos de la diligencia,
-	// por lo que no tiene sentido mostrarlos como recargo adicional.
-	const RECARGOS_REDUNDANTES: Record<string, string[]> = {
-		pago: ['pago'], // El valor de la factura ya se pregunta
-		banco: ['pago'], // El valor a pagar ya se pregunta
-		compra: ['compra'], // Los productos ya se preguntan
-		tramite: [], // Ninguno es redundante
-		otro: [] // Ninguno es redundante
-	};
 
-	// Recargos que no aplican para compra/diligencia en general.
-	const RECARGOS_NO_APLICAN_COMPRA = new Set(['peso']);
+
+	/** Textos de ayuda contextual bajo el selector de tipo de diligencia. */
+	const AYUDA_DILIGENCIA: Record<string, string> = {
+		pago: 'El pago que va a realizar el domiciliario se registra en el paso de datos, no como recargo.',
+		banco: 'El monto y la entidad se registran en el paso de datos, no como recargo.',
+		compra: 'El valor de la compra se registra en el paso de datos. El recargo por compra es obligatorio.',
+		tramite: 'El trámite se describe en el paso de datos. Solo puedes agregar tiempo de espera o paradas.',
+		otro: 'Describe la diligencia en el paso de datos y agrega los recargos que apliquen.'
+	};
 
 	// ---------- Recargos disponibles ----------
 	// En domicilio: todos excepto tipo «compra».
-	// En compra/diligencia: se excluyen los redundantes con los campos
-	// de la diligencia y los que no aplican (peso).
+	// En compra/diligencia: se usa la matriz para decidir visibles/obligatorios.
 	const recargosDisponibles = $derived.by(() => {
 		if (tipoServicio === 'domicilio') {
 			return recargosActivos.filter((r) => r.tipo !== 'compra');
 		}
-		// Compra/diligencia: excluir redundantes y no aplicables.
-		const redundantes = new Set(RECARGOS_REDUNDANTES[tipoDiligencia] ?? []);
-		return recargosActivos.filter(
-			(r) => !redundantes.has(r.tipo) && !RECARGOS_NO_APLICAN_COMPRA.has(r.tipo)
-		);
+		// Compra/diligencia: usar la matriz de visibilidad.
+		const matriz = MATRIZ_RECARGOS[tipoDiligencia ?? ''];
+		if (!matriz) return [];
+		const visibles = new Set(matriz.visibles);
+		return recargosActivos.filter((r) => visibles.has(r.tipo));
+	});
+
+	/** Recargos obligatorios para el tipo de diligencia actual. */
+	const recargosObligatorios = $derived.by(() => {
+		if (tipoServicio !== 'compra_diligencia' || !tipoDiligencia) return [];
+		const matriz = MATRIZ_RECARGOS[tipoDiligencia];
+		if (!matriz) return [];
+		return matriz.obligatorios;
 	});
 
 	const grupos = $derived.by(() => {
@@ -209,13 +215,15 @@
 		return [...m.entries()].map(([tipo, items]) => ({ tipo, label: etiquetaTipoRecargo(tipo), items }));
 	});
 
-	// Filtrar recargos redundantes al calcular (no al seleccionar).
+	// Filtrar recargos que ya no son válidos al calcular.
 	const recargosSelFiltrados = $derived.by(() => {
 		if (tipoServicio !== 'compra_diligencia' || !tipoDiligencia) return recargosSel;
-		const redundantes = new Set(RECARGOS_REDUNDANTES[tipoDiligencia] ?? []);
+		const matriz = MATRIZ_RECARGOS[tipoDiligencia];
+		if (!matriz) return [];
+		const visibles = new Set(matriz.visibles);
 		return recargosSel.filter((c) => {
 			const rec = recargosActivos.find((r) => r.codigo === c);
-			return rec && !redundantes.has(rec.tipo) && !RECARGOS_NO_APLICAN_COMPRA.has(rec.tipo);
+			return rec && visibles.has(rec.tipo);
 		});
 	});
 
@@ -278,12 +286,39 @@
 		if (!origen || !destino) return;
 		const id = ++calcId;
 		calculando = true;
-		// El endpoint responde { data: <número>, meta: {...} }: `data` es la tarifa
-		// y `meta` trae disponible/motivo/barrios/zonas.
-		const r = await api.post<number>('/api/calcular_tarifa', {
+
+		// Construir payload según el tipo de servicio.
+		const payload: Record<string, unknown> = {
 			barrio_origen: origen,
 			barrio_destino: destino
-		});
+		};
+
+		// Para compra/diligencia, enviar tipo_diligencia y datos adicionales.
+		if (tipoServicio === 'compra_diligencia' && tipoDiligencia) {
+			payload.tipo_diligencia = tipoDiligencia;
+			payload.subtipo_pago = tipoDiligencia === 'banco' ? 'bancario' : tipoDiligencia === 'pago' ? 'corresponsal' : undefined;
+
+			// Si necesita recoger en otro punto, enviar como tramo adicional.
+			if (necesitaRecoger && origen) {
+				payload.tramos_adicionales = [{
+					origen: origen,
+					destino: destino
+				}];
+			}
+
+			// Enviar recargos seleccionados con sus valores.
+			payload.recargos = recargosSelFiltrados.map((codigo) => {
+				const rec = recargosActivos.find((r) => r.codigo === codigo);
+				return rec ? { id: rec.tipo } : { id: codigo };
+			});
+
+			// Peso y monto de pago para recargos escalonados.
+			if (pesoKg) payload.peso_kg = Number(pesoKg);
+			if (dilValorFactura) payload.monto_pago = Number(dilValorFactura);
+		}
+
+		// El endpoint responde { data: <número>, meta: {...} }
+		const r = await api.post<number>('/api/calcular_tarifa', payload);
 		if (id !== calcId) return;
 		calculando = false;
 		if (r.error) {
@@ -324,21 +359,23 @@
 					dirOrigen = '';
 				}
 
-			// Al volver a Domicilio, se descartan recargos de compra ya elegidos
-			// (quedaron seleccionados del modo compra/diligencia).
+			// Al cambiar de modo, limpiar recargos que ya no aplican.
 			if (tipo === 'domicilio') {
+				// En domicilio no existen recargos de tipo «compra».
 				const codigosCompra = new Set(
 					recargosActivos.filter((r) => r.tipo === 'compra').map((r) => r.codigo)
 				);
 				recargosSel = recargosSel.filter((c) => !codigosCompra.has(c));
-			}
-			// Al cambiar a compra/diligencia, se descartan recargos de domicilio
-			// (peso, pago) que se sincronizan con campos que ya no existen.
-			if (tipo === 'compra_diligencia') {
-				const codigosDomicilio = new Set(
-					recargosActivos.filter((r) => r.tipo === 'peso' || r.tipo === 'pago').map((r) => r.codigo)
-				);
-				recargosSel = recargosSel.filter((c) => !codigosDomicilio.has(c));
+			} else {
+				// En compra/diligencia: limpiar recargos que la matriz oculta.
+				const matriz = MATRIZ_RECARGOS[tipoDiligencia ?? ''];
+				if (matriz) {
+					const ocultos = new Set(matriz.ocultos);
+					recargosSel = recargosSel.filter((c) => {
+						const rec = recargosActivos.find((r) => r.codigo === c);
+						return rec && !ocultos.has(rec.tipo);
+					});
+				}
 			}
 				errores = {};
 			}
@@ -403,6 +440,7 @@
 			direccion_destino: dirDestino,
 			observaciones: obs || undefined,
 			tipo_servicio: tipoServicio,
+			tipo_diligencia: tipoDiligencia || undefined,
 			recargos: recargosSel,
 			recargos_confirmados_no_aplica: recargosConfirmadosNoAplica,
 			nombre_cliente: nombreCliente.trim() || undefined,
@@ -452,7 +490,28 @@
 	});
 
 	$effect(() => {
-		if (origen && destino) calcular();
+		// Recalcular cuando cambian origen/destino (domicilio) o parámetros de compra/diligencia.
+		if (tipoServicio === 'domicilio') {
+			if (origen && destino) calcular();
+		} else {
+			// En compra/diligencia: recalcular al cambiar tipo, peso, monto, recargos.
+			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+			tipoDiligencia; pesoKg; dilValorFactura; recargosSelFiltrados;
+			if (destino) calcular();
+		}
+	});
+
+	// Auto-seleccionar recargos obligatorios al cambiar tipo de diligencia.
+	$effect(() => {
+		if (tipoServicio !== 'compra_diligencia' || !tipoDiligencia) return;
+		const matriz = MATRIZ_RECARGOS[tipoDiligencia];
+		if (!matriz?.obligatorios?.length) return;
+		for (const tipo of matriz.obligatorios) {
+			const rec = recargosActivos.find((r) => r.tipo === tipo);
+			if (rec && !recargosSel.includes(rec.codigo)) {
+				recargosSel = [...recargosSel, rec.codigo];
+			}
+		}
 	});
 
 
@@ -660,6 +719,13 @@
 									</div>
 									{#if errores.tipoDiligencia}
 										<p class="mt-2 text-xs text-red-600">{errores.tipoDiligencia}</p>
+									{/if}
+
+									{#if tipoDiligencia && AYUDA_DILIGENCIA[tipoDiligencia]}
+										<p class="mt-3 flex items-start gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary-dark">
+											<span class="shrink-0">💡</span>
+											<span>{AYUDA_DILIGENCIA[tipoDiligencia]}</span>
+										</p>
 									{/if}
 
 									<!-- Pregunta de recogida: aplica para todos los tipos de diligencia -->
@@ -1030,7 +1096,7 @@
 					</div>
 
 					{:else if tipoServicio === 'compra_diligencia' && tipoDiligencia}
-					<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+					<div transition:fly={{ y: 12, duration: 200 }} class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 						<h2 class="mb-1 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
 							<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">3</span>
 							Recargos adicionales
@@ -1045,10 +1111,11 @@
 									<div>
 										<p class="mb-2 text-xs font-bold tracking-wide text-slate-500 uppercase">{grupo.label}</p>
 										<div class="grid gap-2 sm:grid-cols-2">
-											{#each grupo.items as r (r.codigo)}
-												<label
-													class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
-												>
+										{#each grupo.items as r (r.codigo)}
+											<label
+												transition:fly={{ y: 8, duration: 150 }}
+												class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
+											>
 													<input
 														type="checkbox"
 														value={r.codigo}
@@ -1069,6 +1136,7 @@
 
 								<!-- Opción: No aplica ningún recargo -->
 								<label
+									transition:fly={{ y: 8, duration: 150 }}
 									class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary-light/40"
 								>
 									<input

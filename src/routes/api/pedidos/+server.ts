@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getSupabaseAnon, getSupabaseAsUser } from '$lib/server/supabase';
 import { getSesion, miDomiciliarioId, requireAdmin, rolesDe } from '$lib/server/auth';
 import { validarTelefono } from '$lib/logic/validacion';
+import { filtrarRecargosServidor } from '$lib/logic/matriz-recargos';
 import type { Domiciliario, HistorialEstado, Pedido } from '$lib/types';
 
 // ---------- POST: crear pedido (público) ----------
@@ -57,6 +58,29 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 	// Recargos son opcionales: pueden ir vacíos.
 	const recargosConfirmadosNoAplica = body?.recargos_confirmados_no_aplica === true;
+
+	// Validación server-side: los recargos deben ser válidos para el tipo de diligencia.
+	const tipoDiligencia = body?.tipo_diligencia ? String(body.tipo_diligencia).trim() : null;
+	if (tipoServicio === 'compra_diligencia' && recargos.length > 0) {
+		// Consultar el catálogo de recargos para obtener el tipo de cada código.
+		const { data: catalogo } = await getSupabaseAnon()
+			.from('recargos')
+			.select('codigo, tipo')
+			.eq('activo', true);
+
+		if (catalogo && catalogo.length > 0) {
+			const tiposPorCodigo = new Map(
+				(catalogo as { codigo: string; tipo: string }[]).map((r) => [r.codigo, r.tipo])
+			);
+			const resultado = filtrarRecargosServidor(tipoDiligencia, recargos, tiposPorCodigo);
+			if (resultado.error) {
+				return json({ error: resultado.error }, { status: 400 });
+			}
+			// Reemplazar con solo los códigos válidos.
+			recargos.length = 0;
+			recargos.push(...resultado.validos);
+		}
+	}
 
 	// Domicilio: origen y destino obligatorios. Compra/diligencia: solo destino.
 	if (!barrioDestino) {
