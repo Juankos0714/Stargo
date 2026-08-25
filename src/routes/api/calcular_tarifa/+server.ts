@@ -66,6 +66,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		data: resultado.disponible ? resultado.total : null,
 		meta: {
 			disponible: resultado.disponible,
+			aproximado: resultado.aproximado,
 			motivo: resultado.disponible ? 'ok' : (resultado.motivo ?? 'sin_tarifa'),
 			tramo_principal: resultado.tramo_principal,
 			tramos_adicionales: resultado.tramos_adicionales,

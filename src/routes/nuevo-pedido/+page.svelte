@@ -315,6 +315,15 @@
 			// Peso y monto de pago para recargos escalonados.
 			if (pesoKg) payload.peso_kg = Number(pesoKg);
 			if (dilValorFactura) payload.monto_pago = Number(dilValorFactura);
+		} else {
+			// Domicilio: incluir monto de transferencia para recargo escalonado.
+			if (transferencia === 'si' && transferenciaMonto) {
+				payload.monto_pago = Number(transferenciaMonto);
+				payload.recargos = recargosSelFiltrados.map((codigo) => {
+					const rec = recargosActivos.find((r) => r.codigo === codigo);
+					return rec ? { id: rec.tipo } : { id: codigo };
+				});
+			}
 		}
 
 		// El endpoint responde { data: <número>, meta: {...} }
@@ -403,8 +412,10 @@
 
 	function sincronizarRecargos() {
 		// Sincronizar peso y transferencia con recargosSel
+		// Peso → tipo 'peso' (escalonado: >20kg, >40kg, >60kg)
+		// Transferencia → tipo 'transferencias' (escalonado: >$100k, >$500k, >$1M)
 		const peso = recargosActivos.find((r) => r.tipo === 'peso');
-		const pago = recargosActivos.find((r) => r.tipo === 'pago');
+		const transfer = recargosActivos.find((r) => r.tipo === 'transferencias');
 		if (peso) {
 			if (String(pesoKg ?? '').trim()) {
 				if (!recargosSel.includes(peso.codigo)) recargosSel = [...recargosSel, peso.codigo];
@@ -412,11 +423,17 @@
 				recargosSel = recargosSel.filter((c) => c !== peso.codigo);
 			}
 		}
-		if (pago) {
-			if (transferencia === 'si') {
-				if (!recargosSel.includes(pago.codigo)) recargosSel = [...recargosSel, pago.codigo];
+		if (transfer) {
+			if (transferencia === 'si' && transferenciaMonto) {
+				// Solo sincronizar si el monto supera el umbral mínimo ($100,000)
+				const monto = Number(transferenciaMonto);
+				if (monto > 100000) {
+					if (!recargosSel.includes(transfer.codigo)) recargosSel = [...recargosSel, transfer.codigo];
+				} else {
+					recargosSel = recargosSel.filter((c) => c !== transfer.codigo);
+				}
 			} else {
-				recargosSel = recargosSel.filter((c) => c !== pago.codigo);
+				recargosSel = recargosSel.filter((c) => c !== transfer.codigo);
 			}
 		}
 	}
@@ -1335,7 +1352,9 @@
 						{#if precioDisponible || (tipoServicio === 'compra_diligencia' && !origenRequerido && !tieneRutaCompleta)}
 							<div class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
 								<Icon icon={TriangleAlert} class="mt-0.5 size-3.5 shrink-0" />
-								{#if tipoServicio === 'compra_diligencia' && !tieneRutaCompleta}
+								{#if precio?.meta?.aproximado}
+									<span>Este es un <strong>precio aproximado</strong> ({formatearPeso(totalEstimado)}). El precio final lo confirma el domiciliario según el servicio que realmente realice.</span>
+								{:else if tipoServicio === 'compra_diligencia' && !tieneRutaCompleta}
 									<span>El precio final lo confirma el <strong>domiciliario</strong> al realizar la diligencia según lo que realmente se haga.</span>
 								{:else}
 									<span>Este es un <strong>estimado</strong>: el precio final lo confirma el domiciliario según el servicio real que realice (compras, peso, paradas, espera, método de pago, etc.).</span>

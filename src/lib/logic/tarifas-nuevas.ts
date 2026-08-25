@@ -71,6 +71,7 @@ export interface ResultadoCalculo {
 	recargos_desglose: { id: string; valor: number }[];
 	recargo_total: number;
 	disponible: boolean;
+	aproximado: boolean; // true cuando el precio es estimado (sin tarifa exacta)
 	motivo?: string;
 }
 
@@ -83,6 +84,7 @@ export function calcularPrecio(pedido: PedidoCalculo): ResultadoCalculo {
 	let total = 0;
 	const recargosDesglose: { id: string; valor: number }[] = [];
 	let recargoTotal = 0;
+	let esAproximado = false;
 
 	// 1. Precio del tramo principal
 	let tramoPrincipalDesglose: DesgloseTramo;
@@ -102,37 +104,24 @@ export function calcularPrecio(pedido: PedidoCalculo): ResultadoCalculo {
 		total += valor;
 	} else {
 		// Para domicilio, compra, tramite: matriz de zonas.
-		const valor = obtenerTarifaDomicilio(
+		const valorExacto = obtenerTarifaDomicilio(
 			pedido.tramo_principal.origen,
 			pedido.tramo_principal.destino
 		);
 
-		if (valor === null) {
-			return {
-				total: 0,
-				tramo_principal: {
-					origen: pedido.tramo_principal.origen,
-					destino: pedido.tramo_principal.destino,
-					proposito: pedido.tramo_principal.proposito,
-					valor: 0,
-					fuente: 'matriz_domicilio'
-				},
-				tramos_adicionales: [],
-				recargos_desglose: [],
-				recargo_total: 0,
-				disponible: false,
-				motivo: 'sin_tarifa'
-			};
-		}
+		// Si no hay tarifa exacta, usar un mínimo estimado ($5,000 = mismo_sector)
+		// y marcar como aproximado. El domiciliario confirma el precio final.
+		const valorFinal = valorExacto ?? 5000;
+		esAproximado = valorExacto === null;
 
 		tramoPrincipalDesglose = {
 			origen: pedido.tramo_principal.origen,
 			destino: pedido.tramo_principal.destino,
 			proposito: pedido.tramo_principal.proposito,
-			valor,
+			valor: valorFinal,
 			fuente: 'matriz_domicilio'
 		};
-		total += valor;
+		total += valorFinal;
 	}
 
 	// 2. Tramos adicionales (recogidas separadas del punto principal)
@@ -207,7 +196,8 @@ export function calcularPrecio(pedido: PedidoCalculo): ResultadoCalculo {
 		tramos_adicionales: tramosAdicionalesDesglose,
 		recargos_desglose: recargosDesglose,
 		recargo_total: recargoTotal,
-		disponible: true
+		disponible: true,
+		aproximado: esAproximado
 	};
 }
 
