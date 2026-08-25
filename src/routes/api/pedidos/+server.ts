@@ -86,6 +86,17 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ error: 'Las observaciones son demasiado largas (máx. 1000 caracteres).' }, { status: 400 });
 	}
 
+	// Valor mandado: dinero del cliente que el domiciliario adelanta (pago/banco).
+	const valorMandadoRaw = body?.valor_mandado;
+	let valorMandado: number | null = null;
+	if (valorMandadoRaw != null && valorMandadoRaw !== '') {
+		const vm = Number(valorMandadoRaw);
+		if (!Number.isFinite(vm) || vm < 0) {
+			return json({ error: 'El valor mandado debe ser un número mayor o igual a 0.' }, { status: 400 });
+		}
+		valorMandado = Math.round(vm);
+	}
+
 	const { data, error: err } = await getSupabaseAnon().rpc('crear_pedido', {
 		p_barrio_origen_id: barrioOrigen,
 		p_direccion_origen: direccionOrigen || null,
@@ -97,7 +108,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		p_recargos_confirmados_no_aplica: recargosConfirmadosNoAplica,
 		p_telefono: telefono,
 		p_nombre_cliente: nombreCliente || null,
-		p_base_necesaria: baseNecesaria
+		p_base_necesaria: baseNecesaria,
+		p_valor_mandado: valorMandado
 	});
 
 	if (err) {

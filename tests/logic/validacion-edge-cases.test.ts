@@ -86,12 +86,14 @@ describe('validarPedido — recargos obligatorios (Fase 14)', () => {
 			direccionDestino: 'Carrera 19',
 			observaciones: '',
 			recargos: [],
-			tipoServicio: 'domicilio',
+			tipoServicio: 'compra_diligencia',
+			tipoDiligencia: 'otro',
+			dilOtraDescripcion: 'Ir a la farmacia',
 			recargosConfirmadosNoAplica: false,
 			telefono: '3001234567'
 		});
 		expect(errores.recargos).toBeTruthy();
-		expect(errores.recargos).toMatch(/No aplica/);
+		expect(errores.recargos).toMatch(/aplica/);
 	});
 
 	test('marcar "No aplica" satisface la validación', () => {

@@ -92,16 +92,14 @@ Cuando selecciona "Compra / diligencia":
 | Campo | Tipo | Obligatorio |
 |-------|------|-------------|
 | Descripción | text | Sí |
-| Valor de la factura | number ($) | Sí |
-| Costo de la diligencia | number ($) | Sí |
+| Valor de la factura | number ($) | Sí (numérico >= 0) |
 
 ### 3.2 Pago bancario o corresponsal (`banco`)
 | Campo | Tipo | Obligatorio |
 |-------|------|-------------|
 | Entidad / banco | text | Sí |
 | Descripción del pago | text | Sí |
-| Valor a pagar | number ($) | Sí |
-| Costo de la diligencia | number ($) | Sí |
+| Valor a pagar | number ($) | Sí (numérico >= 0) |
 
 ### 3.3 Compra de productos (`compra`)
 | Campo | Tipo | Obligatorio |
@@ -109,7 +107,6 @@ Cuando selecciona "Compra / diligencia":
 | Productos / descripción | textarea | Sí |
 | Cantidad | text | No |
 | Presupuesto / valor estimado | number ($) | No |
-| Costo de la diligencia | number ($) | Sí |
 
 ### 3.4 Trámite o documento (`tramite`)
 | Campo | Tipo | Obligatorio |
@@ -117,14 +114,12 @@ Cuando selecciona "Compra / diligencia":
 | ¿Qué trámite necesitas? | text | Sí |
 | Descripción / instrucciones | textarea | Sí |
 | Lugar del trámite | text | No |
-| Costo de la diligencia | number ($) | Sí |
 
 ### 3.5 Otra diligencia (`otro`)
 | Campo | Tipo | Obligatorio |
 |-------|------|-------------|
 | Describe la diligencia | textarea | Sí |
 | Instrucciones adicionales | textarea | No |
-| Costo de la diligencia | number ($) | Sí |
 
 ---
 
@@ -137,7 +132,7 @@ let tipoDiligencia = $state('');
 // Campos específicos por tipo
 let dilDescripcion = $state('');       // pago, banco
 let dilValorFactura = $state('');      // pago, banco (valor a pagar)
-let dilCostoDiligencia = $state('');   // TODOS los tipos (costo del servicio)
+// dilCostoDiligencia eliminado en Fase 22: el costo se refleja en valor_mandado
 let dilEntidad = $state('');           // banco
 let dilProductos = $state('');         // compra
 let dilCantidad = $state('');          // compra
@@ -159,7 +154,6 @@ Los datos se empaquetan como **texto estructurado** en el campo `observaciones` 
 [DILIGENCIA: Pago de factura o servicio]
 Descripción: Pago de factura de luz EPM
 Valor a pagar: $85000
-Costo diligencia: $5000
 ```
 
 ### Ejemplo: Compra de productos
@@ -212,7 +206,6 @@ function empaquetarObservaciones(): string {
   if (dilDescripcion.trim()) parts.push(`Descripción: ${dilDescripcion.trim()}`);
   if (dilEntidad.trim()) parts.push(`Entidad: ${dilEntidad.trim()}`);
   if (dilValorFactura.trim()) parts.push(`Valor a pagar: $${dilValorFactura.trim()}`);
-  if (dilCostoDiligencia.trim()) parts.push(`Costo diligencia: $${dilCostoDiligencia.trim()}`);
   if (dilProductos.trim()) parts.push(`Productos: ${dilProductos.trim()}`);
   if (dilCantidad.trim()) parts.push(`Cantidad: ${dilCantidad.trim()}`);
   if (dilPresupuesto.trim()) parts.push(`Presupuesto: $${dilPresupuesto.trim()}`);
@@ -308,26 +301,21 @@ function validarDiligencia(): Record<string, string> {
     case 'pago':
       if (!dilDescripcion.trim()) errores.descripcion = 'La descripción es obligatoria.';
       if (!dilValorFactura.trim()) errores.valorFactura = 'El valor de la factura es obligatorio.';
-      if (!dilCostoDiligencia.trim()) errores.costoDiligencia = 'El costo de la diligencia es obligatorio.';
       break;
     case 'banco':
       if (!dilEntidad.trim()) errores.entidad = 'La entidad es obligatoria.';
       if (!dilDescripcion.trim()) errores.descripcion = 'La descripción es obligatoria.';
       if (!dilValorFactura.trim()) errores.valorFactura = 'El valor a pagar es obligatorio.';
-      if (!dilCostoDiligencia.trim()) errores.costoDiligencia = 'El costo de la diligencia es obligatorio.';
       break;
     case 'compra':
       if (!dilProductos.trim()) errores.productos = 'Los productos son obligatorios.';
-      if (!dilCostoDiligencia.trim()) errores.costoDiligencia = 'El costo de la diligencia es obligatorio.';
       break;
     case 'tramite':
       if (!dilTramite.trim()) errores.tramite = 'El tipo de trámite es obligatorio.';
       if (!dilInstrucciones.trim()) errores.instrucciones = 'Las instrucciones son obligatorias.';
-      if (!dilCostoDiligencia.trim()) errores.costoDiligencia = 'El costo de la diligencia es obligatorio.';
       break;
     case 'otro':
       if (!dilOtraDescripcion.trim()) errores.descripcion = 'La descripción es obligatoria.';
-      if (!dilCostoDiligencia.trim()) errores.costoDiligencia = 'El costo de la diligencia es obligatorio.';
       break;
   }
   return errores;

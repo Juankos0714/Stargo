@@ -126,7 +126,6 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 			tipoDiligencia: 'pago',
 			dilDescripcion: 'Factura de luz',
 			dilValorFactura: '85000',
-			dilCostoDiligencia: '5000',
 			barrioOrigen: null,
 			direccionOrigen: '',
 			recargosConfirmadosNoAplica: true
@@ -140,7 +139,6 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 			tipoServicio: 'compra_diligencia',
 			tipoDiligencia: 'compra',
 			dilProductos: '2 paquetes de arroz',
-			dilCostoDiligencia: '8000',
 			barrioOrigen: 'b-origen',
 			direccionOrigen: 'Calle 10 # 15-20',
 			recargosConfirmadosNoAplica: true
@@ -155,7 +153,6 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 			tipoDiligencia: 'pago',
 			dilDescripcion: 'Recibo',
 			dilValorFactura: '50000',
-			dilCostoDiligencia: '5000',
 			barrioOrigen: null,
 			barrioDestino: null,
 			direccionOrigen: '',
@@ -191,7 +188,7 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 		expect(e.tipoDiligencia).toBe('Selecciona el tipo de diligencia.');
 	});
 
-	test('pago: exige descripción, valor factura y costo', () => {
+	test('pago: exige descripción y valor factura', () => {
 		const e = validarPedido({
 			...pedidoValido,
 			tipoServicio: 'compra_diligencia',
@@ -202,10 +199,9 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 		});
 		expect(e.dilDescripcion).toBe('La descripción del pago es obligatoria.');
 		expect(e.dilValorFactura).toBe('El valor de la factura es obligatorio.');
-		expect(e.dilCostoDiligencia).toBe('El costo de la diligencia es obligatorio.');
 	});
 
-	test('banco: exige entidad, descripción, valor y costo', () => {
+	test('banco: exige entidad, descripción y valor', () => {
 		const e = validarPedido({
 			...pedidoValido,
 			tipoServicio: 'compra_diligencia',
@@ -217,10 +213,9 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 		expect(e.dilEntidad).toBe('La entidad o banco es obligatorio.');
 		expect(e.dilDescripcion).toBe('La descripción del pago es obligatoria.');
 		expect(e.dilValorFactura).toBe('El valor a pagar es obligatorio.');
-		expect(e.dilCostoDiligencia).toBe('El costo de la diligencia es obligatorio.');
 	});
 
-	test('compra: exige productos y costo', () => {
+	test('compra: exige productos', () => {
 		const e = validarPedido({
 			...pedidoValido,
 			tipoServicio: 'compra_diligencia',
@@ -230,13 +225,12 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 			recargosConfirmadosNoAplica: true
 		});
 		expect(e.dilProductos).toBe('Describe los productos que necesitas.');
-		expect(e.dilCostoDiligencia).toBe('El costo de la diligencia es obligatorio.');
 		// No debe exigir campos de otros tipos.
 		expect(e.dilDescripcion).toBeUndefined();
 		expect(e.dilValorFactura).toBeUndefined();
 	});
 
-	test('tramite: exige trámite, instrucciones y costo', () => {
+	test('tramite: exige trámite e instrucciones', () => {
 		const e = validarPedido({
 			...pedidoValido,
 			tipoServicio: 'compra_diligencia',
@@ -247,10 +241,9 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 		});
 		expect(e.dilTramite).toBe('Indica qué trámite necesitas.');
 		expect(e.dilInstrucciones).toBe('Las instrucciones son obligatorias.');
-		expect(e.dilCostoDiligencia).toBe('El costo de la diligencia es obligatorio.');
 	});
 
-	test('otro: exige descripción y costo', () => {
+	test('otro: exige descripción', () => {
 		const e = validarPedido({
 			...pedidoValido,
 			tipoServicio: 'compra_diligencia',
@@ -260,21 +253,35 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 			recargosConfirmadosNoAplica: true
 		});
 		expect(e.dilOtraDescripcion).toBe('Describe la diligencia.');
-		expect(e.dilCostoDiligencia).toBe('El costo de la diligencia es obligatorio.');
 	});
 
-	test('costo negativo de diligencia se rechaza', () => {
+	test('valor factura negativo se rechaza (pago)', () => {
 		const e = validarPedido({
 			...pedidoValido,
 			tipoServicio: 'compra_diligencia',
-			tipoDiligencia: 'otro',
-			dilOtraDescripcion: 'Ir al banco',
-			dilCostoDiligencia: '-1000',
+			tipoDiligencia: 'pago',
+			dilDescripcion: 'Factura de luz',
+			dilValorFactura: '-5000',
 			barrioOrigen: null,
 			direccionOrigen: '',
 			recargosConfirmadosNoAplica: true
 		});
-		expect(e.dilCostoDiligencia).toBe('El costo no puede ser negativo.');
+		expect(e.dilValorFactura).toBe('El valor no puede ser negativo.');
+	});
+
+	test('valor factura negativo se rechaza (banco)', () => {
+		const e = validarPedido({
+			...pedidoValido,
+			tipoServicio: 'compra_diligencia',
+			tipoDiligencia: 'banco',
+			dilEntidad: 'Bancolombia',
+			dilDescripcion: 'Consignación',
+			dilValorFactura: '-10000',
+			barrioOrigen: null,
+			direccionOrigen: '',
+			recargosConfirmadosNoAplica: true
+		});
+		expect(e.dilValorFactura).toBe('El valor no puede ser negativo.');
 	});
 });
 

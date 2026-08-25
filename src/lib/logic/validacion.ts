@@ -40,8 +40,6 @@ export interface DatosPedido {
 	dilDescripcion?: string;
 	/** Valor de la factura / valor a pagar (pago, banco). */
 	dilValorFactura?: string;
-	/** Costo de la diligencia (todos los tipos). */
-	dilCostoDiligencia?: string;
 	/** Entidad / banco (banco). */
 	dilEntidad?: string;
 	/** Productos / descripción (compra). */
@@ -82,11 +80,12 @@ export interface DatosPedido {
  * «No aplica» (recargosConfirmadosNoAplica) — antes de poder enviar.
  *
  * Reglas por tipo de diligencia:
- *   - pago:     descripción, valor factura, costo obligatorios.
- *   - banco:    entidad, descripción, valor, costo obligatorios.
- *   - compra:   productos, costo obligatorios.
- *   - tramite:  trámite, instrucciones, costo obligatorios.
- *   - otro:     descripción, costo obligatorios.
+ *   - pago:     descripción, valor factura obligatorios.
+ *   - banco:    entidad, descripción, valor obligatorios.
+ *   - compra:   productos obligatorios.
+ *   - tramite:  trámite, instrucciones obligatorios.
+ *   - otro:     descripción obligatoria.
+ *   - Valor factura (pago/banco): numérico >= 0.
  */
 export function validarPedido(d: DatosPedido): Record<string, string> {
 	const errores: Record<string, string> = {};
@@ -160,21 +159,20 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 		if (!td) {
 			errores.tipoDiligencia = 'Selecciona el tipo de diligencia.';
 		} else {
-			// Costo de la diligencia siempre obligatorio
-			const costo = (d.dilCostoDiligencia ?? '').trim();
-			if (!costo) {
-				errores.dilCostoDiligencia = 'El costo de la diligencia es obligatorio.';
-			} else if (Number(costo) < 0) {
-				errores.dilCostoDiligencia = 'El costo no puede ser negativo.';
+		// Validar dilValorFactura como numérico >= 0 para pago/banco.
+		if (td === 'pago' || td === 'banco') {
+			const vf = (d.dilValorFactura ?? '').trim();
+			if (!vf) {
+				errores.dilValorFactura = td === 'pago' ? 'El valor de la factura es obligatorio.' : 'El valor a pagar es obligatorio.';
+			} else if (Number(vf) < 0) {
+				errores.dilValorFactura = 'El valor no puede ser negativo.';
 			}
+		}
 
 			if (td === 'pago') {
 				// Pago de factura o servicio
 				if (!(d.dilDescripcion ?? '').trim()) {
 					errores.dilDescripcion = 'La descripción del pago es obligatoria.';
-				}
-				if (!(d.dilValorFactura ?? '').trim()) {
-					errores.dilValorFactura = 'El valor de la factura es obligatorio.';
 				}
 			} else if (td === 'banco') {
 				// Pago bancario o corresponsal
@@ -183,9 +181,6 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 				}
 				if (!(d.dilDescripcion ?? '').trim()) {
 					errores.dilDescripcion = 'La descripción del pago es obligatoria.';
-				}
-				if (!(d.dilValorFactura ?? '').trim()) {
-					errores.dilValorFactura = 'El valor a pagar es obligatorio.';
 				}
 			} else if (td === 'compra') {
 				// Compra de productos

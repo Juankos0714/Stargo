@@ -15,6 +15,7 @@
 	} from '$lib/types';
 	import { calcularRecargos } from '$lib/logic/recargos';
 	import { validarPedido, type TipoDiligencia } from '$lib/logic/validacion';
+	import { calcularBaseSugerida } from '$lib/logic/base-necesaria';
 	import { page } from '$app/state';
 	import type { HorarioHoy } from '$lib/types';
 	import { apiFetch } from '$lib/api';
@@ -87,7 +88,6 @@
 	// --- Campos específicos por tipo de diligencia ---
 	let dilDescripcion = $state('');
 	let dilValorFactura = $state('');
-	let dilCostoDiligencia = $state('');
 	let dilEntidad = $state('');
 	let dilProductos = $state('');
 	let dilCantidad = $state('');
@@ -214,6 +214,12 @@
 	// ella (compra/diligencia solo con destino) va solo el total de recargos.
 	const totalEstimado = $derived(precioDisponible ? (precio?.valor ?? 0) + recargoTotal : recargoTotal);
 	const tieneRutaCompleta = $derived(Boolean(origen && destino));
+	// valor_mandado: dinero del cliente que el domiciliario adelanta (solo pago/banco).
+	const valorMandadoNum = $derived(
+		(tipoDiligencia === 'pago' || tipoDiligencia === 'banco') && dilValorFactura.trim()
+			? Number(dilValorFactura.trim()) || 0
+			: 0
+	);
 
 	// El botón se habilita con la tarifa disponible (domicilio) o con destino y
 	// decisión de recargos (compra/diligencia); la validación de campos se
@@ -240,8 +246,7 @@
 			tipoDiligencia: tipoDiligencia as TipoDiligencia,
 			dilDescripcion,
 			dilValorFactura,
-			dilCostoDiligencia,
-			dilEntidad,
+				dilEntidad,
 			dilProductos,
 			dilCantidad,
 			dilPresupuesto,
@@ -282,7 +287,6 @@
 		necesitaRecoger = null;
 		dilDescripcion = '';
 		dilValorFactura = '';
-		dilCostoDiligencia = '';
 		dilEntidad = '';
 		dilProductos = '';
 		dilCantidad = '';
@@ -328,7 +332,6 @@
 		if (dilDescripcion.trim()) parts.push(`Descripción: ${dilDescripcion.trim()}`);
 		if (dilEntidad.trim()) parts.push(`Entidad: ${dilEntidad.trim()}`);
 		if (dilValorFactura.trim()) parts.push(`Valor a pagar: $${dilValorFactura.trim()}`);
-		if (dilCostoDiligencia.trim()) parts.push(`Costo diligencia: $${dilCostoDiligencia.trim()}`);
 		if (dilProductos.trim()) parts.push(`Productos: ${dilProductos.trim()}`);
 		if (dilCantidad.trim()) parts.push(`Cantidad: ${dilCantidad.trim()}`);
 		if (dilPresupuesto.trim()) parts.push(`Presupuesto: $${dilPresupuesto.trim()}`);
@@ -369,6 +372,10 @@
 		confirmando = true;
 		error = null;
 		const obs = empaquetarObservaciones();
+		// valor_mandado: solo para pago/banco cuando hay valor de factura.
+		const valorMandado = (tipoDiligencia === 'pago' || tipoDiligencia === 'banco') && dilValorFactura.trim()
+			? Math.round(Number(dilValorFactura.trim()))
+			: undefined;
 		const r = await api.post<typeof creado>('/api/pedidos', {
 			barrio_origen: origen,
 			direccion_origen: dirOrigen,
@@ -380,7 +387,8 @@
 			recargos_confirmados_no_aplica: recargosConfirmadosNoAplica,
 			nombre_cliente: nombreCliente.trim() || undefined,
 			telefono: telefono.trim(),
-			base_necesaria: baseNecesaria.trim() ? Number(baseNecesaria.trim()) : undefined
+			base_necesaria: baseNecesaria.trim() ? Number(baseNecesaria.trim()) : undefined,
+			valor_mandado: valorMandado
 	});
 		confirmando = false;
 		if (r.error) {
@@ -628,8 +636,8 @@
 										<p class="mt-2 text-xs text-red-600">{errores.tipoDiligencia}</p>
 									{/if}
 
-									<!-- Pregunta de recogida: solo para tipos que pueden requerir recogida previa -->
-								{#if tipoDiligencia === 'compra' || tipoDiligencia === 'tramite' || tipoDiligencia === 'otro'}
+									<!-- Pregunta de recogida: aplica para todos los tipos de diligencia -->
+								{#if tipoDiligencia}
 									<fieldset class="mt-4">
 										<legend class="text-sm font-semibold text-slate-800">¿Se debe recoger algo o a alguien antes?</legend>
 										<div class="mt-2 flex gap-2">
@@ -696,24 +704,7 @@
 														bind:value={dilValorFactura}
 														placeholder="Ej: 85000"
 														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
-														/>
-														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}
-													</div>
-												</div>
-												<div>
-												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
-												<div class="relative">
-													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-													<input
-														id="dil-costo"
-														type="number"
-														min="0"
-														step="500"
-														bind:value={dilCostoDiligencia}
-														placeholder="Ej: 5000"
-														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilCostoDiligencia ? 'border-red-400' : ''}"
-													/>
-														{#if errores.dilCostoDiligencia}<p class="mt-1 text-xs text-red-600">{errores.dilCostoDiligencia}</p>{/if}
+														/>														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}
 													</div>
 												</div>
 											</div>
@@ -757,24 +748,7 @@
 															placeholder="Ej: 150000"
 															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
 														/>
-														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}
-													</div>						</div>
-					<div>
-												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
-												<div class="relative">
-													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-													<input
-														id="dil-costo"
-														type="number"
-														min="0"
-														step="500"
-														bind:value={dilCostoDiligencia}
-														placeholder="Ej: 12000"
-														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilCostoDiligencia ? 'border-red-400' : ''}"
-													/>
-														{#if errores.dilCostoDiligencia}<p class="mt-1 text-xs text-red-600">{errores.dilCostoDiligencia}</p>{/if}
-													</div>
-											</div>
+														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}														</div>						</div>
 											</div>
 										</div>
 
@@ -816,22 +790,6 @@
 															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
 														/>
 													</div>						</div>
-					<div>
-												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
-												<div class="relative">
-													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-													<input
-														id="dil-costo"
-														type="number"
-														min="0"
-														step="500"
-														bind:value={dilCostoDiligencia}
-														placeholder="Ej: 8000"
-														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilCostoDiligencia ? 'border-red-400' : ''}"
-													/>
-														{#if errores.dilCostoDiligencia}<p class="mt-1 text-xs text-red-600">{errores.dilCostoDiligencia}</p>{/if}
-													</div>
-												</div>
 											</div>
 										</div>
 
@@ -871,22 +829,6 @@
 														placeholder="Ej: Alcaldía, notaría, etc."
 														class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
 													/>						</div>
-					<div>
-												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
-												<div class="relative">
-													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-													<input
-														id="dil-costo"
-														type="number"
-														min="0"
-														step="500"
-														bind:value={dilCostoDiligencia}
-														placeholder="Ej: 10000"
-														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilCostoDiligencia ? 'border-red-400' : ''}"
-													/>
-														{#if errores.dilCostoDiligencia}<p class="mt-1 text-xs text-red-600">{errores.dilCostoDiligencia}</p>{/if}
-													</div>
-											</div>
 											</div>
 										</div>
 
@@ -912,24 +854,7 @@
 													rows="2"
 													maxlength="500"
 													placeholder="Detalles extra, horarios, referencias, etc."
-													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
-												></textarea>						</div>
-					<div>
-												<label for="dil-costo" class="mb-1.5 block text-sm font-semibold text-slate-700">Costo de la diligencia <span class="text-amber-600">(obligatorio)</span></label>
-												<div class="relative">
-													<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-													<input
-														id="dil-costo"
-														type="number"
-														min="0"
-														step="500"
-														bind:value={dilCostoDiligencia}
-														placeholder="Ej: 7000"
-														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilCostoDiligencia ? 'border-red-400' : ''}"
-													/>
-														{#if errores.dilCostoDiligencia}<p class="mt-1 text-xs text-red-600">{errores.dilCostoDiligencia}</p>{/if}
-													</div>
-											</div>
+													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"													></textarea>						</div>
 										</div>
 										{/if}
 								</div>
@@ -1214,14 +1139,17 @@
 									/>
 								</div>
 								<div class="flex items-end">
-									{#if !baseNecesaria.trim() && totalEstimado > 0}
-										<button
-											type="button"
-											onclick={() => { baseNecesaria = String(totalEstimado); }}
-											class="rounded-xl border border-primary/30 bg-primary-light px-4 py-2.5 text-sm font-semibold text-primary-dark transition hover:bg-primary/20"
-										>
-											Usar total estimado ({formatearPeso(totalEstimado)})
-										</button>
+							{#if !baseNecesaria.trim()}
+								{@const baseSugerida = calcularBaseSugerida({ valorMandado: valorMandadoNum, recargoTotal, tarifaServicio: precioDisponible ? (precio?.valor ?? 0) : 0 })}
+								{#if baseSugerida > 0}
+									<button
+										type="button"
+										onclick={() => { baseNecesaria = String(baseSugerida); }}
+												class="rounded-xl border border-primary/30 bg-primary-light px-4 py-2.5 text-sm font-semibold text-primary-dark transition hover:bg-primary/20"
+											>
+												Usar total ({formatearPeso(baseSugerida)})
+											</button>
+										{/if}
 									{/if}
 								</div>
 							</div>
@@ -1267,7 +1195,7 @@
 							{/if}
 						</div>
 
-						{#if precioDisponible || recargosAplicados.length > 0}
+						{#if precioDisponible || recargosAplicados.length > 0 || valorMandadoNum > 0}
 							<div class="mt-4 space-y-1.5 rounded-xl bg-white p-4 text-sm shadow-sm">
 								{#if precioDisponible}
 									<p class="flex justify-between text-slate-600">
@@ -1282,9 +1210,16 @@
 									</p>
 								{/each}
 								<p class="flex justify-between border-t border-slate-200 pt-1.5 font-bold text-slate-900">
-									<span>Total estimado</span>
+									<span>{tipoServicio === 'compra_diligencia' ? 'Costo del servicio' : 'Total estimado'}</span>
 									<span>{formatearPeso(totalEstimado)}</span>
 								</p>
+								{#if valorMandadoNum > 0}
+									<div class="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+										<p class="text-xs font-semibold text-blue-700">Dinero a entregar / adelantar</p>
+										<p class="mt-0.5 text-lg font-bold text-blue-900">{formatearPeso(valorMandadoNum)}</p>
+										<p class="text-[11px] text-blue-600">Este valor NO es ingreso de StarGo: es dinero del cliente que el domiciliario entrega o consigna.</p>
+									</div>
+								{/if}
 							</div>
 						{/if}
 
