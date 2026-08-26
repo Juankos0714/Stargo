@@ -91,12 +91,17 @@ export interface DatosPedido {
 export function validarPedido(d: DatosPedido): Record<string, string> {
 	const errores: Record<string, string> = {};
 	const tipoServicio = d.tipoServicio === 'compra_diligencia' ? 'compra_diligencia' : 'domicilio';
+	const requiereOrigen = tipoServicio === 'domicilio' || d.necesitaRecoger === true;
 
-	if (!d.barrioOrigen) errores.origen = 'Selecciona el barrio de origen.';
+	if (requiereOrigen && !d.barrioOrigen) errores.origen = 'Selecciona el barrio de origen.';
 	if (!d.barrioDestino) errores.destino = 'Selecciona el barrio de destino.';
 
-	if (!d.direccionOrigen.trim()) errores.dirOrigen = 'La dirección de origen es obligatoria.';
-	else if (d.direccionOrigen.length > LIMITES.direccion) {
+	if (requiereOrigen) {
+		if (!d.direccionOrigen.trim()) errores.dirOrigen = 'La dirección de origen es obligatoria.';
+		else if (d.direccionOrigen.length > LIMITES.direccion) {
+			errores.dirOrigen = `Máximo ${LIMITES.direccion} caracteres.`;
+		}
+	} else if (d.direccionOrigen.length > LIMITES.direccion) {
 		errores.dirOrigen = `Máximo ${LIMITES.direccion} caracteres.`;
 	}
 

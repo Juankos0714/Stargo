@@ -82,18 +82,25 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 	}
 
-	// Todos los servicios requieren origen y destino completos.
+	// Domicilio requiere origen completo. En compra/diligencia sin recogida,
+	// el destino funciona como origen interno de la cotización.
 	if (!barrioDestino) {
 		return json({ error: 'Falta el barrio de destino.' }, { status: 400 });
 	}
 	if (!direccionDestino) {
 		return json({ error: 'La dirección de destino es obligatoria.' }, { status: 400 });
 	}
-	if (!barrioOrigen) {
-		return json({ error: 'Falta el barrio de origen.' }, { status: 400 });
-	}
-	if (!direccionOrigen) {
-		return json({ error: 'La dirección de origen es obligatoria.' }, { status: 400 });
+	if (tipoServicio === 'domicilio') {
+		if (!barrioOrigen) {
+			return json({ error: 'Falta el barrio de origen.' }, { status: 400 });
+		}
+		if (!direccionOrigen) {
+			return json({ error: 'La dirección de origen es obligatoria.' }, { status: 400 });
+		}
+	} else if (barrioOrigen || direccionOrigen) {
+		// Si se declaró una recogida aparte, sus dos datos son obligatorios.
+		if (!barrioOrigen) return json({ error: 'Falta el barrio de recogida.' }, { status: 400 });
+		if (!direccionOrigen) return json({ error: 'La dirección de recogida es obligatoria.' }, { status: 400 });
 	}
 	if (direccionOrigen.length > 300 || direccionDestino.length > 300) {
 		return json({ error: 'Las direcciones son demasiado largas (máx. 300 caracteres).' }, { status: 400 });

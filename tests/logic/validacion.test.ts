@@ -119,7 +119,7 @@ describe('validarPedido (formulario de pedido)', () => {
 });
 
 describe('validarPedido — compra/diligencia (Fase 14)', () => {
-	test('compra/diligencia exige origen y dirección de origen', () => {
+	test('compra/diligencia sin origen y sin dirección de origen es válido (solo destino)', () => {
 		const e = validarPedido({
 			...pedidoValido,
 			tipoServicio: 'compra_diligencia',
@@ -130,8 +130,7 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 			direccionOrigen: '',
 			recargosConfirmadosNoAplica: true
 		});
-		expect(e.origen).toBe('Selecciona el barrio de origen.');
-		expect(e.dirOrigen).toBe('La dirección de origen es obligatoria.');
+		expect(e).toEqual({});
 	});
 
 	test('compra/diligencia con origen también es válido (diligencia con recogida)', () => {
@@ -162,8 +161,8 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 		});
 		expect(e.destino).toBe('Selecciona el barrio de destino.');
 		expect(e.dirDestino).toBe('La dirección de destino es obligatoria.');
-		expect(e.origen).toBe('Selecciona el barrio de origen.');
-		expect(e.dirOrigen).toBe('La dirección de origen es obligatoria.');
+		expect(e.origen).toBeUndefined();
+		expect(e.dirOrigen).toBeUndefined();
 	});
 
 	test('domicilio normal sigue exigiendo origen y dirección de origen', () => {

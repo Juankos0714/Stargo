@@ -44,8 +44,8 @@ describe('validarTelefono — casos borde', () => {
 	});
 });
 
-describe('validarPedido — origen obligatorio', () => {
-	test('compra_diligencia sin origen informa el error', () => {
+describe('validarPedido — compra/diligencia sin origen', () => {
+	test('compra_diligencia solo con destino es válido (origen opcional)', () => {
 		const errores = validarPedido({
 			barrioOrigen: null,
 			barrioDestino: 'barrio-destino',
@@ -57,9 +57,25 @@ describe('validarPedido — origen obligatorio', () => {
 			recargosConfirmadosNoAplica: true,
 			telefono: '3001234567'
 		});
+		expect(errores.origen).toBeUndefined();
+		expect(errores.destino).toBeUndefined();
+	});
+
+	test('si hay recogida, exige barrio y dirección de recogida', () => {
+		const errores = validarPedido({
+			barrioOrigen: null,
+			barrioDestino: 'barrio-destino',
+			direccionOrigen: '',
+			direccionDestino: 'Carrera 19 # 20-30',
+			observaciones: '',
+			recargos: [],
+			tipoServicio: 'compra_diligencia',
+			necesitaRecoger: true,
+			recargosConfirmadosNoAplica: true,
+			telefono: '3001234567'
+		});
 		expect(errores.origen).toBe('Selecciona el barrio de origen.');
 		expect(errores.dirOrigen).toBe('La dirección de origen es obligatoria.');
-		expect(errores.destino).toBeUndefined();
 	});
 
 	test('domicilio sin origen es un error', () => {

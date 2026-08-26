@@ -167,10 +167,10 @@
 	} | null>(null);
 
 	// En compra/diligencia el origen se pide solo si se debe recoger algo antes.
-	// Todo pedido debe tener origen y destino con dirección para que el
-	// domiciliario pueda ejecutar el servicio sin información incompleta.
-	const mostrarOrigen = $derived(true);
-	const origenRequerido = $derived(true);
+	// En compra/diligencia el origen solo existe cuando hay una recogida aparte.
+	// Sin recogida, la cotización usa el destino como origen interno.
+	const mostrarOrigen = $derived(tipoServicio === 'domicilio' || necesitaRecoger === true);
+	const origenRequerido = $derived(tipoServicio === 'domicilio' || necesitaRecoger === true);
 
 	// Decisión explícita de recargos: elegir alguno o marcar «No aplica».
 
@@ -316,6 +316,7 @@
 			recargosConfirmadosNoAplica,
 			telefono,
 			nombreCliente,
+			necesitaRecoger,
 			tipoDiligencia: tipoDiligencia as TipoDiligencia,
 			dilDescripcion,
 			dilValorFactura,
@@ -335,13 +336,14 @@
 	}
 
 	async function calcular() {
-		if (!origen || !destino) return;
+		if (!destino) return;
+		if (tipoServicio === 'domicilio' && !origen) return;
 		const id = ++calcId;
 		calculando = true;
 
 		// Construir payload según el tipo de servicio.
 		const payload: Record<string, unknown> = {
-			barrio_origen: origen,
+			barrio_origen: tipoServicio === 'compra_diligencia' ? (origen ?? destino) : origen,
 			barrio_destino: destino
 		};
 
@@ -660,8 +662,8 @@
 			// En compra/diligencia: la API calcula todo (tarifa + recargos escalonados).
 			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 			tipoDiligencia; pesoKg; dilValorFactura; transferencia; transferenciaMonto; recargosSelFiltrados;
-			origen; destino;
-			if (origen && destino) calcular();
+			destino;
+			if (destino) calcular();
 		}
 	});
 
