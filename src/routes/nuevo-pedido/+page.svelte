@@ -3,7 +3,7 @@
 	import SearchSelect, { type SearchItem } from '$lib/components/SearchSelect.svelte';
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
-	import { Check, TriangleAlert, CircleCheck, Clock, Truck, ShoppingCart, CreditCard, Landmark, FileText, HelpCircle } from 'lucide';
+	import { Check, TriangleAlert, CircleCheck, Clock, Truck, ShoppingCart, CreditCard, Landmark, FileText } from 'lucide';
 	import Logo from '$lib/components/Logo.svelte';
 	import {
 		etiquetaTipoRecargo,
@@ -68,16 +68,16 @@
 		},
 		{
 			valor: 'pago',
-			label: 'Pago de factura o servicio',
-			desc: 'Pagar un recibo o servicio en un punto de pago.',
+			label: 'Pago en corresponsal',
+			desc: 'Pagar un recibo o servicio en un corresponsal.',
 			icon: CreditCard,
 			tipoServicio: 'compra_diligencia' as TipoServicio,
 			tipoDiligencia: 'pago'
 		},
 		{
 			valor: 'banco',
-			label: 'Pago bancario o corresponsal',
-			desc: 'Consignar o pagar en el banco o corresponsal.',
+			label: 'Pago bancario',
+			desc: 'Consignar o pagar directamente en un banco.',
 			icon: Landmark,
 			tipoServicio: 'compra_diligencia' as TipoServicio,
 			tipoDiligencia: 'banco'
@@ -98,14 +98,6 @@
 			tipoServicio: 'compra_diligencia' as TipoServicio,
 			tipoDiligencia: 'tramite'
 		},
-		{
-			valor: 'otro',
-			label: 'Otra diligencia',
-			desc: 'Cualquier otro encargo.',
-			icon: HelpCircle,
-			tipoServicio: 'compra_diligencia' as TipoServicio,
-			tipoDiligencia: 'otro'
-		}
 	];
 	let tipoDiligencia = $state('');
 	let necesitaRecoger = $state<boolean | null>(null);
@@ -175,8 +167,10 @@
 	} | null>(null);
 
 	// En compra/diligencia el origen se pide solo si se debe recoger algo antes.
-	const mostrarOrigen = $derived(tipoServicio === 'domicilio' || necesitaRecoger === true);
-	const origenRequerido = $derived(tipoServicio === 'domicilio' || necesitaRecoger === true);
+	// Todo pedido debe tener origen y destino con dirección para que el
+	// domiciliario pueda ejecutar el servicio sin información incompleta.
+	const mostrarOrigen = $derived(true);
+	const origenRequerido = $derived(true);
 
 	// Decisión explícita de recargos: elegir alguno o marcar «No aplica».
 
@@ -341,17 +335,13 @@
 	}
 
 	async function calcular() {
-		// En compra/diligencia solo se necesita destino (origen es opcional).
-		if (!destino) return;
-		if (tipoServicio === 'domicilio' && !origen) return;
+		if (!origen || !destino) return;
 		const id = ++calcId;
 		calculando = true;
 
 		// Construir payload según el tipo de servicio.
-		// Para compra/diligencia sin origen, usar el destino como origen
-		// (el domiciliario parte del destino o zona cercana).
 		const payload: Record<string, unknown> = {
-			barrio_origen: tipoServicio === 'compra_diligencia' ? (origen ?? destino) : origen,
+			barrio_origen: origen,
 			barrio_destino: destino
 		};
 
@@ -519,6 +509,20 @@
 		const opcion = TIPOS_SERVICIO_OPCIONES.find((o) => o.valor === valor);
 		if (!opcion) return;
 
+		// Cambiar la necesidad inicia un pedido nuevo: ningún dato del servicio
+		// anterior puede filtrarse al siguiente.
+		limpiarCamposDiligencia();
+		origen = null;
+		destino = null;
+		dirOrigen = '';
+		dirDestino = '';
+		observaciones = '';
+		recargosSel = [];
+		recargosConfirmadosNoAplica = false;
+		nombreCliente = '';
+		telefono = '';
+		baseNecesaria = '';
+
 		tipoServicio = opcion.tipoServicio;
 		tipoDiligencia = opcion.tipoDiligencia;
 
@@ -529,32 +533,6 @@
 		calcSnapshot = '';
 		calcResultado = null;
 
-		// Si es domicilio, limpiar campos de diligencia.
-		if (tipoServicio === 'domicilio') {
-			limpiarCamposDiligencia();
-		}
-		// Si es compra/diligencia sin origen, limpiar origen.
-		if (tipoServicio === 'compra_diligencia' && !mostrarOrigen) {
-			origen = null;
-				dirOrigen = '';
-			}
-
-		// Limpiar recargos que ya no aplican.
-		if (tipoServicio === 'domicilio') {
-			const codigosCompra = new Set(
-				recargosActivos.filter((r) => r.tipo === 'compra').map((r) => r.codigo)
-			);
-			recargosSel = recargosSel.filter((c) => !codigosCompra.has(c));
-		} else {
-			const matriz = MATRIZ_RECARGOS[tipoDiligencia ?? ''];
-			if (matriz) {
-				const ocultos = new Set(matriz.ocultos);
-				recargosSel = recargosSel.filter((c) => {
-					const rec = recargosActivos.find((r) => r.codigo === c);
-					return rec && !ocultos.has(rec.tipo);
-				});
-			}
-		}
 		errores = {};
 	}
 
@@ -682,7 +660,8 @@
 			// En compra/diligencia: la API calcula todo (tarifa + recargos escalonados).
 			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 			tipoDiligencia; pesoKg; dilValorFactura; transferencia; transferenciaMonto; recargosSelFiltrados;
-			if (destino) calcular();
+			origen; destino;
+			if (origen && destino) calcular();
 		}
 	});
 

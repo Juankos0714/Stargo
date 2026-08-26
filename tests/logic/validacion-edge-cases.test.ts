@@ -44,8 +44,8 @@ describe('validarTelefono — casos borde', () => {
 	});
 });
 
-describe('validarPedido — compra/diligencia sin origen', () => {
-	test('compra_diligencia solo con destino es válido (origen opcional)', () => {
+describe('validarPedido — origen obligatorio', () => {
+	test('compra_diligencia sin origen informa el error', () => {
 		const errores = validarPedido({
 			barrioOrigen: null,
 			barrioDestino: 'barrio-destino',
@@ -57,7 +57,8 @@ describe('validarPedido — compra/diligencia sin origen', () => {
 			recargosConfirmadosNoAplica: true,
 			telefono: '3001234567'
 		});
-		expect(errores.origen).toBeUndefined();
+		expect(errores.origen).toBe('Selecciona el barrio de origen.');
+		expect(errores.dirOrigen).toBe('La dirección de origen es obligatoria.');
 		expect(errores.destino).toBeUndefined();
 	});
 
