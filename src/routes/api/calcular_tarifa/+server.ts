@@ -27,7 +27,43 @@ export const POST: RequestHandler = async ({ request }) => {
 	// con recargoPeso() y recargoTransferencia() (valores escalonados).
 	if (!tipoDiligencia || tipoDiligencia === 'domicilio') {
 		const resultado = await calcularTarifa(barrioOrigen, barrioDestino);
-		return json({ data: resultado.valor, meta: resultado.meta });
+		// El cliente solo comunica los códigos seleccionados. El valor vigente se
+		// obtiene siempre del catálogo activo en BD, nunca del navegador.
+		const codigosRecargos = Array.isArray(body?.recargos)
+			? body.recargos
+					.map((recargo: unknown) =>
+						typeof recargo === 'object' && recargo !== null
+							? String((recargo as { id?: unknown }).id ?? '').trim()
+							: ''
+					)
+					.filter(Boolean)
+			: [];
+		const codigosUnicos = [...new Set(codigosRecargos)].slice(0, 15);
+		let recargos: { codigo: string; nombre: string; valor: number }[] = [];
+		if (codigosUnicos.length > 0) {
+			const supabase = (await import('$lib/server/supabase')).getSupabaseAnon();
+			const { data: catalogo, error } = await supabase
+				.from('recargos')
+				.select('codigo, nombre, valor')
+				.in('codigo', codigosUnicos)
+				.eq('activo', true);
+			if (error) return json({ error: 'No se pudieron consultar los recargos.' }, { status: 500 });
+			const porCodigo = new Map((catalogo ?? []).map((recargo) => [recargo.codigo, recargo]));
+			recargos = codigosUnicos.flatMap((codigo) => {
+				const recargo = porCodigo.get(codigo);
+				return recargo && Number.isFinite(recargo.valor)
+					? [{ codigo: recargo.codigo, nombre: recargo.nombre, valor: recargo.valor }]
+					: [];
+			});
+		}
+		return json({
+			data: resultado.valor,
+			meta: {
+				...resultado.meta,
+				recargos,
+				recargo_total: recargos.reduce((total, recargo) => total + recargo.valor, 0)
+			}
+		});
 	}
 
 	// ===== Pago bancario / corresponsal: precio PLANO, sin resolver sectores =====

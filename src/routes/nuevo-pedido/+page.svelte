@@ -271,8 +271,22 @@
 			: recargosSelFiltrados;
 	});
 	const calculoRecargos = $derived(calcularRecargos(recargosDisponibles, recargosTiempoReal));
-	// Los valores de recargos vienen directamente de la BD (ya escalonados).
-	const recargosAplicados = calculoRecargos.aplicados;
+	// Para domicilio, el desglose que devuelve el servidor usa los valores
+	// vigentes de la BD. Mientras llega, se conserva el cálculo local como vista
+	// previa para no dejar el formulario sin respuesta.
+	const recargosAplicados = $derived.by(() => {
+		const remotos = precio?.meta?.recargos;
+		if (Array.isArray(remotos)) {
+			return remotos.filter((recargo): recargo is { codigo: string; nombre: string; valor: number } =>
+				typeof recargo === 'object' &&
+				recargo !== null &&
+				typeof (recargo as { codigo?: unknown }).codigo === 'string' &&
+				typeof (recargo as { nombre?: unknown }).nombre === 'string' &&
+				typeof (recargo as { valor?: unknown }).valor === 'number'
+			);
+		}
+		return calculoRecargos.aplicados;
+	});
 	const recargoTotal = $derived(recargosAplicados.reduce((s, r) => s + r.valor, 0));
 	const precioDisponible = $derived(precio?.meta?.disponible === true && precio?.valor != null);
 	// Con ruta completa (origen+destino) el estimado incluye la tarifa; sin
@@ -662,7 +676,7 @@
 		// Solo necesitamos llamar la API cuando cambian los barrios.
 		if (tipoServicio === 'domicilio') {
 			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-			origen; destino;
+			origen; destino; pesoKg; transferencia; transferenciaMonto; recargosSelFiltrados;
 			if (origen && destino) calcular();
 		} else {
 			// En compra/diligencia: la API calcula todo (tarifa + recargos escalonados).
