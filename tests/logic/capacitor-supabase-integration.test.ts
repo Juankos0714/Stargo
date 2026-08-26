@@ -186,20 +186,26 @@ describe('Login → CapacitorHttp → Supabase', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('Hidratación de sesión — tokens ↔ Supabase', () => {
-	test('Capacitor: lee tokens de localStorage → setSession', async () => {
+	test('Capacitor: llama /api/sesion, sync tokens, y pasa a setSession', async () => {
 		nativePlatformRef.value = true;
 		storeSession('cap-at-123', 'cap-rt-456');
+		capOk({ data: { access_token: 'fresh-at', refresh_token: 'fresh-rt' } });
 
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
 		expect(await hidratarSesionRealtime()).toBe(true);
 
+		expect(mockCapHttpFn).toHaveBeenCalledWith(
+			expect.objectContaining({ url: expect.stringContaining('/api/sesion') })
+		);
 		expect(mockSetSessionFn).toHaveBeenCalledWith({
-			access_token: 'cap-at-123', refresh_token: 'cap-rt-456'
+			access_token: 'fresh-at', refresh_token: 'fresh-rt'
 		});
 	});
 
-	test('Capacitor: sin tokens → falla', async () => {
+	test('Capacitor: /api/sesion sin tokens → falla', async () => {
 		nativePlatformRef.value = true;
+		capOk({ data: null });
+
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
 		expect(await hidratarSesionRealtime()).toBe(false);
 		expect(mockSetSessionFn).not.toHaveBeenCalled();
@@ -208,6 +214,7 @@ describe('Hidratación de sesión — tokens ↔ Supabase', () => {
 	test('Capacitor: setSession error → falla', async () => {
 		nativePlatformRef.value = true;
 		storeSession('expired', 'expired-rt');
+		capOk({ data: { access_token: 'expired', refresh_token: 'expired-rt' } });
 		mockSetSessionFn.mockResolvedValueOnce({ error: { message: 'JWT expired' } });
 
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
@@ -242,11 +249,12 @@ describe('Hidratación de sesión — tokens ↔ Supabase', () => {
 	test('Flujo completo: login → hidratar → autenticado', async () => {
 		nativePlatformRef.value = true;
 		storeSession('complete-at', 'complete-rt');
+		capOk({ data: { access_token: 'fresh-complete-at', refresh_token: 'fresh-complete-rt' } });
 
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
 		expect(await hidratarSesionRealtime()).toBe(true);
 		expect(mockSetSessionFn).toHaveBeenCalledWith({
-			access_token: 'complete-at', refresh_token: 'complete-rt'
+			access_token: 'fresh-complete-at', refresh_token: 'fresh-complete-rt'
 		});
 	});
 });
@@ -666,11 +674,12 @@ describe('Flujo completo — Login → Sesión → Realtime → Logout', () => {
 		// 1. Login
 		storeSession('admin-at', 'admin-rt');
 
-		// 2. Hidratar
+		// 2. Hidratar — capOk responde con tokens para /api/sesion
+		capOk({ data: { access_token: 'fresh-admin-at', refresh_token: 'fresh-admin-rt' } });
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
 		expect(await hidratarSesionRealtime()).toBe(true);
 		expect(mockSetSessionFn).toHaveBeenCalledWith({
-			access_token: 'admin-at', refresh_token: 'admin-rt'
+			access_token: 'fresh-admin-at', refresh_token: 'fresh-admin-rt'
 		});
 
 		// 3. Polling
@@ -684,9 +693,11 @@ describe('Flujo completo — Login → Sesión → Realtime → Logout', () => {
 		);
 
 		// 4. Cleanup
+		const callsAfterPolling = mockCapHttpFn.mock.calls.length;
 		limpiar();
 		await vi.advanceTimersByTimeAsync(15_000);
-		expect(mockCapHttpFn).toHaveBeenCalledTimes(1);
+		// After cleanup, no new calls should be made
+		expect(mockCapHttpFn.mock.calls.length).toBe(callsAfterPolling);
 
 		// 5. Logout
 		clearSession();
@@ -697,8 +708,7 @@ describe('Flujo completo — Login → Sesión → Realtime → Logout', () => {
 	test('token expirado: hidratar falla → Realtime sin autenticar', async () => {
 		nativePlatformRef.value = true;
 		storeSession('exp-at', 'exp-rt');
-
-		mockSetSessionFn.mockResolvedValueOnce({ error: { message: 'JWT expired' } });
+		capOk({ data: null });
 
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
 		expect(await hidratarSesionRealtime()).toBe(false);

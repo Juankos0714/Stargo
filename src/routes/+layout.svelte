@@ -7,6 +7,8 @@
 	import BotonInstalar from '$lib/components/BotonInstalar.svelte';
 	import { registrarSonidoSW } from '$lib/sonido';
 	import { base as basePath } from '$app/paths';
+	import { esCapacitor } from '$lib/capacitor-auth';
+	import { iniciarRefreshSesion, detenerRefreshSesion } from '$lib/capacitor-session-refresh';
 
 	let { children } = $props();
 
@@ -23,6 +25,16 @@
 			// No bloquea la app; solo ayuda a diagnosticar si no aparece el prompt de instalación.
 			console.warn('[PWA] Service worker no registrado:', err);
 		});
+	});
+
+	// En Capacitor, iniciar el refresh periódico de tokens de sesión.
+	// Escucha 'resume' de @capacitor/app y periodicamente llama a
+	// /api/sesion para que el servidor refresque tokens expirados y
+	// re-sincronice localStorage con el par válido.
+	$effect(() => {
+		if (!esCapacitor()) return;
+		iniciarRefreshSesion();
+		return () => detenerRefreshSesion();
 	});
 
 	// OG/Twitter necesitan URL absoluta: usa PUBLIC_APP_URL si está definida

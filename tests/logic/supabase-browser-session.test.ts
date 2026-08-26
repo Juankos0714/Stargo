@@ -53,7 +53,10 @@ vi.mock('@capacitor/core', () => ({
 
 vi.mock('$lib/capacitor-auth', () => ({
 	esCapacitor: () => nativePlatformRef.value,
-	getStoredSession: () => storedSessionRef.value
+	getStoredSession: () => storedSessionRef.value,
+	storeSession: (at: string, rt: string) => {
+		storedSessionRef.value = { accessToken: at, refreshToken: rt };
+	}
 }));
 
 vi.mock('$lib/api', () => ({
@@ -117,43 +120,56 @@ describe('supabaseBrowser — configuración del cliente', () => {
 
 // ── hidratarSesionRealtime — Capacitor ───────────────────────────────────────
 
-describe('hidratarSesionRealtime — Capacitor (tokens de localStorage)', () => {
+describe('hidratarSesionRealtime — Capacitor (llama /api/sesion y sincroniza tokens)', () => {
 	beforeEach(() => {
 		nativePlatformRef.value = true;
 	});
 
-	test('éxito: lee tokens de localStorage y los pasa a setSession', async () => {
+	test('éxito: llama /api/sesion, guarda tokens en localStorage y pasa a setSession', async () => {
 		storedSessionRef.value = {
 			accessToken: 'jwt-cap-access-token',
 			refreshToken: 'jwt-cap-refresh-token'
 		};
+		mockApiFetchFn.mockResolvedValue({
+			ok: true,
+			json: async () => ({
+				data: {
+					access_token: 'fresh-cap-access',
+					refresh_token: 'fresh-cap-refresh'
+				}
+			})
+		});
 		mockSetSessionFn.mockResolvedValue({ error: null });
 
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
 		const result = await hidratarSesionRealtime();
 
 		expect(result).toBe(true);
-		expect(mockSetSessionFn).toHaveBeenCalledWith({
-			access_token: 'jwt-cap-access-token',
-			refresh_token: 'jwt-cap-refresh-token'
+		// Debe llamar a /api/sesion en Capacitor (ya no lee localStorage directamente)
+		expect(mockApiFetchFn).toHaveBeenCalledWith('/api/sesion', {
+			headers: { Accept: 'application/json' }
 		});
-		// En Capacitor NO debe llamar a apiFetch
-		expect(mockApiFetchFn).not.toHaveBeenCalled();
+		expect(mockSetSessionFn).toHaveBeenCalledWith({
+			access_token: 'fresh-cap-access',
+			refresh_token: 'fresh-cap-refresh'
+		});
 	});
 
-	test('fallo: no hay tokens en localStorage', async () => {
-		storedSessionRef.value = null;
+	test('fallo: /api/sesion retorna no-OK', async () => {
+		mockApiFetchFn.mockResolvedValue({ ok: false, status: 401 });
 
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
 		const result = await hidratarSesionRealtime();
 
 		expect(result).toBe(false);
 		expect(mockSetSessionFn).not.toHaveBeenCalled();
-		expect(mockApiFetchFn).not.toHaveBeenCalled();
 	});
 
-	test('fallo: solo falta accessToken', async () => {
-		storedSessionRef.value = { accessToken: '', refreshToken: 'rt' };
+	test('fallo: /api/sesion retorna sin access_token', async () => {
+		mockApiFetchFn.mockResolvedValue({
+			ok: true,
+			json: async () => ({ data: { email: 'anon@test.com' } })
+		});
 
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
 		const result = await hidratarSesionRealtime();
@@ -163,10 +179,15 @@ describe('hidratarSesionRealtime — Capacitor (tokens de localStorage)', () => 
 	});
 
 	test('fallo: setSession retorna error', async () => {
-		storedSessionRef.value = {
-			accessToken: 'expired-token',
-			refreshToken: 'expired-refresh'
-		};
+		mockApiFetchFn.mockResolvedValue({
+			ok: true,
+			json: async () => ({
+				data: {
+					access_token: 'expired-token',
+					refresh_token: 'expired-refresh'
+				}
+			})
+		});
 		mockSetSessionFn.mockResolvedValue({ error: { message: 'Invalid token' } });
 
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
@@ -177,16 +198,19 @@ describe('hidratarSesionRealtime — Capacitor (tokens de localStorage)', () => 
 	});
 
 	test('fallo: setSession lanza excepción', async () => {
-		storedSessionRef.value = {
-			accessToken: 'bad-token',
-			refreshToken: 'bad-refresh'
-		};
+		mockApiFetchFn.mockResolvedValue({
+			ok: true,
+			json: async () => ({
+				data: {
+					access_token: 'bad-token',
+					refresh_token: 'bad-refresh'
+				}
+			})
+		});
 		mockSetSessionFn.mockRejectedValue(new Error('Network error'));
 
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
-		const result = await hidratarSesionRealtime();
-
-		expect(result).toBe(false);
+		const result = await hidratarSesionRealtime();		expect(result).toBe(false);
 	});
 });
 
@@ -329,6 +353,15 @@ describe('Flujo completo — hidratación de sesión para Realtime', () => {
 			accessToken: 'jwt-realtime-access',
 			refreshToken: 'jwt-realtime-refresh'
 		};
+		mockApiFetchFn.mockResolvedValue({
+			ok: true,
+			json: async () => ({
+				data: {
+					access_token: 'fresh-realtime-access',
+					refresh_token: 'fresh-realtime-refresh'
+				}
+			})
+		});
 		mockSetSessionFn.mockResolvedValue({ error: null });
 
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
@@ -337,14 +370,16 @@ describe('Flujo completo — hidratación de sesión para Realtime', () => {
 		const ok = await hidratarSesionRealtime();
 		expect(ok).toBe(true);
 
-		// Verificar que setSession fue llamado con los tokens correctos
-		expect(mockSetSessionFn).toHaveBeenCalledWith({
-			access_token: 'jwt-realtime-access',
-			refresh_token: 'jwt-realtime-refresh'
+		// Capacitor ahora también llama a /api/sesion para obtener tokens frescos
+		expect(mockApiFetchFn).toHaveBeenCalledWith('/api/sesion', {
+			headers: { Accept: 'application/json' }
 		});
 
-		// En Capacitor, NO se usa apiFetch (tokens vienen de localStorage)
-		expect(mockApiFetchFn).not.toHaveBeenCalled();
+		// Verificar que setSession fue llamado con los tokens de la respuesta
+		expect(mockSetSessionFn).toHaveBeenCalledWith({
+			access_token: 'fresh-realtime-access',
+			refresh_token: 'fresh-realtime-refresh'
+		});
 	});
 
 	test('Web: login → hidratar → Realtime con datos del usuario', async () => {
@@ -378,13 +413,9 @@ describe('Flujo completo — hidratación de sesión para Realtime', () => {
 		});
 	});
 
-	test('Capacitor: sesión expirada → hidratar falla → Realtime sin autenticar', async () => {
+	test('Capacitor: sesión expirada → /api/sesion retorna sin tokens → hidratar falla', async () => {
 		nativePlatformRef.value = true;
-		storedSessionRef.value = {
-			accessToken: 'expired-token',
-			refreshToken: 'expired-refresh'
-		};
-		mockSetSessionFn.mockResolvedValue({ error: { message: 'Token expired' } });
+		mockApiFetchFn.mockResolvedValue({ ok: true, json: async () => ({ data: null }) });
 
 		const { hidratarSesionRealtime } = await import('$lib/supabase-browser');
 

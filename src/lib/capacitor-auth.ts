@@ -45,6 +45,11 @@ export function getStoredSession(): { accessToken: string; refreshToken: string 
 	return { accessToken: at, refreshToken: rt ?? '' };
 }
 
+/** Check whether session tokens exist in localStorage. */
+export function tieneSesionAlmacenada(): boolean {
+	return getStoredSession() !== null;
+}
+
 /**
  * Build Cookie header string from stored tokens.
  * Returns empty string if no tokens are stored.

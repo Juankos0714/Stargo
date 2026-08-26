@@ -1,7 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { apiFetch } from '$lib/api';
-import { esCapacitor, getStoredSession } from '$lib/capacitor-auth';
+import { esCapacitor } from '$lib/capacitor-auth';
+import { storeSession } from '$lib/capacitor-auth';
 
 /**
  * Cliente de Supabase para el navegador, usado únicamente para Realtime.
@@ -32,28 +33,27 @@ export const supabaseBrowser: SupabaseClient = createClient(
  * Hidrata el cliente del navegador con la sesión del usuario actual.
  * Debe llamarse una vez en cada página que use Realtime con datos privados.
  *
- * En Capacitor, usa tokens de localStorage directamente (sin fetch).
- * En web, llama a /api/sesion vía apiFetch (resuelve URLs para Capacitor).
+ * Todos los caminos llaman a /api/sesion vía apiFetch: el endpoint
+ * hace el refresh server-side si el access token expiró y devuelve
+ * el par access_token/refresh_token fresco.  En Capacitor, apiFetch
+ * usa CapacitorHttp con Cookie inyectado; el servidor responde con
+ * Set-Cookie, pero CapacitorHttp no mantiene cookie jar, así que
+ * re-sincronizamos localStorage con los tokens nuevos.
  */
 export async function hidratarSesionRealtime(): Promise<boolean> {
 	try {
-		// En Capacitor, obtener tokens directamente de localStorage
-		if (esCapacitor()) {
-			const session = getStoredSession();
-			if (!session?.accessToken) return false;
-			const { error } = await supabaseBrowser.auth.setSession({
-				access_token: session.accessToken,
-				refresh_token: session.refreshToken
-			});
-			return !error;
-		}
-
-		// En web, usar apiFetch normal
 		const res = await apiFetch('/api/sesion', { headers: { Accept: 'application/json' } });
 		if (!res.ok) return false;
 		const body = await res.json();
 		const data = body?.data;
 		if (!data?.access_token) return false;
+
+		// En Capacitor, re-sincronizar localStorage con los tokens frescos
+		// que el servidor devolvió (puede haber roto el refresh_token).
+		if (esCapacitor()) {
+			storeSession(data.access_token, data.refresh_token ?? '');
+		}
+
 		const { error } = await supabaseBrowser.auth.setSession({
 			access_token: data.access_token,
 			refresh_token: data.refresh_token

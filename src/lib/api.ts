@@ -1,5 +1,5 @@
 import { CapacitorHttp } from '@capacitor/core';
-import { buildCookieHeader, esCapacitor } from '$lib/capacitor-auth';
+import { buildCookieHeader, esCapacitor, storeSession } from '$lib/capacitor-auth';
 
 export interface ApiResult<T> {
 	data: T | null;
@@ -46,6 +46,14 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<ApiResu
 			const body = typeof response.data === 'string'
 				? JSON.parse(response.data || '{}')
 				: (response.data ?? {});
+
+			// Sync tokens: si el body trae access/refresh_token, re-guardarlos.
+			// Esto cubre /api/sesion y cualquier endpoint que devuelva tokens
+			// tras un refresh server-side.
+			if (body?.data?.access_token && body?.data?.refresh_token) {
+				storeSession(body.data.access_token, body.data.refresh_token);
+			}
+
 			return {
 				data: (body?.data ?? null) as T | null,
 				meta: body?.meta as Record<string, unknown> | undefined,
@@ -101,6 +109,19 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
 		const data = typeof response.data === 'string'
 			? response.data
 			: JSON.stringify(response.data);
+
+		// Sync tokens from response body (defense-in-depth).
+		// Covers /api/sesion and any endpoint that returns tokens after refresh.
+		try {
+			const parsed = typeof response.data === 'string'
+				? JSON.parse(response.data || '{}')
+				: (response.data ?? {});
+			if (parsed?.data?.access_token && parsed?.data?.refresh_token) {
+				storeSession(parsed.data.access_token, parsed.data.refresh_token);
+			}
+		} catch {
+			// non-JSON response — skip token sync
+		}
 
 		return new Response(data, {
 			status: response.status,
