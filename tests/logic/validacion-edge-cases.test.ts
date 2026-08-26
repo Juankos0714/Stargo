@@ -312,6 +312,27 @@ describe('validarPedido — compra/diligencia con peso y transferencia obligator
 		expect(errores.transferencia).toMatch(/transferencia/);
 	});
 
+	for (const tipoDiligencia of ['pago', 'banco', 'tramite'] as const) {
+		test(`${tipoDiligencia} no exige peso`, () => {
+			const errores = validarPedido({
+				barrioOrigen: null,
+				barrioDestino: 'barrio-destino',
+				direccionOrigen: '',
+				direccionDestino: 'Carrera 19 # 20-30',
+				observaciones: '',
+				recargos: [],
+				tipoServicio: 'compra_diligencia',
+				tipoDiligencia,
+				telefono: '3001234567',
+				transferencia: 'no',
+				...(tipoDiligencia === 'tramite'
+					? { dilTramite: 'Radicar documento', dilInstrucciones: 'Entregar en ventanilla' }
+					: { dilDescripcion: 'Pago de servicio', dilValorFactura: '50000', ...(tipoDiligencia === 'banco' ? { dilEntidad: 'Banco' } : {}) })
+			});
+			expect(errores.peso).toBeUndefined();
+		});
+	}
+
 	test('compra_diligencia con transferencia=sí sin monto → error', () => {
 		const errores = validarPedido({
 			barrioOrigen: null,

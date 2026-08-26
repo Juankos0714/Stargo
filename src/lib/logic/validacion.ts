@@ -114,13 +114,16 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 		errores.observaciones = `Máximo ${LIMITES.observaciones} caracteres.`;
 	}
 
-	if (tipoServicio === 'domicilio' || tipoServicio === 'compra_diligencia') {
-		// Peso obligatorio en domicilio y compra/diligencia
+	if (tipoServicio === 'domicilio' || d.tipoDiligencia === 'compra') {
+		// El peso solo aplica a domicilio y compra de productos.
 		if (!String(d.peso ?? '').trim()) {
 			errores.peso = 'El peso del paquete es obligatorio.';
 		} else if (Number(String(d.peso)) < 0) {
 			errores.peso = 'El peso no puede ser negativo.';
 		}
+	}
+
+	if (tipoServicio === 'domicilio' || tipoServicio === 'compra_diligencia') {
 		// Transferencia obligatoria en domicilio y compra/diligencia
 		if (!d.transferencia) {
 			errores.transferencia = 'Indica si hay transferencia bancaria.';

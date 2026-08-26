@@ -1221,10 +1221,11 @@
 							Detalles del pedido
 						</h2>
 						<p class="mb-4 ml-7 text-xs text-slate-400">
-							Indica el peso, transferencia y paradas si aplica.
+							Indica la transferencia y las paradas si aplican.
 						</p>
 
-						<!-- Campo: peso -->
+						{#if tipoDiligencia === 'compra'}
+						<!-- Campo: peso (solo compra de productos) -->
 						<div class="mb-4">
 							<label for="cd-peso" class="mb-1.5 block text-sm font-semibold text-slate-700">Peso del paquete <span class="text-amber-600">(obligatorio)</span></label>
 							<div class="relative">
@@ -1241,6 +1242,7 @@
 							</div>
 							{#if errores.peso}<p class="mt-1 text-xs text-red-600">{errores.peso}</p>{/if}
 						</div>
+						{/if}
 
 						<!-- Campo: transferencia -->
 						<div class="mb-4">
