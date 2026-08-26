@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "14 - Recogida muestra campos origen",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
+    {"type": "action", "description": "Click on 'Pago de factura o servicio' button"},
+    {"type": "action", "description": "Click on 'Sí, hay recogida' button"},
+    {"type": "assertion", "description": "The form should now show origin barrio search input"},
+    {"type": "assertion", "description": "The form should show 'Barrio de recogida' label"}
+  ]
+}

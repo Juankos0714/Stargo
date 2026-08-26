@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "37 - Combinado peso 25kg + transferencia $600k",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
+    {"type": "action", "description": "Click on 'Domicilio normal' button"},
+    {"type": "action", "description": "Select origin: Centro, destination: Norte"},
+    {"type": "action", "description": "Enter directions"},
+    {"type": "action", "description": "Enter '25' in the peso field"},
+    {"type": "action", "description": "Click 'Sí, hay transferencia'"},
+    {"type": "action", "description": "Enter '600000' in transferencia monto"},
+    {"type": "action", "description": "Enter '3001234567' in telefono"},
+    {"type": "assertion", "description": "The price summary should show a peso recargo with an amount greater than $0"},
+    {"type": "assertion", "description": "The price summary should show a transferencia recargo with an amount greater than $0"},
+    {"type": "assertion", "description": "The total estimated price should be greater than zero"}
+  ]
+}

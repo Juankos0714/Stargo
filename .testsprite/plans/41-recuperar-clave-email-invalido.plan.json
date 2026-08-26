@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "41 - Recuperar clave email inválido",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/recuperar-clave"},
+    {"type": "action", "description": "Enter 'not-an-email' in the email field"},
+    {"type": "action", "description": "Click the submit button"},
+    {"type": "assertion", "description": "An error message about invalid email should appear"}
+  ]
+}

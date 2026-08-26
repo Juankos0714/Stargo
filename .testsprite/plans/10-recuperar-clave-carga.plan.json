@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "10 - Recuperar clave carga correctamente",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/recuperar-clave"},
+    {"type": "assertion", "description": "The page should load and contain a heading or text with 'recuperar' or 'contraseña' or 'clave'"},
+    {"type": "assertion", "description": "The form should show an email input field"},
+    {"type": "assertion", "description": "The form should show a submit button"}
+  ]
+}

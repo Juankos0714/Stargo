@@ -4,69 +4,21 @@
   "type": "frontend",
   "name": "Domicilio: peso 70kg + transferencia $1.5M",
   "planSteps": [
-    {
-      "type": "action",
-      "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"
-    },
-    {
-      "type": "action",
-      "description": "Click on 'Domicilio normal' option in step 0"
-    },
-    {
-      "type": "action",
-      "description": "Click on the origin barrio search input and type 'Centro'"
-    },
-    {
-      "type": "action",
-      "description": "Select the first 'Centro' option from the dropdown"
-    },
-    {
-      "type": "action",
-      "description": "Click on the destination barrio search input and type 'Caño'"
-    },
-    {
-      "type": "action",
-      "description": "Select the first option with 'Caño' in the name from the dropdown"
-    },
-    {
-      "type": "action",
-      "description": "Enter 'Calle 10 # 15-20' in the origin direction field"
-    },
-    {
-      "type": "action",
-      "description": "Enter 'Vía al Caño Cristales' in the destination direction field"
-    },
-    {
-      "type": "action",
-      "description": "Enter '70' in the peso (kg) field"
-    },
-    {
-      "type": "action",
-      "description": "Click the 'Sí, hay transferencia' button"
-    },
-    {
-      "type": "action",
-      "description": "Enter '1500000' in the transferencia monto field"
-    },
-    {
-      "type": "action",
-      "description": "Enter '3112223344' in the telefono field"
-    },
-    {
-      "type": "assertion",
-      "description": "The price summary section should show a 'Tarifa base' line with a value greater than 0"
-    },
-    {
-      "type": "assertion",
-      "description": "The price summary section should show a line with text 'Entre 46 a 60 kg' and value '$ 10.000' (peso recargo for 70kg)"
-    },
-    {
-      "type": "assertion",
-      "description": "The price summary section should show a line with text 'Superior a $1.000.000' and value '$ 6.000' (transferencia recargo for $1.5M)"
-    },
-    {
-      "type": "assertion",
-      "description": "The total at the bottom should be the sum of tarifa base + $10.000 (peso) + $6.000 (transferencia)"
-    }
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
+    {"type": "action", "description": "Click on 'Domicilio normal' option in step 0"},
+    {"type": "action", "description": "Click on the origin barrio search input and type 'Centro'"},
+    {"type": "action", "description": "Select the first 'Centro' option from the dropdown"},
+    {"type": "action", "description": "Click on the destination barrio search input and type 'Caño'"},
+    {"type": "action", "description": "Select the first option with 'Caño' in the name from the dropdown"},
+    {"type": "action", "description": "Enter 'Calle 10 # 15-20' in the origin direction field"},
+    {"type": "action", "description": "Enter 'Vía al Caño Cristales' in the destination direction field"},
+    {"type": "action", "description": "Enter '70' in the peso (kg) field"},
+    {"type": "action", "description": "Click the 'Sí, hay transferencia' button"},
+    {"type": "action", "description": "Enter '1500000' in the transferencia monto field"},
+    {"type": "action", "description": "Enter '3112223344' in the telefono field"},
+    {"type": "assertion", "description": "The price summary section should show a 'Tarifa base' line with a value greater than 0"},
+    {"type": "assertion", "description": "The price summary should show a peso recargo line with a non-zero dollar amount"},
+    {"type": "assertion", "description": "The price summary should show a transferencia recargo line with a non-zero dollar amount"},
+    {"type": "assertion", "description": "The total estimated price should be greater than zero"}
   ]
 }

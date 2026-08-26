@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "43 - Compra completa confirmar",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
+    {"type": "action", "description": "Click on 'Compra de productos' button"},
+    {"type": "action", "description": "Click on 'No, solo el destino' button"},
+    {"type": "action", "description": "Select destination barrio"},
+    {"type": "action", "description": "Enter destination direction"},
+    {"type": "action", "description": "Enter products: 'Medicamentos'"},
+    {"type": "action", "description": "Enter peso: '2'"},
+    {"type": "action", "description": "Click 'No hay transferencia'"},
+    {"type": "action", "description": "Enter telefono: '3001234567'"},
+    {"type": "action", "description": "Scroll down and click 'Confirmar pedido'"},
+    {"type": "assertion", "description": "Either success confirmation or validation error should appear"}
+  ]
+}

@@ -250,7 +250,42 @@
 		});
 	});
 
-	const calculoRecargos = $derived(calcularRecargos(recargosDisponibles, recargosSelFiltrados));
+	// --- Recargos en tiempo real (independiente de recargosSel que solo llena al confirmar) ---
+	const recargosTiempoReal = $derived.by(() => {
+		const sel = new Set(recargosSelFiltrados);
+		if (tipoServicio === 'domicilio') {
+			// Peso: siempre seleccionar el recargo correcto
+			const pesoRecargos = recargosActivos.filter((r) => r.tipo === 'peso');
+			for (const pr of pesoRecargos) sel.delete(pr.codigo);
+			const peso = Number(pesoKg) || 0;
+			if (peso > 0) {
+				let codigoPeso = 'sin_peso';
+				if (peso > 60) codigoPeso = 'peso_mas_60kg';
+				else if (peso > 40) codigoPeso = 'peso_mas_40kg';
+				else if (peso > 20) codigoPeso = 'peso_mas_20kg';
+				const rp = pesoRecargos.find((r) => r.codigo === codigoPeso);
+				if (rp) sel.add(rp.codigo);
+			}
+			// Transferencia: seleccionar el recargo correcto
+			const transferRecargos = recargosActivos.filter((r) => r.tipo === 'transferencia');
+			for (const tr of transferRecargos) sel.delete(tr.codigo);
+			if (transferencia === 'si' && transferenciaMonto) {
+				const monto = Number(transferenciaMonto) || 0;
+				if (monto > 0) {
+					let codigoTransfer = '';
+					if (monto > 1000000) codigoTransfer = 'transferencia_1m';
+					else if (monto > 500000) codigoTransfer = 'transferencia_500k';
+					else if (monto > 100000) codigoTransfer = 'transferencia_100k';
+					if (codigoTransfer) {
+						const rt = transferRecargos.find((r) => r.codigo === codigoTransfer);
+						if (rt) sel.add(rt.codigo);
+					}
+				}
+			}
+		}
+		return [...sel];
+	});
+	const calculoRecargos = $derived(calcularRecargos(recargosDisponibles, recargosTiempoReal));
 	// Los valores de recargos vienen directamente de la BD (ya escalonados).
 	const recargosAplicados = calculoRecargos.aplicados;
 	const recargoTotal = $derived(recargosAplicados.reduce((s, r) => s + r.valor, 0));

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "20 - Consultar estado código inválido",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/consultar-estado"},
+    {"type": "action", "description": "Enter 'XXXXXX' in the code input field"},
+    {"type": "action", "description": "Click the search button"},
+    {"type": "assertion", "description": "A message about 'Pedido no encontrado' or similar should appear"}
+  ]
+}

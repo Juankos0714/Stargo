@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "60 - Domicilio flujo completo éxito",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
+    {"type": "action", "description": "Click on 'Domicilio normal' button"},
+    {"type": "action", "description": "Click on origin barrio search and type 'Centro'"},
+    {"type": "action", "description": "Select the first 'Centro' option"},
+    {"type": "action", "description": "Click on destination barrio search and type 'Norte'"},
+    {"type": "action", "description": "Select the first option with 'Norte'"},
+    {"type": "action", "description": "Enter 'Calle 10 # 15-20' in origin direction"},
+    {"type": "action", "description": "Enter 'Carrera 15 # 20-30' in destination direction"},
+    {"type": "action", "description": "Enter '10' in the peso field"},
+    {"type": "action", "description": "Click 'No hay transferencia'"},
+    {"type": "action", "description": "Enter '3001234567' in telefono"},
+    {"type": "action", "description": "Scroll down and click 'Confirmar pedido'"},
+    {"type": "assertion", "description": "The page should show either 'Pedido confirmado' success message or a validation error"},
+    {"type": "assertion", "description": "If success, an order code should be displayed"}
+  ]
+}

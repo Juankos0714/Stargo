@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "16 - Teléfono inválido muestra error",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
+    {"type": "action", "description": "Click on 'Domicilio normal' button"},
+    {"type": "action", "description": "Click on origin barrio search and type 'Centro'"},
+    {"type": "action", "description": "Select the first 'Centro' option"},
+    {"type": "action", "description": "Click on destination barrio search and type 'Centro'"},
+    {"type": "action", "description": "Select the second option"},
+    {"type": "action", "description": "Enter directions for origin and destination"},
+    {"type": "action", "description": "Enter '10' in the peso field"},
+    {"type": "action", "description": "Click 'No hay transferencia'"},
+    {"type": "action", "description": "Enter '123' in the telefono field"},
+    {"type": "action", "description": "Click 'Confirmar pedido' button"},
+    {"type": "assertion", "description": "An error message about invalid phone should appear"}
+  ]
+}

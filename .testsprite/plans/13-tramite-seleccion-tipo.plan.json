@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "13 - Trámite muestra formulario",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
+    {"type": "action", "description": "Click on 'Trámite o documento' button"},
+    {"type": "assertion", "description": "The button should be highlighted"},
+    {"type": "assertion", "description": "The form should show '¿Se debe recoger algo?' question"},
+    {"type": "assertion", "description": "The form should show 'Datos de la diligencia' section"},
+    {"type": "assertion", "description": "The form should show '¿Qué trámite necesitas?' input field"},
+    {"type": "assertion", "description": "The form should show 'Descripción / instrucciones' textarea"}
+  ]
+}

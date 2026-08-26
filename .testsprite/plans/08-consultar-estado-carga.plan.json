@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "08 - Consultar estado carga correctamente",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/consultar-estado"},
+    {"type": "assertion", "description": "The page should show 'Consultar estado' as heading"},
+    {"type": "assertion", "description": "The page should show an input field for the order code"},
+    {"type": "assertion", "description": "The page should show a search button"}
+  ]
+}

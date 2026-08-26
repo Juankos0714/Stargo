@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "55 - Cambio tipo limpia campos",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
+    {"type": "action", "description": "Click on 'Domicilio normal' button"},
+    {"type": "action", "description": "Click on 'Compra de productos' button"},
+    {"type": "assertion", "description": "The form should show compra-specific fields, not domicilio fields"},
+    {"type": "action", "description": "Click on 'Domicilio normal' button"},
+    {"type": "assertion", "description": "The form should show domicilio-specific fields again"}
+  ]
+}

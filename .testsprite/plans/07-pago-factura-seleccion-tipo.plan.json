@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "07 - Pago factura muestra formulario",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
+    {"type": "action", "description": "Click on 'Pago de factura o servicio' button"},
+    {"type": "assertion", "description": "The button should be highlighted"},
+    {"type": "assertion", "description": "The form should show '¿Se debe recoger algo o a alguien antes?' question"},
+    {"type": "assertion", "description": "The form should show 'Datos de la diligencia' section"},
+    {"type": "assertion", "description": "The form should show 'Descripción' input field"},
+    {"type": "assertion", "description": "The form should show 'Valor de la factura' input field"}
+  ]
+}

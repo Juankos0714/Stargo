@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "52 - Cambio monto transferencia actualiza recargo",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
+    {"type": "action", "description": "Click on 'Domicilio normal' button"},
+    {"type": "action", "description": "Select origin and destination barrios"},
+    {"type": "action", "description": "Enter directions"},
+    {"type": "action", "description": "Enter '10' in peso field"},
+    {"type": "action", "description": "Click 'Sí, hay transferencia'"},
+    {"type": "action", "description": "Enter '50000' in transferencia monto"},
+    {"type": "action", "description": "Enter telefono"},
+    {"type": "assertion", "description": "No transferencia surcharge should appear in the price summary"},
+    {"type": "action", "description": "Change transferencia monto to '200000'"},
+    {"type": "assertion", "description": "A transferencia recargo should appear with a non-zero amount"}
+  ]
+}

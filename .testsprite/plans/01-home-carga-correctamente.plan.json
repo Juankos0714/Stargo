@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "01 - Home carga correctamente",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app"},
+    {"type": "assertion", "description": "The page title should contain 'StarGo'"},
+    {"type": "assertion", "description": "The page should show 'Domicilios en Armenia' text"},
+    {"type": "assertion", "description": "Navigation links 'Hacer un pedido' and 'Consultar estado' should be visible"}
+  ]
+}

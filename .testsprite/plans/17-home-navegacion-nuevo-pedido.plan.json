@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "17 - Home navega a nuevo pedido",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app"},
+    {"type": "action", "description": "Click on 'Hacer un pedido' link"},
+    {"type": "assertion", "description": "The page should navigate to /nuevo-pedido"},
+    {"type": "assertion", "description": "The page should show 'Hacer un pedido' heading"}
+  ]
+}

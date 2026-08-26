@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "02 - Paso 0 muestra 6 opciones",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
+    {"type": "assertion", "description": "The page should show 'Hacer un pedido' as heading"},
+    {"type": "assertion", "description": "The page should show '¿Qué necesitas?' step label"},
+    {"type": "assertion", "description": "The page should show button 'Domicilio normal'"},
+    {"type": "assertion", "description": "The page should show button 'Pago de factura o servicio'"},
+    {"type": "assertion", "description": "The page should show button 'Pago bancario o corresponsal'"},
+    {"type": "assertion", "description": "The page should show button 'Compra de productos'"},
+    {"type": "assertion", "description": "The page should show button 'Trámite o documento'"},
+    {"type": "assertion", "description": "The page should show button 'Otra diligencia'"}
+  ]
+}

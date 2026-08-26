@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
   "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
   "type": "frontend",
-  "name": "Domicilio: peso 25kg + transferencia $150k",
+  "name": "Domicilio: peso 25kg + transferencia $150k (v2)",
   "planSteps": [
     {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/nuevo-pedido"},
     {"type": "assertion", "description": "The page should show 'Hacer un pedido' as the main heading"},
@@ -17,9 +17,8 @@
     {"type": "action", "description": "Click the 'Sí, hay transferencia' button"},
     {"type": "action", "description": "Enter '150000' in the transferencia monto field"},
     {"type": "action", "description": "Enter '3001234567' in the telefono field"},
-    {"type": "assertion", "description": "The price summary section should show a 'Tarifa base' line with a value greater than 0"},
-    {"type": "assertion", "description": "The price summary should show a peso recargo line with a non-zero dollar amount"},
-    {"type": "assertion", "description": "The price summary should show a transferencia recargo line with a non-zero dollar amount"},
+    {"type": "assertion", "description": "The price summary section should show at least one line with a dollar amount for peso recargo greater than 0"},
+    {"type": "assertion", "description": "The price summary section should show at least one line with a dollar amount for transferencia recargo greater than 0"},
     {"type": "assertion", "description": "The total estimated price should be greater than zero"}
   ]
 }

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/TestSprite/testsprite-cli/v0.7.0/schemas/plan.schema.json",
+  "projectId": "a99ea0ab-f34d-4275-b2a2-5d83404bf0ef",
+  "type": "frontend",
+  "name": "09 - Login carga correctamente",
+  "planSteps": [
+    {"type": "action", "description": "Navigate to https://stargo-zeta.vercel.app/login"},
+    {"type": "assertion", "description": "The page should show a login form"},
+    {"type": "assertion", "description": "The form should show an email or username input field"},
+    {"type": "assertion", "description": "The form should show a password input field"},
+    {"type": "assertion", "description": "The form should show a login/submit button"}
+  ]
+}
