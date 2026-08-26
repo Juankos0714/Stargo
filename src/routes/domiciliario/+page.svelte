@@ -65,6 +65,17 @@
 	/** Resumen del día de hoy: total acumulado, nivel alcanzado y comisión del día. */
 	const hoy = $derived(cuenta?.hoy ?? null);
 
+	/** Faltan $X para el siguiente nivel (solo si hay nivel y hay niveles superiores). */
+	const faltanParaSiguienteNivel = $derived.by(() => {
+		if (!hoy?.nivel || !cuenta?.niveles?.length) return null;
+		const ordenados = [...cuenta.niveles].sort((a, b) => a.nivel - b.nivel);
+		const idx = ordenados.findIndex((n) => n.nivel === hoy.nivel);
+		if (idx < 0 || idx >= ordenados.length - 1) return null; // ya está en el máximo
+		const siguienteHasta = ordenados[idx + 1].hasta;
+		const falta = Math.max(0, siguienteHasta - hoy.total);
+		return falta > 0 ? falta : null;
+	});
+
 	/** Fecha legible del resumen de hoy. */
 	const hoyEtiqueta = $derived(
 		hoy?.fecha ? new Date(hoy.fecha + 'T12:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }) : ''
@@ -350,6 +361,10 @@
 			<p class="mt-0.5 text-xs text-slate-500">
 				{#if hoy && hoy.nivel}
 					total del día · nivel {hoy.nivel} → <span class="font-bold text-primary-dark">comisión {formatearPeso(hoy.comision)}</span>
+					{#if faltanParaSiguienteNivel !== null}
+						<br />
+						<span class="text-primary/70">faltan {formatearPeso(faltanParaSiguienteNivel)} para el siguiente nivel</span>
+					{/if}
 				{:else}
 					acumulado de tus entregas de hoy (sin entregas aún)
 				{/if}

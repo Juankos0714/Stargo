@@ -232,6 +232,38 @@ describe('comisión DIARIA acumulada (Fase 13)', () => {
 	test('comisionDiaria sin niveles devuelve 0', () => {
 		expect(comisionDiaria([], 50000)).toBe(0);
 	});
+
+	// ── Escalón: agregar pedidos sin cruzar umbral NO cambia la comisión ──
+	test('escalón: $8.000 + $1.500 = $9.500 → sigue en nivel 1, comisión unchanged', () => {
+		const l1 = niveles([1, 10000, 1300], [2, 20000, 2200]);
+		// Día con $8.000 → nivel 1 → comisión $1.300
+		expect(comisionDiaria(l1, 8000)).toBe(1300);
+		// Agrega un pedido de $1.500 → total $9.500 → sigue en nivel 1
+		expect(comisionDiaria(l1, 9500)).toBe(1300);
+		// Misma comisión: no subió porque no cruzó el umbral ($10.000)
+		expect(comisionDiaria(l1, 9500)).toBe(comisionDiaria(l1, 8000));
+	});
+
+	test('escalón: cruzar el umbral SÍ incrementa la comisión', () => {
+		const l1 = niveles([1, 10000, 1300], [2, 20000, 2200]);
+		// $9.500 → nivel 1 → $1.300
+		expect(comisionDiaria(l1, 9500)).toBe(1300);
+		// $10.001 → nivel 2 → $1.300 + $2.200 = $3.500
+		expect(comisionDiaria(l1, 10001)).toBe(3500);
+	});
+
+	test('deuda: abono reduce deuda total sin importar en qué día se generó', () => {
+		// Día 1: $15.000 → nivel 2 → comisión $3.500
+		// Día 2: $25.000 → nivel 3 → comisión $7.000
+		// Total generado: $10.500
+		// Abono de $4.000 → deuda: $6.500
+		const l3 = niveles([1, 10000, 1300], [2, 20000, 2200], [3, 30000, 3500]);
+		const totalComision = comisionDiaria(l3, 15000) + comisionDiaria(l3, 25000);
+		expect(totalComision).toBe(3500 + 7000); // $10.500
+		expect(calcularDeuda(totalComision, 4000)).toBe(6500);
+		// Abono de $10.500 → deuda 0 (no importa que la comisión sea por escalón)
+		expect(calcularDeuda(totalComision, 10500)).toBe(0);
+	});
 });	describe('escenario reportado: 90.000/día vs deuda (Fase 13)', () => {
 		/** Escalera por defecto (Fase 12): 20 niveles de $10.000, $1.300 c/u. */
 		function escalera20(): ComisionNivel[] {

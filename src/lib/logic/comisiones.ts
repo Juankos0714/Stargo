@@ -139,10 +139,26 @@ export function nivelDiario(niveles: ComisionNivel[], totalDia: number): Comisio
 }
 
 /**
- * Comisión que genera el total acumulado de un DÍA: la suma de los valores
- * de TODOS los niveles hasta el nivel alcanzado (se paga por cada nivel que
- * se cruza). Con total 0 o sin niveles, 0. Ej.: $40.000 → nivel 4 →
- * valor(1)+valor(2)+valor(3)+valor(4).
+ * Comisión que genera el total acumulado de un DÍA: ESCALÓN, no proporcional.
+ *
+ * La comisión es la suma de los valores de TODOS los niveles hasta el nivel
+ * alcanzado (se paga por cada nivel que se cruza). Con total 0 o sin
+ * niveles, 0.
+ *
+ * MODELO DE NEGOCIO (Fase 13): la comisión NO crece con cada pedido.
+ * Solo sube cuando el total acumulado del día CRUZA el siguiente umbral
+ * de la escalera. Ejemplo con niveles de $10.000:
+ *   - $8.000 → nivel 1 → comisión $1.300
+ *   - $9.500 → sigue nivel 1 → comisión $1.300 (no subió)
+ *   - $10.001 → nivel 2 → comisión $1.300 + $2.200 = $3.500 (sí subió)
+ *
+ * Esto genera una asimetría con los abonos (que son continuos): un abono
+ * de $5.000 reduce la deuda de inmediato, pero agregar un pedido de
+ * $5.000 no aumenta la comisión si no cruza el siguiente nivel.
+ *
+ * La deuda GLOBAL sigue siendo acumulada: deuda = Σ comisiones diarias −
+ * Σ abonos (ver calcularDeuda()). Esta función solo calcula la comisión
+ * de UN día específico.
  */
 export function comisionDiaria(niveles: ComisionNivel[], totalDia: number): number {
 	const alcanzado = nivelDiario(niveles, totalDia);
