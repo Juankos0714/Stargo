@@ -13,6 +13,7 @@ export interface RecargoSeleccionable {
 	nombre: string;
 	valor: number;
 	activo: boolean;
+	tipo?: string;
 }
 
 /** Snapshot de un recargo aplicado a un pedido (se guarda en la BD). */
@@ -68,4 +69,63 @@ export function calcularRecargos(
 		descartados,
 		excedeTope
 	};
+}
+
+/**
+ * Identifica los recargos automáticos aunque el catálogo histórico no tenga
+ * el tipo actualizado. Los códigos son la fuente de compatibilidad para esos
+ * registros existentes.
+ */
+function esRecargoDePeso(recargo: RecargoSeleccionable): boolean {
+	return recargo.tipo === 'peso' || recargo.codigo === 'sin_peso' || recargo.codigo.startsWith('peso_');
+}
+
+function esRecargoDeTransferencia(recargo: RecargoSeleccionable): boolean {
+	return recargo.tipo === 'transferencia' || recargo.codigo.startsWith('transferencia_');
+}
+
+/**
+ * Sustituye los recargos automáticos de peso y transferencia según los datos
+ * actuales del domicilio, sin modificar los recargos que el cliente eligió.
+ */
+export function sincronizarRecargosDomicilio(
+	recargos: RecargoSeleccionable[],
+	seleccionados: string[],
+	pesoKg: string,
+	transferencia: 'si' | 'no' | '',
+	montoTransferencia: string
+): string[] {
+	const seleccion = new Set(seleccionados);
+	const recargosPeso = recargos.filter(esRecargoDePeso);
+	const recargosTransferencia = recargos.filter(esRecargoDeTransferencia);
+
+	for (const recargo of [...recargosPeso, ...recargosTransferencia]) seleccion.delete(recargo.codigo);
+
+	const peso = Number(pesoKg) || 0;
+	if (peso > 0) {
+		const codigoPeso = peso > 60
+			? 'peso_mas_60kg'
+			: peso > 40
+				? 'peso_mas_40kg'
+				: peso > 20
+					? 'peso_mas_20kg'
+					: 'sin_peso';
+		if (recargosPeso.some((recargo) => recargo.codigo === codigoPeso)) seleccion.add(codigoPeso);
+	}
+
+	const monto = Number(montoTransferencia) || 0;
+	if (transferencia === 'si' && monto > 0) {
+		const codigoTransferencia = monto > 1000000
+			? 'transferencia_1m'
+			: monto > 500000
+				? 'transferencia_500k'
+				: monto > 100000
+					? 'transferencia_100k'
+					: '';
+		if (recargosTransferencia.some((recargo) => recargo.codigo === codigoTransferencia)) {
+			seleccion.add(codigoTransferencia);
+		}
+	}
+
+	return [...seleccion];
 }
