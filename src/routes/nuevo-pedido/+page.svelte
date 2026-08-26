@@ -721,12 +721,15 @@
 
 	$effect(() => {
 		// Recalcular cuando cambian origen/destino (domicilio) o parámetros de compra/diligencia.
+		// NOTA: para domicilio, la API solo retorna la tarifa de zona. Los recargos de
+		// peso/transferencia se calculan 100% client-side con recargosTiempoReal.
+		// Solo necesitamos llamar la API cuando cambian los barrios.
 		if (tipoServicio === 'domicilio') {
 			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-			origen; destino; pesoKg; transferencia; transferenciaMonto;
+			origen; destino;
 			if (origen && destino) calcular();
 		} else {
-			// En compra/diligencia: recalcular al cambiar tipo, peso, monto, transferencia, recargos.
+			// En compra/diligencia: la API calcula todo (tarifa + recargos escalonados).
 			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 			tipoDiligencia; pesoKg; dilValorFactura; transferencia; transferenciaMonto; recargosSelFiltrados;
 			if (destino) calcular();
