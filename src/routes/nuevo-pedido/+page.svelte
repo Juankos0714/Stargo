@@ -145,6 +145,20 @@
 	let calculando = $state(false);
 	let calcId = 0;
 
+	// --- Estado de cálculo explícito ---
+	type CalcState = 'idle' | 'calculating' | 'calculated' | 'error' | 'stale';
+	let calcState = $state<CalcState>('idle');
+	let calcSnapshot = $state(''); // JSON del formulario al momento de calcular
+
+	// Resultado del último cálculo válido (usado por confirmar)
+	let calcResultado = $state<{
+		tarifaBase: number;
+		recargos: { codigo: string; nombre: string; valor: number }[];
+		recargoTotal: number;
+		total: number;
+		valorMandado?: number;
+	} | null>(null);
+
 	let confirmando = $state(false);
 	let error = $state<string | null>(null);
 	let creado = $state<{
@@ -402,6 +416,102 @@
 		error = null;
 	}
 
+	// --- Snapshot del formulario para detectar cambios post-cálculo ---
+	function getFormSnapshot(): string {
+		return JSON.stringify({
+			tipoServicio,
+			tipoDiligencia,
+			origen,
+			destino,
+			dirOrigen,
+			dirDestino,
+			pesoKg,
+			transferencia,
+			transferenciaMonto,
+			recargosSel: [...recargosSel].sort(),
+			observaciones,
+			necesitaRecoger,
+			dilValorFactura,
+			dilEntidad,
+			dilProductos,
+			dilCantidad,
+			dilPresupuesto,
+			dilTramite,
+			dilInstrucciones,
+			dilLugarTramite,
+			dilOtraDescripcion,
+			dilDescripcion,
+			telefono,
+			nombreCliente,
+			baseNecesaria,
+			recargosConfirmadosNoAplica
+		});
+	}
+
+	// --- Calcular: validación + cálculo de tarifa + recargos ---
+	async function calcularPedido() {
+		error = null;
+		errores = {};
+
+		// 1. Sincronizar recargos automáticos (peso, transferencia)
+		sincronizarRecargos();
+
+		// 2. Validar campos obligatorios
+		if (!validar()) {
+			calcState = 'error';
+			return;
+		}
+
+		// 3. Verificar que tenemos barrios
+		if (!destino) { error = 'Selecciona el barrio de destino.'; calcState = 'error'; return; }
+		if (tipoServicio === 'domicilio' && !origen) { error = 'Selecciona el barrio de origen.'; calcState = 'error'; return; }
+
+		// 4. Calcular tarifa base via API
+		await calcular();
+
+		// 5. Si calcular() falló (precio null), abortar
+		if (!precio?.valor && precio?.valor !== 0) {
+			calcState = 'error';
+			return;
+		}
+
+		// 6. Armar resultado del cálculo
+		const recargosResultado = recargosAplicados.map((r) => ({
+			codigo: r.codigo,
+			nombre: r.nombre,
+			valor: r.valor
+		}));
+
+		const tarifaBase = tipoServicio === 'domicilio' ? (precio?.valor ?? 0) : 0;
+		const recargoTotalCalc = recargosResultado.reduce((s, r) => s + r.valor, 0);
+		const valorMandadoCalc = (tipoDiligencia === 'pago' || tipoDiligencia === 'banco')
+			&& String(dilValorFactura ?? '').trim()
+			? Math.round(Number(String(dilValorFactura ?? ''))) || 0
+			: undefined;
+
+		calcResultado = {
+			tarifaBase,
+			recargos: recargosResultado,
+			recargoTotal: recargoTotalCalc,
+			total: tarifaBase + recargoTotalCalc,
+			valorMandado: valorMandadoCalc
+		};
+
+		// 7. Guardar snapshot y marcar como calculado
+		calcSnapshot = getFormSnapshot();
+		calcState = 'calculated';
+	}
+
+	// --- Verificar si el formulario cambió después del último cálculo ---
+	const formularioModificado = $derived(
+		calcState === 'calculated' && calcSnapshot !== '' && calcSnapshot !== getFormSnapshot()
+	);
+
+	// Confirmar habilitado solo si hay cálculo válido y formulario no cambió
+	const puedeConfirmarCalc = $derived(
+		!confirmando && !calculando && calcState === 'calculated' && !formularioModificado && calcResultado !== null
+	);
+
 	function limpiarCamposDiligencia() {
 		tipoDiligencia = '';
 		necesitaRecoger = null;
@@ -427,9 +537,12 @@
 		tipoServicio = opcion.tipoServicio;
 		tipoDiligencia = opcion.tipoDiligencia;
 
-		// Limpiar precio y errores.
+		// Limpiar precio, errores y cálculo.
 		precio = null;
 		error = null;
+		calcState = 'idle';
+		calcSnapshot = '';
+		calcResultado = null;
 
 		// Si es domicilio, limpiar campos de diligencia.
 		if (tipoServicio === 'domicilio') {
@@ -529,9 +642,9 @@
 
 	async function confirmar(e: SubmitEvent) {
 		e.preventDefault();
-		if (!puedeConfirmar) return;
+		if (!puedeConfirmarCalc) return;
+		// Re-sincronizar recargos por seguridad (ya se hizo en calcularPedido)
 		sincronizarRecargos();
-		if (!validar()) return;
 		confirmando = true;
 		error = null;
 		const obs = empaquetarObservaciones();
@@ -585,6 +698,9 @@
 		telefono = '';
 		baseNecesaria = '';
 		errores = {};
+		calcState = 'idle';
+		calcSnapshot = '';
+		calcResultado = null;
 		precio = null;
 		error = null;
 	}
@@ -1434,26 +1550,59 @@
 							<div class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
 						{/if}
 
-						<button
-							type="submit"
-							disabled={!puedeConfirmar}
-							class="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-						>
-							{#if confirmando}
-								<span class="size-4 animate-spin rounded-full border-2 border-white/50 border-t-white"></span>
-								Confirmando…
-							{:else}
-								Confirmar pedido
-							{/if}
-						</button>
-						{#if !puedeConfirmar && !confirmando}
-							<p class="mt-2 text-center text-xs text-slate-400">								{tipoServicio === 'domicilio'
-									? tieneRutaCompleta && !precioDisponible
-										? 'No se puede confirmar sin una tarifa disponible.'
-										: 'Completa los campos para confirmar el pedido.'
-									: !destino
+						<!-- Aviso de formulario modificado después del cálculo -->
+						{#if formularioModificado}
+							<div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+								⚠ El pedido fue modificado. Debes volver a calcular antes de confirmar.
+							</div>
+						{/if}
+
+						<!-- Botones: Calcular + Confirmar -->
+						<div class="mt-5 flex gap-3">
+							<button
+								type="button"
+								onclick={calcularPedido}
+								disabled={calculando || confirmando}
+								class="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-primary bg-white px-5 py-3.5 text-sm font-bold text-primary transition hover:bg-primary-light disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+							>
+								{#if calculando}
+									<span class="size-4 animate-spin rounded-full border-2 border-primary/50 border-t-primary"></span>
+									Calculando…
+								{:else if calcState === 'calculated' && !formularioModificado}
+									<Icon icon={CircleCheck} class="size-4" />
+									Recalcular
+								{:else}
+									Calcular
+								{/if}
+							</button>
+							<button
+								type="submit"
+								disabled={!puedeConfirmarCalc}
+								class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+							>
+								{#if confirmando}
+									<span class="size-4 animate-spin rounded-full border-2 border-white/50 border-t-white"></span>
+									Confirmando…
+								{:else}
+									Confirmar pedido
+								{/if}
+							</button>
+						</div>
+						{#if !puedeConfirmarCalc && !confirmando && !calculando}
+							<p class="mt-2 text-center text-xs text-slate-400">
+								{#if calcState !== 'calculated' && !formularioModificado}
+									Primero presiona "Calcular" para ver el resumen del pedido.
+								{:else if formularioModificado}
+									El formulario cambió. Presiona "Calcular" de nuevo.
+								{:else}
+									{tipoServicio === 'domicilio'
+										? tieneRutaCompleta && !precioDisponible
+											? 'No se puede confirmar sin una tarifa disponible.'
+											: 'Completa los campos para confirmar el pedido.'
+										: !destino
 											? 'Selecciona el barrio de destino.'
 												: 'Completa los campos para confirmar el pedido.'}
+								{/if}
 							</p>
 						{/if}
 					</div>
