@@ -663,10 +663,11 @@
 				payloadPedido.monto_pago = Number(transferenciaMonto);
 			}
 		}
-		// Pago/banco: incluir monto de pago y recargos construidos desde el formulario.
+		// Pago/banco: incluir monto de pago y códigos de recargos construidos desde el formulario.
+		// El backend espera un array de strings (códigos), no objetos.
 		if (tipoServicio === 'compra_diligencia' && (tipoDiligencia === 'pago' || tipoDiligencia === 'banco')) {
 			if (dilValorFactura) payloadPedido.monto_pago = Number(dilValorFactura);
-			payloadPedido.recargos = construirRecargosPagoBanco();
+			payloadPedido.recargos = construirRecargosPagoBanco().map((r) => r.id);
 		}
 		const r = await api.post<typeof creado>('/api/pedidos', payloadPedido);
 		confirmando = false;
