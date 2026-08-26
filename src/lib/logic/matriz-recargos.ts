@@ -45,6 +45,12 @@ export const MATRIZ_RECARGOS: Record<string, ReglaRecargos> = {
 };
 
 /**
+ * Códigos virtuales que el frontend construye y no existen como registros
+ * individuales en la tabla `recargos`. Se aceptan siempre sin consultar la BD.
+ */
+const CODIGOS_VIRTUALES = new Set(['paradas']);
+
+/**
  * Valida que un array de códigos de recargo sean válidos para un tipo
  * de diligencia dado. Devuelve los códigos filtrados (solo los válidos).
  *
@@ -76,6 +82,12 @@ export function filtrarRecargosServidor(
 	const invalidos: string[] = [];
 
 	for (const codigo of recargos) {
+		// Los códigos virtuales se aceptan siempre (el frontend los construye
+		// y su costo se calcula por separado en el motor de tarifas).
+		if (CODIGOS_VIRTUALES.has(codigo)) {
+			validos.push(codigo);
+			continue;
+		}
 		const tipo = tiposPorCodigo.get(codigo);
 		if (tipo && visibles.has(tipo)) {
 			validos.push(codigo);

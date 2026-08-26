@@ -174,6 +174,9 @@ export function calcularPrecio(pedido: PedidoCalculo): ResultadoCalculo {
 			case 'recargo_pagos_altos':
 				valor = recargoPagoAlto(pedido.monto_pago ?? 0);
 				break;
+			case 'paradas':
+				valor = (recargo.paradas ?? 0) * TABLA_RECARGOS.compras.por_parada;
+				break;
 			case 'tiempo_espera':
 			case 'espera':
 				// No tarifado en el PDF — se define aparte.

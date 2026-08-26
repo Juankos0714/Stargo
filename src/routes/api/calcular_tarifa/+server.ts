@@ -116,6 +116,27 @@ export const POST: RequestHandler = async ({ request }) => {
 				});
 			}
 		}
+
+		// Paradas: código virtual construido por el frontend con un conteo dinámico.
+		// El costo se calcula con la tabla de precios (por_parada × cantidad).
+		let paradasCount = 0;
+		for (const recargo of (body?.recargos ?? [])) {
+			if (
+				typeof recargo === 'object' && recargo !== null &&
+				(recargo as { id?: string }).id === 'paradas'
+			) {
+				paradasCount = Number((recargo as { paradas?: number }).paradas) || 0;
+			}
+		}
+		if (paradasCount > 0) {
+			const paradasValor = TABLA_RECARGOS.compras.por_parada * paradasCount;
+			recargosBD.push({
+				codigo: 'paradas',
+				nombre: `${paradasCount} parada${paradasCount > 1 ? 's' : ''}`,
+				valor: paradasValor
+			});
+		}
+
 		const recargoTotal = recargosBD.reduce((sum, r) => sum + r.valor, 0);
 		total += recargoTotal;
 

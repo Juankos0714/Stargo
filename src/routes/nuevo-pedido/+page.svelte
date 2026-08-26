@@ -986,15 +986,26 @@
 																type="text"
 																inputmode="numeric"
 																pattern="[0-9]*"
-																bind:value={dilValorFactura}
-																placeholder="Ej: 85000"
+																bind:value={dilValorFactura}																placeholder="Ej: 85000"
 																oninput={() => sincronizarRecargos()}
 														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
 														/>														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}
+														</div>
+														</div>
 													</div>
-												</div>
-											</div>
-										</div>
+													<div>
+														<label for="dil-paradas-pago" class="mb-1.5 block text-sm font-semibold text-slate-700">Paradas adicionales</label>
+														<input
+															id="dil-paradas-pago"
+															type="number"
+															inputmode="numeric"
+															min="0"
+															bind:value={dilCantidad}
+															placeholder="0"
+															class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+														/>
+													</div>
+													</div>
 
 									<!-- Pago bancario o corresponsal -->
 									{:else if tipoDiligencia === 'banco'}
@@ -1030,13 +1041,24 @@
 																inputmode="numeric"
 																pattern="[0-9]*"
 																bind:value={dilValorFactura}
-																placeholder="Ej: 150000"
-																oninput={() => sincronizarRecargos()}
+																placeholder="Ej: 150000"																oninput={() => sincronizarRecargos()}
 															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
+															/>
+															{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}														</div>						</div>
+													</div>
+													<div>
+														<label for="dil-paradas-banco" class="mb-1.5 block text-sm font-semibold text-slate-700">Paradas adicionales</label>
+														<input
+															id="dil-paradas-banco"
+															type="number"
+															inputmode="numeric"
+															min="0"
+															bind:value={dilCantidad}
+															placeholder="0"
+															class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
 														/>
-														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}														</div>						</div>
-											</div>
-										</div>
+													</div>
+													</div>
 
 									<!-- Compra de productos -->
 									{:else if tipoDiligencia === 'compra'}
