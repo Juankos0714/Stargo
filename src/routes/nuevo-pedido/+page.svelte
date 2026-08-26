@@ -539,7 +539,7 @@
 		const valorMandado = (tipoDiligencia === 'pago' || tipoDiligencia === 'banco') && String(dilValorFactura ?? '').trim()
 			? Math.round(Number(String(dilValorFactura ?? '')))
 			: undefined;
-		const r = await api.post<typeof creado>('/api/pedidos', {
+		const payloadPedido: Record<string, unknown> = {
 			barrio_origen: origen,
 			direccion_origen: dirOrigen,
 			barrio_destino: destino,
@@ -553,7 +553,15 @@
 			telefono: telefono.trim(),
 			base_necesaria: baseNecesaria.trim() ? Number(baseNecesaria.trim()) : undefined,
 			valor_mandado: valorMandado
-	});
+		};
+		// Domicilio: incluir peso y monto de transferencia para cálculo de recargos.
+		if (tipoServicio === 'domicilio') {
+			if (pesoKg) payloadPedido.peso_kg = Number(pesoKg);
+			if (transferencia === 'si' && transferenciaMonto) {
+				payloadPedido.monto_pago = Number(transferenciaMonto);
+			}
+		}
+		const r = await api.post<typeof creado>('/api/pedidos', payloadPedido);
 		confirmando = false;
 		if (r.error) {
 			error = r.error;
@@ -598,6 +606,8 @@
 	$effect(() => {
 		// Recalcular cuando cambian origen/destino (domicilio) o parámetros de compra/diligencia.
 		if (tipoServicio === 'domicilio') {
+			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+			origen; destino; pesoKg; transferencia; transferenciaMonto;
 			if (origen && destino) calcular();
 		} else {
 			// En compra/diligencia: recalcular al cambiar tipo, peso, monto, transferencia, recargos.
@@ -1143,18 +1153,18 @@
 										<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
 										<input												type="text"
 												inputmode="numeric"
-												pattern="[0-9]*"
-												bind:value={transferenciaMonto}
+												pattern="[0-9]*"												bind:value={transferenciaMonto}
 												placeholder="Monto a transferir"
+												oninput={() => sincronizarRecargos()}
 											class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.transferenciaMonto ? 'border-red-400' : ''}"
-										/>
-										{#if errores.transferenciaMonto}<p class="mt-1 text-xs text-red-600">{errores.transferenciaMonto}</p>{/if}
-									</div>
-								{/if}
-							</div>
+											/>
+											{#if errores.transferenciaMonto}<p class="mt-1 text-xs text-red-600">{errores.transferenciaMonto}</p>{/if}
+										</div>
+									{/if}
+								</div>
 
 
-					</div>						{:else if tipoServicio === 'compra_diligencia' && tipoDiligencia}
+						</div>						{:else if tipoServicio === 'compra_diligencia' && tipoDiligencia}
 					<div transition:fly={{ y: 12, duration: 200 }} class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 						<h2 class="mb-1 flex items-center gap-2 text-sm font-bold tracking-wide text-slate-500 uppercase">
 							<span class="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">3</span>
@@ -1209,11 +1219,11 @@
 									<input
 										type="text"
 										inputmode="numeric"
-										pattern="[0-9]*"
-										bind:value={transferenciaMonto}
-										placeholder="Monto a transferir"
-										class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.transferenciaMonto ? 'border-red-400' : ''}"
-									/>
+										pattern="[0-9]*"											bind:value={transferenciaMonto}
+											placeholder="Monto a transferir"
+											oninput={() => sincronizarRecargos()}
+											class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.transferenciaMonto ? 'border-red-400' : ''}"
+										/>
 									{#if errores.transferenciaMonto}<p class="mt-1 text-xs text-red-600">{errores.transferenciaMonto}</p>{/if}
 								</div>
 							{/if}
