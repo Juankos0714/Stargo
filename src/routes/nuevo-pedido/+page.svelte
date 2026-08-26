@@ -368,10 +368,10 @@
 				if (transferencia === 'si' && transferenciaMonto) {
 					payload.monto_pago = Number(transferenciaMonto);
 				}
-				payload.recargos = recargosSelFiltrados.map((codigo) => {
-					const rec = recargosActivos.find((r) => r.codigo === codigo);
-					return rec ? { id: rec.tipo } : { id: codigo };
-				});
+				// En domicilio se requieren los códigos escalonados reales, no sus
+				// tipos genéricos ('peso'/'transferencia'). Así el backend puede
+				// identificar el recargo que luego persiste en crear_pedido().
+				payload.recargos = recargosSelFiltrados.map((codigo) => ({ id: codigo }));
 		}
 
 		// El endpoint responde { data: <número>, meta: {...} }
