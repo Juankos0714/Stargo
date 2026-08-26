@@ -365,8 +365,32 @@
 				}];
 			}
 
-			// Enviar códigos de recargos (el backend resuelve valores desde la BD).
-			payload.recargos = recargosSelFiltrados.map((codigo) => ({ id: codigo }));
+			// Para pago/banco: construir recargos desde los campos del formulario
+			// (transferencia, paradas) ya que recargosSel está vacío para estos tipos.
+			const recargosPayload: { id: string; paradas?: number }[] = [];
+
+			// Transferencia: auto-detectar tier según monto
+			if (transferencia === 'si' && transferenciaMonto) {
+				const monto = Number(transferenciaMonto) || 0;
+				if (monto > 1000000) recargosPayload.push({ id: 'transferencia_1m' });
+				else if (monto > 500000) recargosPayload.push({ id: 'transferencia_500k' });
+				else if (monto > 100000) recargosPayload.push({ id: 'transferencia_100k' });
+			}
+
+			// Paradas adicionales
+			const numParadas = Number(dilCantidad) || 0;
+			if (numParadas > 0) {
+				recargosPayload.push({ id: 'paradas', paradas: numParadas });
+			}
+
+			// Incluir recargos que el usuario haya seleccionado manualmente (tiempo_espera, otro, etc.)
+			for (const codigo of recargosTiempoReal) {
+				if (!recargosPayload.some((r) => r.id === codigo)) {
+					recargosPayload.push({ id: codigo });
+				}
+			}
+
+			payload.recargos = recargosPayload;
 
 			// Peso y monto de pago para recargos escalonados.
 			if (pesoKg) payload.peso_kg = Number(pesoKg);
@@ -561,6 +585,34 @@
 		return parts.join('\n');
 	}
 
+	/** Construye la lista de recargos para pago/banco desde los campos del formulario. */
+	function construirRecargosPagoBanco(): { id: string; paradas?: number }[] {
+		const resultado: { id: string; paradas?: number }[] = [];
+
+		// Transferencia: auto-detectar tier según monto
+		if (transferencia === 'si' && transferenciaMonto) {
+			const monto = Number(transferenciaMonto) || 0;
+			if (monto > 1000000) resultado.push({ id: 'transferencia_1m' });
+			else if (monto > 500000) resultado.push({ id: 'transferencia_500k' });
+			else if (monto > 100000) resultado.push({ id: 'transferencia_100k' });
+		}
+
+		// Paradas adicionales
+		const numParadas = Number(dilCantidad) || 0;
+		if (numParadas > 0) {
+			resultado.push({ id: 'paradas', paradas: numParadas });
+		}
+
+		// Incluir recargos manuales del usuario (tiempo_espera, otro, etc.)
+		for (const codigo of recargosSelFiltrados) {
+			if (!resultado.some((r) => r.id === codigo)) {
+				resultado.push({ id: codigo });
+			}
+		}
+
+		return resultado;
+	}
+
 	function sincronizarRecargos() {
 		if (tipoServicio === 'domicilio') {
 			recargosSel = sincronizarRecargosDomicilio(
@@ -571,11 +623,9 @@
 				transferenciaMonto
 			);
 		} else if (tipoDiligencia === 'pago' || tipoDiligencia === 'banco') {
-			recargosSel = sincronizarRecargosTransferencia(
-				recargosActivos,
-				recargosSel,
-				dilValorFactura
-			);
+			// Para pago/banco, los recargos se construyen desde los campos del formulario,
+			// no desde recargosSel (que está vacío para estos tipos).
+			recargosSel = construirRecargosPagoBanco().map((r) => r.id);
 		}
 	}
 
@@ -613,9 +663,10 @@
 				payloadPedido.monto_pago = Number(transferenciaMonto);
 			}
 		}
-		// Pago/banco: incluir monto de pago para recargos de transferencia.
+		// Pago/banco: incluir monto de pago y recargos construidos desde el formulario.
 		if (tipoServicio === 'compra_diligencia' && (tipoDiligencia === 'pago' || tipoDiligencia === 'banco')) {
 			if (dilValorFactura) payloadPedido.monto_pago = Number(dilValorFactura);
+			payloadPedido.recargos = construirRecargosPagoBanco();
 		}
 		const r = await api.post<typeof creado>('/api/pedidos', payloadPedido);
 		confirmando = false;
