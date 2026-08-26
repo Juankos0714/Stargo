@@ -168,7 +168,7 @@ export function calcularPrecio(pedido: PedidoCalculo): ResultadoCalculo {
 			case 'peso_extra':
 				valor = recargoPeso(pedido.peso_kg ?? 0);
 				break;
-			case 'transferencias':
+			case 'transferencia':
 				valor = recargoTransferencia(pedido.monto_pago ?? 0);
 				break;
 			case 'recargo_pagos_altos':

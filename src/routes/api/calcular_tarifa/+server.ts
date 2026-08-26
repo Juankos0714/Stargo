@@ -66,7 +66,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		});
 	}
 
-	// ===== Pago bancario / corresponsal: precio PLANO, sin resolver sectores =====
+	// ===== Pago bancario / corresponsal: precio PLANO + recargos desde BD =====
 	if (tipoDiligencia === 'pago' || tipoDiligencia === 'banco') {
 		const subtipo: TipoPago = subtipoPago ?? (tipoDiligencia === 'banco' ? 'bancario' : 'corresponsal');
 		const valorPlano = TABLA_RECARGOS.pagos[subtipo];
@@ -87,6 +87,38 @@ export const POST: RequestHandler = async ({ request }) => {
 			});
 		}
 
+		// Consultar recargos seleccionados desde la BD (transferencia, paradas, etc.)
+		const codigosRecargos = Array.isArray(body?.recargos)
+			? body.recargos
+					.map((recargo: unknown) =>
+						typeof recargo === 'object' && recargo !== null
+							? String((recargo as { id?: unknown }).id ?? '').trim()
+							: ''
+					)
+					.filter(Boolean)
+			: [];
+		const codigosUnicos = [...new Set(codigosRecargos)].slice(0, 15);
+		let recargosBD: { codigo: string; nombre: string; valor: number }[] = [];
+		if (codigosUnicos.length > 0) {
+			const supabase = (await import('$lib/server/supabase')).getSupabaseAnon();
+			const { data: catalogo, error } = await supabase
+				.from('recargos')
+				.select('codigo, nombre, valor')
+				.in('codigo', codigosUnicos)
+				.eq('activo', true);
+			if (!error && catalogo) {
+				const porCodigo = new Map((catalogo ?? []).map((r) => [r.codigo, r]));
+				recargosBD = codigosUnicos.flatMap((codigo) => {
+					const recargo = porCodigo.get(codigo);
+					return recargo && Number.isFinite(recargo.valor)
+						? [{ codigo: recargo.codigo, nombre: recargo.nombre, valor: recargo.valor }]
+						: [];
+				});
+			}
+		}
+		const recargoTotal = recargosBD.reduce((sum, r) => sum + r.valor, 0);
+		total += recargoTotal;
+
 		return json({
 			data: total,
 			meta: {
@@ -101,8 +133,8 @@ export const POST: RequestHandler = async ({ request }) => {
 					fuente: 'tabla_pagos'
 				},
 				tramos_adicionales: tramosAdicionales,
-				recargos_desglose: [],
-				recargo_total: 0
+				recargos: recargosBD,
+				recargo_total: recargoTotal
 			}
 		});
 	}

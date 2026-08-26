@@ -18,12 +18,12 @@ export interface ReglaRecargos {
 
 export const MATRIZ_RECARGOS: Record<string, ReglaRecargos> = {
 	pago: {
-		visibles: ['tiempo_espera', 'paradas', 'otro'],
+		visibles: ['tiempo_espera', 'paradas', 'transferencia', 'otro'],
 		ocultos: ['compra', 'peso', 'pago'],
 		obligatorios: []
 	},
 	banco: {
-		visibles: ['tiempo_espera', 'paradas', 'otro'],
+		visibles: ['tiempo_espera', 'paradas', 'transferencia', 'otro'],
 		ocultos: ['compra', 'peso', 'pago'],
 		obligatorios: []
 	},
@@ -33,7 +33,7 @@ export const MATRIZ_RECARGOS: Record<string, ReglaRecargos> = {
 		obligatorios: ['compra']
 	},
 	tramite: {
-		visibles: ['tiempo_espera', 'paradas', 'otro'],
+		visibles: ['tiempo_espera', 'paradas', 'transferencia', 'otro'],
 		ocultos: ['compra', 'peso', 'pago'],
 		obligatorios: []
 	},

@@ -14,7 +14,7 @@
 		type TipoServicio,
 		type Zona
 	} from '$lib/types';
-	import { calcularRecargos, sincronizarRecargosDomicilio } from '$lib/logic/recargos';
+	import { calcularRecargos, sincronizarRecargosDomicilio, sincronizarRecargosTransferencia } from '$lib/logic/recargos';
 	import { validarPedido, type TipoDiligencia } from '$lib/logic/validacion';
 	import { MATRIZ_RECARGOS } from '$lib/logic/matriz-recargos';
 	import { calcularBaseSugerida } from '$lib/logic/base-necesaria';
@@ -260,9 +260,14 @@
 
 	// --- Recargos en tiempo real (independiente de recargosSel que solo llena al confirmar) ---
 	const recargosTiempoReal = $derived.by(() => {
-		return tipoServicio === 'domicilio'
-			? sincronizarRecargosDomicilio(recargosActivos, recargosSelFiltrados, pesoKg, transferencia, transferenciaMonto)
-			: recargosSelFiltrados;
+		if (tipoServicio === 'domicilio') {
+			return sincronizarRecargosDomicilio(recargosActivos, recargosSelFiltrados, pesoKg, transferencia, transferenciaMonto);
+		}
+		// Para pago/banco: auto-detectar recargos de transferencia desde dilValorFactura
+		if (tipoDiligencia === 'pago' || tipoDiligencia === 'banco') {
+			return sincronizarRecargosTransferencia(recargosActivos, recargosSelFiltrados, dilValorFactura);
+		}
+		return recargosSelFiltrados;
 	});
 	const calculoRecargos = $derived(calcularRecargos(recargosDisponibles, recargosTiempoReal));
 	// Para domicilio, el desglose que devuelve el servidor usa los valores
@@ -360,11 +365,8 @@
 				}];
 			}
 
-			// Enviar recargos seleccionados con sus valores.
-			payload.recargos = recargosSelFiltrados.map((codigo) => {
-				const rec = recargosActivos.find((r) => r.codigo === codigo);
-				return rec ? { id: rec.tipo } : { id: codigo };
-			});
+			// Enviar códigos de recargos (el backend resuelve valores desde la BD).
+			payload.recargos = recargosSelFiltrados.map((codigo) => ({ id: codigo }));
 
 			// Peso y monto de pago para recargos escalonados.
 			if (pesoKg) payload.peso_kg = Number(pesoKg);
@@ -560,14 +562,21 @@
 	}
 
 	function sincronizarRecargos() {
-		if (tipoServicio !== 'domicilio') return;
-		recargosSel = sincronizarRecargosDomicilio(
-			recargosActivos,
-			recargosSel,
-			pesoKg,
-			transferencia,
-			transferenciaMonto
-		);
+		if (tipoServicio === 'domicilio') {
+			recargosSel = sincronizarRecargosDomicilio(
+				recargosActivos,
+				recargosSel,
+				pesoKg,
+				transferencia,
+				transferenciaMonto
+			);
+		} else if (tipoDiligencia === 'pago' || tipoDiligencia === 'banco') {
+			recargosSel = sincronizarRecargosTransferencia(
+				recargosActivos,
+				recargosSel,
+				dilValorFactura
+			);
+		}
 	}
 
 	async function confirmar(e: SubmitEvent) {
@@ -603,6 +612,10 @@
 			if (transferencia === 'si' && transferenciaMonto) {
 				payloadPedido.monto_pago = Number(transferenciaMonto);
 			}
+		}
+		// Pago/banco: incluir monto de pago para recargos de transferencia.
+		if (tipoServicio === 'compra_diligencia' && (tipoDiligencia === 'pago' || tipoDiligencia === 'banco')) {
+			if (dilValorFactura) payloadPedido.monto_pago = Number(dilValorFactura);
 		}
 		const r = await api.post<typeof creado>('/api/pedidos', payloadPedido);
 		confirmando = false;
@@ -923,6 +936,7 @@
 																pattern="[0-9]*"
 																bind:value={dilValorFactura}
 																placeholder="Ej: 85000"
+																oninput={() => sincronizarRecargos()}
 														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
 														/>														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}
 													</div>
@@ -965,6 +979,7 @@
 																pattern="[0-9]*"
 																bind:value={dilValorFactura}
 																placeholder="Ej: 150000"
+																oninput={() => sincronizarRecargos()}
 															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
 														/>
 														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}														</div>						</div>

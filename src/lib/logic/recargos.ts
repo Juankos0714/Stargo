@@ -129,3 +129,35 @@ export function sincronizarRecargosDomicilio(
 
 	return [...seleccion];
 }
+
+/**
+ * Sincroniza recargos de transferencia para compra/diligencia (pago, banco, trámite).
+ * Usa el monto de la factura / pago para determinar el escalón correcto.
+ */
+export function sincronizarRecargosTransferencia(
+	recargos: RecargoSeleccionable[],
+	seleccionados: string[],
+	montoPago: string
+): string[] {
+	const seleccion = new Set(seleccionados);
+	const recargosTransferencia = recargos.filter(esRecargoDeTransferencia);
+
+	// Eliminar códigos de transferencia existentes
+	for (const recargo of recargosTransferencia) seleccion.delete(recargo.codigo);
+
+	const monto = Number(montoPago) || 0;
+	if (monto > 0) {
+		const codigoTransferencia = monto > 1000000
+			? 'transferencia_1m'
+			: monto > 500000
+				? 'transferencia_500k'
+				: monto > 100000
+					? 'transferencia_100k'
+					: '';
+		if (codigoTransferencia && recargosTransferencia.some((recargo) => recargo.codigo === codigoTransferencia)) {
+			seleccion.add(codigoTransferencia);
+		}
+	}
+
+	return [...seleccion];
+}
