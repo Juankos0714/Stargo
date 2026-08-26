@@ -3,6 +3,13 @@ import * as Sentry from '@sentry/sveltekit';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { env } from '$env/dynamic/public';
 import { registrarError } from '$lib/server/errores';
+import {
+	ACCESS_COOKIE,
+	REFRESH_COOKIE,
+	esSecure,
+	setSessionCookies
+} from '$lib/server/auth';
+import { getSupabaseAnon } from '$lib/server/supabase';
 
 /**
  * Sentry (Parte 9 — observabilidad). Se activa solo si PUBLIC_SENTRY_DSN
@@ -33,6 +40,76 @@ if (SENTRY_ACTIVO) {
  * este handler cubre el preflight OPTIONS y desarrollo local.
  */
 const ALLOWED_ORIGINS = new Set(['capacitor://localhost', 'http://localhost', 'https://localhost']);
+
+/**
+ * Resolución centralizada de sesión (Problema 1 fix).
+ *
+ * ANTES: cada endpoint llamaba getSesion() independientemente, lo que causaba
+ * race conditions con refresh tokens (dos requests simultáneos → el segundo
+ * usa un refresh_token ya invalidado por el primero → sesión perdida).
+ *
+ * AHORA: este hook resuelve la sesión UNA VEZ por request, la almacena en
+ * event.locals.session, y re-emite las cookies si el token se renovó. Los
+ * endpoints leen de event.locals.session en vez de llamar getSesion() de
+ * nuevo (backwards-compatible: getSesion() sigue funcionando sola).
+ */
+const handleSession: Handle = async ({ event, resolve }) => {
+	// Solo resolver sesión para rutas de la app (no assets estáticos).
+	const pathname = event.url.pathname;
+	if (pathname.startsWith('/api/') || pathname.startsWith('/admin') || pathname.startsWith('/domiciliario')) {
+		const accessToken = event.cookies.get(ACCESS_COOKIE);
+		const refreshToken = event.cookies.get(REFRESH_COOKIE);
+
+		if (!accessToken) {
+			event.locals.session = null;
+			return resolve(event);
+		}
+
+		const supabase = getSupabaseAnon();
+		const { data, error: err } = await supabase.auth.getUser(accessToken);
+
+		if (!err && data.user) {
+			// JWT válido: reutilizar tal cual.
+			event.locals.session = { user: data.user, accessToken, refreshToken: refreshToken ?? '' };
+			return resolve(event);
+		}
+
+		// JWT expirado o inválido: intentar refresh.
+		if (refreshToken) {
+			const { data: rd, error: re } = await supabase.auth.refreshSession({
+				refresh_token: refreshToken
+			});
+
+			if (!re && rd.session) {
+				// Refresh exitoso: re-emite cookies y almacena la sesión.
+				const response = await resolve(event);
+				setSessionCookies(event.cookies, rd.session, esSecure(event.url));
+				// Re-leer las cookies que acabamos de setear para incluirlas
+				// en la respuesta (SvelteKit las serializa automáticamente).
+				event.locals.session = {
+					user: rd.session.user,
+					accessToken: rd.session.access_token,
+					refreshToken: rd.session.refresh_token
+				};
+				return response;
+			}
+		}
+
+		// Refresh falló (token revocado, expirado, o race condition con
+		// otro request que ya usó el mismo refresh_token).
+		// NO limpiamos cookies: el refresh_token puede ser válido pero
+		// haber sido invalidado por un request concurrente. Si limpiamos,
+		// el usuario pierde la sesión sin posibilidad de recuperación.
+		// En su lugar, dejamos las cookies y el siguiente request reintentará.
+		event.locals.session = null;
+		return resolve(event);
+	}
+
+	// Rutas públicas (home, nuevo-pedido, consultar-estado, login):
+	// no resolver sesión, solo dejar event.locals.session = null.
+	event.locals.session = null;
+	return resolve(event);
+};
 
 const handleCors: Handle = async ({ event, resolve }) => {
 	const origin = event.request.headers.get('origin') ?? '';
@@ -73,8 +150,8 @@ const handleSeguridad: Handle = async ({ event, resolve }) => {
 };
 
 export const handle: Handle = SENTRY_ACTIVO
-	? sequence(Sentry.sentryHandle(), handleCors, handleSeguridad)
-	: sequence(handleCors, handleSeguridad);
+	? sequence(Sentry.sentryHandle(), handleSession, handleCors, handleSeguridad)
+	: sequence(handleSession, handleCors, handleSeguridad);
 
 /**
  * Manejo de errores del servidor:

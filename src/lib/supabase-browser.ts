@@ -19,7 +19,11 @@ export const supabaseBrowser: SupabaseClient = createClient(
 	{
 		auth: {
 			persistSession: !esCapacitor(),
-			autoRefreshToken: !esCapacitor()
+		// autoRefreshToken DESACTIVADO: el refresh lo maneja el server
+		// (hooks.server.ts → handleSession). Si el browser client juga a
+		// refrescar, invalida el refresh_token que el server necesita,
+		// causando el race condition que cierra la sesión.
+		autoRefreshToken: false
 		}
 	}
 );

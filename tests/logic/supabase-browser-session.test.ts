@@ -73,7 +73,7 @@ afterEach(() => {
 // ── supabaseBrowser — configuración del cliente ─────────────────────────────
 
 describe('supabaseBrowser — configuración del cliente', () => {
-	test('web: persistSession y autoRefreshToken activados', async () => {
+	test('web: persistSession activado, autoRefreshToken desactivado (el server maneja el refresh)', async () => {
 		nativePlatformRef.value = false;
 		vi.resetModules();
 		const { supabaseBrowser } = await import('$lib/supabase-browser');
@@ -84,7 +84,7 @@ describe('supabaseBrowser — configuración del cliente', () => {
 			expect.objectContaining({
 				auth: {
 					persistSession: true,
-					autoRefreshToken: true
+					autoRefreshToken: false
 				}
 			})
 		);

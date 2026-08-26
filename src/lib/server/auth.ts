@@ -51,6 +51,14 @@ export interface SesionInfo {
  * renueva con el refresh token y re-emite las cookies.
  */
 export async function getSesion(event: RequestEvent): Promise<SesionInfo | null> {
+	// Si el handleSession hook ya resolvió la sesión, reutilizarla.
+	// Esto evita el race condition: el hook centraliza el refresh y
+	// todos los endpoints leen el mismo resultado.
+	if (event.locals.session !== undefined) {
+		return event.locals.session;
+	}
+
+	// Fallback: resolver aquí (para tests o rutas fuera del hook).
 	const accessToken = event.cookies.get(ACCESS_COOKIE);
 	const refreshToken = event.cookies.get(REFRESH_COOKIE);
 	if (!accessToken) return null;
@@ -73,7 +81,9 @@ export async function getSesion(event: RequestEvent): Promise<SesionInfo | null>
 		}
 	}
 
-	clearSessionCookies(event.cookies);
+	// NO limpiar cookies aquí: si el refresh falló por race condition
+	// (otro request ya usó el refresh_token), limpiar las cookies
+	// eliminaría la sesión sin posibilidad de recuperación.
 	return null;
 }
 

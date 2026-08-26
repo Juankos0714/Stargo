@@ -252,7 +252,9 @@
 		let limpiar: (() => void)[] = [];
 		hidratarSesionRealtime().then(() => {
 			if (!activo) return;
-			limpiar = (['domiciliarios', 'pagos_domiciliarios'] as const).map((tabla) =>
+			// Suscribirse también a 'pedidos' para que los cambios de estado
+			// (entregado → recalcula comisión) refresquen la deuda al instante.
+			limpiar = (['domiciliarios', 'pagos_domiciliarios', 'pedidos'] as const).map((tabla) =>
 				suscribirCambios({
 					tabla,
 					onCambio: () => cargarDebounced(),

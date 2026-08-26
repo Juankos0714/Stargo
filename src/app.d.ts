@@ -3,7 +3,10 @@
 declare global {
 	namespace App {
 		// interface Error {}
-		// interface Locals {}
+		interface Locals {
+			/** Sesión resuelta por handleSession en hooks.server.ts (null si anónimo). */
+			session: import('$lib/server/auth').SesionInfo | null;
+		}
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}
