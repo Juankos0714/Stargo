@@ -8,7 +8,9 @@
 	import {
 		etiquetaTipoRecargo,
 		etiquetaTipoServicio,
+		formatearMontoCampo,
 		formatearPeso,
+		normalizarMontoCampo,
 		type Barrio,
 		type Recargo,
 		type TipoServicio,
@@ -613,10 +615,10 @@
 		}
 		if (dilDescripcion.trim()) parts.push(`Descripción: ${dilDescripcion.trim()}`);
 		if (dilEntidad.trim()) parts.push(`Entidad: ${dilEntidad.trim()}`);
-		if (String(dilValorFactura ?? '').trim()) parts.push(`Valor a pagar: $${String(dilValorFactura ?? '')}`);
+		if (String(dilValorFactura ?? '').trim()) parts.push(`Valor a pagar: $${formatearMontoCampo(dilValorFactura)}`);
 		if (dilProductos.trim()) parts.push(`Productos: ${dilProductos.trim()}`);
 		if (dilCantidad.trim()) parts.push(`Cantidad: ${dilCantidad.trim()}`);
-		if (String(dilPresupuesto ?? '').trim()) parts.push(`Presupuesto: $${String(dilPresupuesto ?? '')}`);
+		if (String(dilPresupuesto ?? '').trim()) parts.push(`Presupuesto: $${formatearMontoCampo(dilPresupuesto)}`);
 		if (dilTramite.trim()) parts.push(`Trámite: ${dilTramite.trim()}`);
 		if (dilInstrucciones.trim()) parts.push(`Instrucciones: ${dilInstrucciones.trim()}`);
 		if (dilLugarTramite.trim()) parts.push(`Lugar: ${dilLugarTramite.trim()}`);
@@ -1025,8 +1027,9 @@
 																type="text"
 																inputmode="numeric"
 																pattern="[0-9]*"
-																bind:value={dilValorFactura}																placeholder="Ej: 85000"
-																oninput={() => sincronizarRecargos()}
+																value={formatearMontoCampo(dilValorFactura)}
+																placeholder="Ej: 85.000"
+																oninput={(e) => { dilValorFactura = normalizarMontoCampo(e.currentTarget.value); sincronizarRecargos(); }}
 														class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
 														/>														{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}
 														</div>
@@ -1079,8 +1082,8 @@
 																type="text"
 																inputmode="numeric"
 																pattern="[0-9]*"
-																bind:value={dilValorFactura}
-																placeholder="Ej: 150000"																oninput={() => sincronizarRecargos()}
+																value={formatearMontoCampo(dilValorFactura)}
+																placeholder="Ej: 150.000"																oninput={(e) => { dilValorFactura = normalizarMontoCampo(e.currentTarget.value); sincronizarRecargos(); }}
 															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilValorFactura ? 'border-red-400' : ''}"
 															/>
 															{#if errores.dilValorFactura}<p class="mt-1 text-xs text-red-600">{errores.dilValorFactura}</p>{/if}														</div>						</div>
@@ -1131,8 +1134,9 @@
 																type="text"
 																inputmode="numeric"
 																pattern="[0-9]*"
-																bind:value={dilPresupuesto}
-																placeholder="Ej: 50000"
+																value={formatearMontoCampo(dilPresupuesto)}
+																placeholder="Ej: 50.000"
+																oninput={(e) => (dilPresupuesto = normalizarMontoCampo(e.currentTarget.value))}
 															class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
 														/>
 													</div>						</div>
@@ -1331,9 +1335,9 @@
 										<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
 										<input												type="text"
 												inputmode="numeric"
-												pattern="[0-9]*"												bind:value={transferenciaMonto}
+												pattern="[0-9]*"												value={formatearMontoCampo(transferenciaMonto)}
 												placeholder="Monto a transferir"
-												oninput={() => sincronizarRecargos()}
+												oninput={(e) => { transferenciaMonto = normalizarMontoCampo(e.currentTarget.value); sincronizarRecargos(); }}
 											class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.transferenciaMonto ? 'border-red-400' : ''}"
 											/>
 											{#if errores.transferenciaMonto}<p class="mt-1 text-xs text-red-600">{errores.transferenciaMonto}</p>{/if}
@@ -1400,9 +1404,9 @@
 									<input
 										type="text"
 										inputmode="numeric"
-										pattern="[0-9]*"											bind:value={transferenciaMonto}
+										pattern="[0-9]*"											value={formatearMontoCampo(transferenciaMonto)}
 											placeholder="Monto a transferir"
-											oninput={() => sincronizarRecargos()}
+											oninput={(e) => { transferenciaMonto = normalizarMontoCampo(e.currentTarget.value); sincronizarRecargos(); }}
 											class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.transferenciaMonto ? 'border-red-400' : ''}"
 										/>
 									{#if errores.transferenciaMonto}<p class="mt-1 text-xs text-red-600">{errores.transferenciaMonto}</p>{/if}
@@ -1509,8 +1513,9 @@
 											type="text"
 											inputmode="numeric"
 											pattern="[0-9]*"
-											bind:value={baseNecesaria}
+											value={formatearMontoCampo(baseNecesaria)}
 											placeholder="0"
+											oninput={(e) => (baseNecesaria = normalizarMontoCampo(e.currentTarget.value))}
 										class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
 									/>
 								</div>

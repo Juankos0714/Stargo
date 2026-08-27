@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { formatearFecha, formatearPeso, tiempoRelativo } from '../../src/lib/logic/formato';
+import { formatearFecha, formatearMontoCampo, formatearPeso, normalizarMontoCampo, tiempoRelativo } from '../../src/lib/logic/formato';
 
 describe('formatearPeso (COP)', () => {
 	test('formatea valores enteros sin decimales', () => {
@@ -16,6 +16,20 @@ describe('formatearPeso (COP)', () => {
 	test('un valor de 0 se formatea como 0 (no como placeholder)', () => {
 		expect(formatearPeso(0)).not.toBe('—');
 		expect(formatearPeso(0)).toContain('0');
+	});
+});
+
+describe('montos en campos editables', () => {
+	test('muestra separadores de miles sin símbolo de moneda', () => {
+		expect(formatearMontoCampo('1250000')).toBe('1.250.000');
+		expect(formatearMontoCampo(50000)).toBe('50.000');
+		expect(formatearMontoCampo('')).toBe('');
+	});
+
+	test('normaliza montos escritos o pegados a solo dígitos', () => {
+		expect(normalizarMontoCampo('1.250.000')).toBe('1250000');
+		expect(normalizarMontoCampo('$ 50.000')).toBe('50000');
+		expect(normalizarMontoCampo('000500')).toBe('500');
 	});
 });
 

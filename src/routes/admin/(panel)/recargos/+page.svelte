@@ -2,7 +2,7 @@
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
 	import { CircleCheck, Plus, RefreshCw, Search, SlidersHorizontal } from 'lucide';
-	import { TIPOS_RECARGO, etiquetaTipoRecargo, type Recargo, type TipoRecargo } from '$lib/types';
+	import { formatearMontoCampo, normalizarMontoCampo, TIPOS_RECARGO, etiquetaTipoRecargo, type Recargo, type TipoRecargo } from '$lib/types';
 
 	let recargos = $state<Recargo[]>([]);
 	let cargando = $state(true);
@@ -262,7 +262,7 @@
 			</div>
 			<div>
 				<label for="rec-valor" class="mb-1 block text-xs font-semibold text-slate-600">Valor (COP)</label>
-				<input id="rec-valor" type="number" min="0" step="500" bind:value={nuevo.valor} class="input" />
+				<input id="rec-valor" type="text" inputmode="numeric" value={formatearMontoCampo(nuevo.valor)} oninput={(e) => (nuevo.valor = Number(normalizarMontoCampo(e.currentTarget.value) || 0))} class="input" />
 			</div>
 			<div>
 				<label for="rec-desc" class="mb-1 block text-xs font-semibold text-slate-600">Descripción</label>
@@ -335,7 +335,7 @@
 									</select>
 								</td>
 								<td class="px-4 py-2.5">
-									<input type="number" min="0" step="500" bind:value={editandoRecargo.valor} class="input w-28 text-right" />
+									<input type="text" inputmode="numeric" value={formatearMontoCampo(editandoRecargo.valor)} oninput={(e) => (editandoRecargo.valor = Number(normalizarMontoCampo(e.currentTarget.value) || 0))} class="input w-28 text-right" />
 								</td>
 								<td class="hidden px-4 py-2.5 lg:table-cell">
 									<input bind:value={editandoRecargo.descripcion} class="input" placeholder="Sin descripción" />

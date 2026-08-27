@@ -5,7 +5,7 @@
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { Ban, Plus, RotateCw } from 'lucide';
-	import { formatearPeso, type Domiciliario, type DomiciliarioConBase, type PagoDomiciliario } from '$lib/types';
+	import { formatearMontoCampo, formatearPeso, normalizarMontoCampo, type Domiciliario, type DomiciliarioConBase, type PagoDomiciliario } from '$lib/types';
 
 	interface DomiciliarioFila extends Domiciliario {
 		deuda: number;
@@ -646,11 +646,11 @@
 					<label for="abono-valor" class="mb-1.5 block text-sm font-semibold text-slate-700">Valor del abono (COP)</label>
 					<input
 						id="abono-valor"
-						type="number"
-						min="1"
-						step="500"
-						bind:value={abonoValor}
-						placeholder="Ej: 20000"
+						type="text"
+						inputmode="numeric"
+						value={formatearMontoCampo(abonoValor)}
+						oninput={(e) => (abonoValor = normalizarMontoCampo(e.currentTarget.value))}
+						placeholder="Ej: 20.000"
 						class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-primary focus:outline-none"
 					/>
 				</div>

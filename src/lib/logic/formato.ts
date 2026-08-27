@@ -15,6 +15,23 @@ export function formatearPeso(valor: number | null | undefined): string {
 	}).format(valor);
 }
 
+/**
+ * Formatea un monto entero para un campo editable sin añadir el símbolo $.
+ * El estado del formulario debe conservarse con `normalizarMontoCampo` para
+ * que las validaciones y los envíos a la API reciban únicamente dígitos.
+ */
+export function formatearMontoCampo(valor: string | number | null | undefined): string {
+	const digitos = String(valor ?? '').replace(/\D/g, '');
+	if (!digitos) return '';
+	return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(digitos));
+}
+
+/** Extrae y normaliza los dígitos de un monto escrito o pegado en un campo. */
+export function normalizarMontoCampo(valor: string): string {
+	const digitos = valor.replace(/\D/g, '');
+	return digitos.replace(/^0+(?=\d)/, '');
+}
+
 /** Fecha corta en español: día + mes abreviado + hora:minuto. */
 export function formatearFecha(iso: string): string {
 	const fecha = new Date(iso);

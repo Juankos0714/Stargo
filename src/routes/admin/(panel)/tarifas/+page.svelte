@@ -2,7 +2,7 @@
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
 	import { Save, Check } from 'lucide';
-	import { ordenarZonas, type Tarifa, type Zona } from '$lib/types';
+	import { formatearMontoCampo, normalizarMontoCampo, ordenarZonas, type Tarifa, type Zona } from '$lib/types';
 
 	let zonas = $state<Zona[]>([]);
 	let tarifas = $state<Tarifa[]>([]);
@@ -69,7 +69,7 @@
 
 	async function guardarCelda(origen: string, destino: string) {
 		const k = key(origen, destino);
-		const raw = (celdas[k] ?? '').trim();
+		const raw = normalizarMontoCampo(celdas[k] ?? '');
 
 		if (raw === '') {
 			// Sin valor → eliminar la tarifa de este par.
@@ -193,14 +193,13 @@
 								<td class="border-b border-slate-100 p-1.5 {esDiagonal ? 'bg-primary-light/60' : ''}">
 									<div class="relative">
 										<input
-											type="number"
-											min="0"
-											step="500"
-											value={celdas[k] ?? ''}
-											placeholder={reverso != null ? `~${reverso}` : ''}
+											type="text"
+											inputmode="numeric"
+											value={formatearMontoCampo(celdas[k] ?? '')}
+											placeholder={reverso != null ? `~${formatearMontoCampo(reverso)}` : ''}
 											aria-label={`${origen.nombre} a ${destino.nombre}`}
 											onchange={(e) => {
-												celdas[k] = (e.currentTarget as HTMLInputElement).value;
+												celdas[k] = normalizarMontoCampo((e.currentTarget as HTMLInputElement).value);
 												celdas = { ...celdas };
 												guardarCelda(origen.id, destino.id);
 											}}

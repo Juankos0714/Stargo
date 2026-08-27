@@ -16,8 +16,10 @@
 		accionDomiciliario,
 		etiquetaTipoServicio,
 		etiquetaEstado,
+		formatearMontoCampo,
 		formatearPeso,
 		mensajeWhatsAppDomiciliario,
+		normalizarMontoCampo,
 		rangoDeNiveles,
 		type CuentaDomiciliario,
 		type HistorialEstado,
@@ -117,7 +119,7 @@
 	}
 
 	async function iniciarTurno() {
-		const bn = Number(baseDeclarada);
+		const bn = Number(normalizarMontoCampo(baseDeclarada));
 		if (!Number.isFinite(bn) || bn < 0) {
 			mensaje = { tipo: 'err', texto: 'Ingresa un monto válido para tu base.' };
 			return;
@@ -295,11 +297,12 @@
 				<label for="base-declarada" class="mb-1 block text-xs font-semibold text-slate-600">Efectivo disponible (COP)</label>
 				<input
 					id="base-declarada"
-					type="number"
+					type="text"
+					inputmode="numeric"
 					min="0"
-					step="500"
-					bind:value={baseDeclarada}
-					placeholder="Ej: 50000"
+					value={formatearMontoCampo(baseDeclarada)}
+					oninput={(e) => (baseDeclarada = normalizarMontoCampo(e.currentTarget.value))}
+					placeholder="Ej: 50.000"
 					required
 					class="w-48 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:outline-none"
 			/>

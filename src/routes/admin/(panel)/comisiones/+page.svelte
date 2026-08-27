@@ -7,6 +7,8 @@
 	import { Clock, ArrowLeftRight, RotateCw, Coins, Plus, Save, X, Lightbulb } from 'lucide';
 	import {
 		formatearPeso,
+		formatearMontoCampo,
+		normalizarMontoCampo,
 		rangoDeNiveles,
 		validarTopeNivel,
 		type ComisionConfig,
@@ -57,8 +59,8 @@
 	const cargarDebounced = debounce(() => cargar(), 250);
 
 	async function guardar(n: NivelConRango) {
-		const valor = Number(valorInput[n.id]);
-		const hasta = Number(hastaInput[n.id]);
+		const valor = Number(normalizarMontoCampo(valorInput[n.id] ?? ''));
+		const hasta = Number(normalizarMontoCampo(hastaInput[n.id] ?? ''));
 		if (!Number.isFinite(valor) || valor < 0) {
 			mensaje = { tipo: 'err', texto: `Comisión inválida para el nivel ${n.nivel}.` };
 			return;
@@ -231,10 +233,10 @@
 			<span>Cada nivel abarca</span>
 			<span class="text-slate-400">$</span>
 			<input
-				type="number"
-				min="1"
-				step="1000"
-				bind:value={pasoInput}
+				type="text"
+				inputmode="numeric"
+				value={formatearMontoCampo(pasoInput)}
+				oninput={(e) => (pasoInput = normalizarMontoCampo(e.currentTarget.value))}
 				aria-label="Paso entre niveles"
 				class="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 transition focus:border-primary focus:outline-none"
 			/>
@@ -338,10 +340,10 @@
 								<div class="flex items-center gap-1.5">
 									<span class="text-slate-400">$</span>
 									<input
-										type="number"
-										min="0"
-										step="100"
-										bind:value={valorInput[n.id]}
+										type="text"
+										inputmode="numeric"
+										value={formatearMontoCampo(valorInput[n.id])}
+										oninput={(e) => { valorInput[n.id] = normalizarMontoCampo(e.currentTarget.value); valorInput = { ...valorInput }; }}
 										disabled={guardando[n.id]}
 										aria-label={`Comisión del nivel ${n.nivel}`}
 										class="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 transition focus:border-primary focus:outline-none disabled:opacity-60"
@@ -350,10 +352,10 @@
 								<div class="mt-1 flex items-center gap-1.5">
 									<span class="text-[10px] text-slate-400">tope $</span>
 									<input
-										type="number"
-										min="1"
-										step="1000"
-										bind:value={hastaInput[n.id]}
+										type="text"
+										inputmode="numeric"
+										value={formatearMontoCampo(hastaInput[n.id])}
+										oninput={(e) => { hastaInput[n.id] = normalizarMontoCampo(e.currentTarget.value); hastaInput = { ...hastaInput }; }}
 										disabled={guardando[n.id]}
 										aria-label={`Tope del nivel ${n.nivel}`}
 										class="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 transition focus:border-primary focus:outline-none disabled:opacity-60"

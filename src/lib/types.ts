@@ -503,7 +503,7 @@ export function ordenarZonas(zonas: Zona[]): Zona[] {
 // Las funciones puras viven en $lib/logic y se testean con Vitest (cobertura
 // ≥90%). Se re-exportan aquí para no romper los imports históricos desde
 // '$lib/types'.
-export { formatearPeso } from './logic/formato';
+export { formatearMontoCampo, formatearPeso, normalizarMontoCampo } from './logic/formato';
 export {
 	calcularDeuda,
 	comisionDiaria,
