@@ -39,10 +39,6 @@
     {
       "path": "/api/cron/alertas",
       "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/warmup",
-      "schedule": "*/5 * * * *"
     }
   ]
 }
