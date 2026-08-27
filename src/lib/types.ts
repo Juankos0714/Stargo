@@ -95,6 +95,8 @@ export interface Domiciliario {
 	activo: boolean;
 	/** Bloqueado por falta de pago: no recibe pedidos nuevos hasta que el admin lo desbloquee (Fase 10). */
 	bloqueado?: boolean;
+	/** Nivel actual del domiciliario (Fase 24): determina la comisión por servicio. */
+	nivel?: number;
 	created_at?: string;
 }
 

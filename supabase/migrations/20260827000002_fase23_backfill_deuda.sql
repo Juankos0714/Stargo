@@ -177,7 +177,9 @@ BEGIN
         WHERE id = v_dom.id;
 
         -- 6) Registrar movimiento de ajuste inicial en el ledger
-        IF v_deuda > 0 OR v_credito > 0 THEN
+        -- Solo insertar si hay deuda (monto > 0 es obligatorio).
+        -- Si solo hay crédito (deuda = 0), credito_favor ya se actualizó arriba.
+        IF v_deuda > 0 THEN
             INSERT INTO public.deuda_movimientos
                 (domiciliario_id, tipo, monto, saldo_resultante,
                  referencia_tipo, notas)
