@@ -186,14 +186,37 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	const tramoPrincipal = crearTramoPrincipal(sectorOrigen, sectorDestino, tipoDiligencia);
 
-	// Tramos adicionales (recogida extra)
-	const tramosAdicionales: Tramo[] = Array.isArray(body?.tramos_adicionales)
-		? body.tramos_adicionales.map((t: { origen: string; destino: string }) => ({
-				origen: t.origen as SectorId,
-				destino: t.destino as SectorId,
-				proposito: 'recogida_extra' as const
-			}))
-		: [];
+	// Tramos adicionales (recogida extra) — resolver barrio → zona → sector
+	const tramosAdicionalesInput = Array.isArray(body?.tramos_adicionales) ? body.tramos_adicionales : [];
+	const tramosAdicionales: Tramo[] = [];
+	if (tramosAdicionalesInput.length > 0) {
+		try {
+			const supabase = (await import('$lib/server/supabase')).getSupabaseAnon();
+			for (const t of tramosAdicionalesInput) {
+				let secOrigen: SectorId = 'centro';
+				let secDestino: SectorId = 'centro';
+				const [{ data: bO }, { data: bD }] = await Promise.all([
+					supabase.from('barrios').select('zona_id').eq('id', t.origen).limit(1),
+					supabase.from('barrios').select('zona_id').eq('id', t.destino).limit(1)
+				]);
+				if (bO?.[0]?.zona_id && bD?.[0]?.zona_id) {
+					const [{ data: zO }, { data: zD }] = await Promise.all([
+						supabase.from('zonas').select('nombre').eq('id', bO[0].zona_id).limit(1),
+						supabase.from('zonas').select('nombre').eq('id', bD[0].zona_id).limit(1)
+					]);
+					secOrigen = mapearZonaASector(String(zO?.[0]?.nombre ?? ''), bO[0].zona_id);
+					secDestino = mapearZonaASector(String(zD?.[0]?.nombre ?? ''), bD[0].zona_id);
+				}
+				tramosAdicionales.push({
+					origen: secOrigen,
+					destino: secDestino,
+					proposito: 'recogida_extra'
+				});
+			}
+		} catch {
+			// Si falla, tramos vacíos
+		}
+	}
 
 	// Recargos seleccionados
 	const recargos: RecargoSeleccionado[] = Array.isArray(body?.recargos)

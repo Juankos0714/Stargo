@@ -81,17 +81,16 @@ const handleSession: Handle = async ({ event, resolve }) => {
 			});
 
 			if (!re && rd.session) {
-				// Refresh exitoso: re-emite cookies y almacena la sesión.
-				const response = await resolve(event);
+				// Refresh exitoso: setear cookies ANTES de resolve para que
+				// SvelteKit las incluya en los Set-Cookie de la respuesta.
+				// (En SvelteKit 2.x, cookies.set() lanza después de resolve.)
 				setSessionCookies(event.cookies, rd.session, esSecure(event.url));
-				// Re-leer las cookies que acabamos de setear para incluirlas
-				// en la respuesta (SvelteKit las serializa automáticamente).
 				event.locals.session = {
 					user: rd.session.user,
 					accessToken: rd.session.access_token,
 					refreshToken: rd.session.refresh_token
 				};
-				return response;
+				return resolve(event);
 			}
 		}
 

@@ -554,6 +554,9 @@
 		tipoServicio = opcion.tipoServicio;
 		tipoDiligencia = opcion.tipoDiligencia;
 
+		// En compra no hay recogida separada: la compra ES el recogido.
+		necesitaRecoger = opcion.tipoDiligencia === 'compra' ? false : null;
+
 		// Limpiar precio, errores y cálculo.
 		precio = null;
 		error = null;
@@ -920,10 +923,8 @@
 								<span class="shrink-0">💡</span>
 								<span>{AYUDA_DILIGENCIA[tipoDiligencia]}</span>
 							</p>
-						{/if}
-
-						<!-- Pregunta de recogida: aplica para compra/diligencia -->
-						{#if tipoServicio === 'compra_diligencia' && tipoDiligencia}
+						{/if}							<!-- Pregunta de recogida: aplica para compra/diligencia (excepto compra, que siempre recoge) -->
+							{#if tipoServicio === 'compra_diligencia' && tipoDiligencia && tipoDiligencia !== 'compra'}
 							<fieldset class="mt-4">
 								<legend class="text-sm font-semibold text-slate-800">¿Se debe recoger algo o a alguien antes?</legend>
 								<div class="mt-2 flex gap-2">
