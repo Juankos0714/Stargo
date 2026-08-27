@@ -145,24 +145,24 @@
 
 <div class="min-h-screen bg-gradient-to-b from-slate-50 via-primary-light/40 to-slate-50">
 	<header class="border-b border-slate-200/70 bg-white/80 backdrop-blur">
-		<div class="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+		<div class="mx-auto flex max-w-3xl flex-col items-start gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
 			<a href="/" class="flex items-center">
 				<Logo type="full" surface="light" height={32} priority />
 			</a>
-			<nav class="flex items-center gap-3 text-sm">
+			<nav class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm">
 				<a href="/nuevo-pedido" class="font-medium text-slate-500 transition hover:text-primary">Hacer un pedido →</a>
 				<a href="/consultar-estado" class="font-medium text-slate-500 transition hover:text-primary">Consultar estado</a>
 			</nav>
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-3xl px-6 py-12">
+	<main class="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
 		<div class="text-center">
-			<h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Calculadora de tarifas</h1>
+			<h1 class="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Calculadora de tarifas</h1>
 			<p class="mt-2 text-slate-500">Selecciona el barrio de origen y destino para ver el precio del domicilio.</p>
 		</div>
 
-		<div class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-900/5 sm:p-8">
+		<div class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-900/5 sm:mt-8 sm:p-8">
 			{#if cargando}
 				<div class="flex items-center justify-center gap-3 py-16 text-slate-500">
 					<span class="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" ></span>
@@ -211,7 +211,7 @@
 					<div class="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
 				{/if}
 
-				<div class="mt-7 min-h-36 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-6">
+				<div class="mt-7 min-h-36 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-4 sm:p-6">
 					{#if !calculado}
 						<p class="flex items-center gap-2 text-sm text-slate-400">
 							<Icon icon={Info} class="size-4.5" />

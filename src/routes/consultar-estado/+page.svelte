@@ -161,7 +161,7 @@
 
 <div class="min-h-screen bg-gradient-to-b from-slate-50 via-primary-light/40 to-slate-50">
 	<header class="border-b border-slate-200/70 bg-white/80 backdrop-blur">
-		<div class="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+		<div class="mx-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 sm:mx-auto sm:max-w-3xl sm:px-6 sm:py-4">
 			<a href="/" class="flex items-center">
 				<Logo type="full" surface="light" height={32} priority />
 			</a>
@@ -169,10 +169,10 @@
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-2xl px-6 py-12">
+	<main class="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
 		<div class="flex items-start justify-center gap-3 text-center">
 			<div>
-				<h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Consultar estado</h1>
+				<h1 class="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Consultar estado</h1>
 				<p class="mt-2 text-slate-500">Ingresa el código que recibiste al confirmar tu pedido.</p>
 			</div>
 			{#if canalActivo}
@@ -246,7 +246,7 @@
 			{:else if error && consultado}
 				<div class="rounded-xl border border-red-200 bg-red-50 px-4 py-6 text-center text-sm text-red-700">{error}</div>
 			{:else if resultado}
-				<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-900/5 sm:p-8">
+				<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg shadow-slate-900/5 sm:p-8">
 					<div class="flex flex-wrap items-center justify-between gap-3">
 						<div>
 							<p class="text-xs font-semibold tracking-wide text-slate-400 uppercase">Pedido</p>
@@ -277,17 +277,17 @@
 					<div class="mt-6 rounded-xl border border-primary/30 bg-primary-light/60 px-4 py-3">
 						{#if (resultado.pedido.recargos?.length ?? 0) > 0}
 							<div class="space-y-1 text-sm">
-								<p class="flex justify-between">
+								<p class="flex flex-wrap justify-between gap-x-3 gap-y-1">
 									<span class="text-slate-600">Tarifa base</span>
 									<span class="font-semibold text-slate-900">{formatearPeso(resultado.pedido.tarifa_base)}</span>
 								</p>
 								{#each resultado.pedido.recargos ?? [] as r (r.codigo)}
-									<p class="flex justify-between">
+									<p class="flex flex-wrap justify-between gap-x-3 gap-y-1">
 										<span class="text-slate-600">{r.nombre}</span>
 										<span class="font-semibold text-slate-800">{formatearPeso(r.valor)}</span>
 									</p>
 								{/each}
-								<p class="flex justify-between border-t border-primary/20 pt-1">
+								<p class="flex flex-wrap justify-between gap-x-3 gap-y-1 border-t border-primary/20 pt-1">
 									<span class="font-semibold text-slate-600">Total</span>
 									<span class="text-xl font-extrabold text-primary-dark">
 										{formatearPeso(resultado.pedido.total ?? resultado.pedido.tarifa_base)}

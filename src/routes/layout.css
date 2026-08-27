@@ -29,6 +29,14 @@
 }
 
 @layer base {
+	/* Los anchos de los controles nunca deben crecer por su contenido. Esto es
+	   especialmente importante en los paneles flex/grid de las pantallas de
+	   320 px, donde un texto largo antes quedaba fuera del viewport. */
+	*,
+	::before,
+	::after {
+		box-sizing: border-box;
+	}
 	html {
 		font-family: var(--font-sans);
 		/* Evita el scroll horizontal de página (tablas anchas, textos largos,
@@ -45,6 +53,25 @@
 		/* iOS no infla el texto si se hace zoom en inputs */
 		-webkit-text-size-adjust: 100%;
 		text-size-adjust: 100%;
+	}
+	/* Datos ingresados por usuarios (direcciones, nombres, observaciones) pueden
+	   no contener espacios. Priorizar que se lean completos sobre desbordar la
+	   tarjeta que los contiene. */
+	p,
+	h1,
+	h2,
+	h3,
+	label,
+	li,
+	td,
+	th {
+		overflow-wrap: anywhere;
+	}
+	input,
+	select,
+	textarea,
+	button {
+		min-width: 0;
 	}
 	::selection {
 		background: rgb(0 100 255 / 0.18);

@@ -776,20 +776,20 @@
 
 <div class="min-h-screen bg-gradient-to-b from-slate-50 via-primary-light/40 to-slate-50">
 	<header class="border-b border-slate-200/70 bg-white/80 backdrop-blur">
-		<div class="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+		<div class="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 sm:px-6 sm:py-4">
 			<a href="/" class="flex items-center">
 				<Logo type="full" surface="light" height={32} priority />
 			</a>
-			<nav class="flex items-center gap-3 text-sm">
+			<nav class="flex items-center gap-3 text-xs sm:text-sm">
 				<a href="/consultar-estado" class="font-medium text-slate-500 transition hover:text-primary">Consultar estado</a>
 			</nav>
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-3xl px-6 py-12">
+	<main class="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
 		{#if creado}
 			<!-- Confirmación -->
-			<div class="mx-auto max-w-lg rounded-2xl border border-success/30 bg-white p-8 text-center shadow-lg">
+			<div class="mx-auto max-w-lg rounded-2xl border border-success/30 bg-white p-5 text-center shadow-lg sm:p-8">
 				<div class="mx-auto flex size-16 items-center justify-center rounded-full bg-success text-white shadow-lg shadow-slate-900/10">
 					<Icon icon={Check} class="size-8" />
 				</div>
@@ -802,29 +802,29 @@
 					{creado.numero}
 				</p>
 				<div class="mt-6 space-y-2 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-					<p class="flex justify-between">
+				<p class="flex flex-wrap justify-between gap-x-3 gap-y-1">
 						<span>Tipo de servicio</span>
 						<span class="inline-flex rounded-full border border-primary/30 bg-primary-light px-2.5 py-0.5 text-xs font-semibold text-primary-dark">
 							{etiquetaTipoServicio(creado.tipo_servicio)}
 						</span>
 					</p>
-					<p class="flex justify-between">
+				<p class="flex flex-wrap justify-between gap-x-3 gap-y-1">
 						<span>{creado.tipo_servicio === 'compra_diligencia' && creado.tarifa_base === 0 ? 'Tarifa (la confirma el domiciliario)' : 'Tarifa base'}</span>
 						<span class="font-bold text-slate-900">{formatearPeso(creado.tarifa_base)}</span>
 					</p>
 					{#each creado.recargos ?? [] as r (r.codigo)}
-						<p class="flex justify-between">
+						<p class="flex flex-wrap justify-between gap-x-3 gap-y-1">
 							<span class="text-left">{r.nombre}</span>
 							<span class="font-semibold text-slate-800">{formatearPeso(r.valor)}</span>
 						</p>
 					{/each}
-					<p class="flex justify-between border-t border-slate-200 pt-2">
+				<p class="flex flex-wrap justify-between gap-x-3 gap-y-1 border-t border-slate-200 pt-2">
 						<span class="font-semibold">Total</span>
 						<span class="font-extrabold text-slate-900">
 							{formatearPeso(creado.total ?? (creado.tarifa_base + (creado.recargo_total ?? 0)))}
 						</span>
 					</p>
-					<p class="flex justify-between">
+				<p class="flex flex-wrap justify-between gap-x-3 gap-y-1">
 						<span>Estado</span>
 						<span class="inline-flex rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Pendiente</span>
 					</p>
@@ -851,7 +851,7 @@
 			</div>
 		{:else}
 			<div class="text-center">
-				<h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Hacer un pedido</h1>
+				<h1 class="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Hacer un pedido</h1>
 				<p class="mt-2 text-slate-500">La tarifa se calcula automáticamente al seleccionar los barrios.</p>
 				{#if horario?.abierto}
 					<p class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-xs font-semibold text-green-700">

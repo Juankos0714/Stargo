@@ -203,7 +203,7 @@
 			</div>
 		</header>
 
-		<main class="flex-1 p-5 sm:p-8">
+		<main class="min-w-0 flex-1 p-4 sm:p-8">
 			{@render children()}
 		</main>
 	</div>

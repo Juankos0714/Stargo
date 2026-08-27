@@ -459,7 +459,7 @@
 	</details>
 {/if}
 
-<div class="mb-5 flex gap-1.5">
+<div class="mb-5 flex flex-wrap gap-1.5">
 	<button
 		type="button"
 		onclick={() => (pestana = 'activos')}
@@ -508,7 +508,7 @@
 			{@const total = totalPedido(p)}
 			{@const recs = p.recargos ?? []}
 			<div class="rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
-				<div class="flex flex-wrap items-center gap-3 border-b border-slate-100 p-5">
+				<div class="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4 sm:p-5">
 					<div>
 						<p class="text-[10px] font-semibold tracking-wide text-slate-400 uppercase">Pedido</p>
 						<p class="font-mono text-xl font-black tracking-widest text-slate-900">{p.numero}</p>
@@ -516,7 +516,7 @@
 					<BadgeEstado estado={p.estado} size="md" class="ml-auto" />
 				</div>
 
-				<div class="grid gap-4 p-5 sm:grid-cols-2">
+				<div class="grid gap-4 p-4 sm:p-5 sm:grid-cols-2">
 					<div class="rounded-xl bg-slate-50 p-4">
 						<p class="text-xs font-semibold text-slate-400 uppercase">Recoger en</p>
 						<p class="mt-1 font-medium text-slate-900">{p.barrio_origen_nombre ?? '—'}</p>
@@ -530,19 +530,19 @@
 				</div>
 
 				<!-- Valor a cobrar: el total completo (tarifa + recargos), no solo el trayecto -->
-				<div class="mx-5 mb-2 rounded-xl border border-primary/20 bg-primary-light/40 px-4 py-3">
-					<p class="flex items-baseline justify-between gap-3">
+				<div class="mx-4 mb-2 rounded-xl border border-primary/20 bg-primary-light/40 px-4 py-3 sm:mx-5">
+					<p class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
 						<span class="text-xs font-semibold text-slate-500 uppercase">Valor a cobrar</span>
 						<span class="text-xl font-extrabold text-primary-dark">{formatearPeso(total)}</span>
 					</p>
 					{#if recs.length > 0}
 						<div class="mt-1.5 space-y-0.5 text-xs text-slate-600">
-							<p class="flex justify-between">
+							<p class="flex flex-wrap justify-between gap-x-3 gap-y-1">
 								<span>Tarifa base</span>
 								<span>{formatearPeso(p.tarifa_base)}</span>
 							</p>
 							{#each recs as r (r.codigo)}
-								<p class="flex justify-between">
+								<p class="flex flex-wrap justify-between gap-x-3 gap-y-1">
 									<span>{r.nombre}</span>
 									<span class="font-semibold">{formatearPeso(r.valor)}</span>
 								</p>
@@ -554,12 +554,12 @@
 				</div>
 
 				{#if p.observaciones}
-					<p class="px-5 pb-2 text-sm text-slate-600">
+					<p class="px-4 pb-2 text-sm text-slate-600 sm:px-5">
 						<span class="font-semibold text-slate-700">Observaciones:</span> {p.observaciones}
 					</p>
 				{/if}
 
-				<div class="flex flex-wrap items-center gap-2 px-5 py-4">
+				<div class="flex flex-wrap items-center gap-2 px-4 py-4 sm:px-5">
 					{#if accion}
 						<input
 							type="text"
@@ -597,7 +597,7 @@
 						<Icon icon={MapPin} class="size-3.5" />
 						Abrir navegación
 					</a>
-					<details class="ml-auto">
+					<details class="sm:ml-auto">
 						<summary class="cursor-pointer text-xs font-medium text-primary-dark hover:underline">
 							Historial ({p.historial.length})
 						</summary>
