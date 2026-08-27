@@ -9,6 +9,7 @@
 	import { base as basePath } from '$app/paths';
 	import { esCapacitor } from '$lib/capacitor-auth';
 	import { iniciarRefreshSesion, detenerRefreshSesion } from '$lib/capacitor-session-refresh';
+	import { iniciarRefreshSesionPWA, detenerRefreshSesionPWA } from '$lib/pwa-session-refresh';
 
 	let { children } = $props();
 
@@ -27,14 +28,17 @@
 		});
 	});
 
-	// En Capacitor, iniciar el refresh periódico de tokens de sesión.
-	// Escucha 'resume' de @capacitor/app y periodicamente llama a
-	// /api/sesion para que el servidor refresque tokens expirados y
-	// re-sincronice localStorage con el par válido.
+	// Refresh periódico de tokens de sesión.
+	// En Capacitor: escucha 'resume' de @capacitor/app + timer.
+	// En PWA/browser: visibilitychange + timer (mismo intervalo).
 	$effect(() => {
-		if (!esCapacitor()) return;
-		iniciarRefreshSesion();
-		return () => detenerRefreshSesion();
+		if (esCapacitor()) {
+			iniciarRefreshSesion();
+			return () => detenerRefreshSesion();
+		}
+		// PWA / browser: refrescar al volver al foreground y periódicamente.
+		iniciarRefreshSesionPWA();
+		return () => detenerRefreshSesionPWA();
 	});
 
 	// OG/Twitter necesitan URL absoluta: usa PUBLIC_APP_URL si está definida
