@@ -19,7 +19,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ error: 'Faltan barrio_origen o barrio_destino' }, { status: 400 });
 	}
 
-	const tipoDiligencia = String(body?.tipo_diligencia ?? '') as TipoDiligencia;
+	// El formulario usa «pago» y «banco»; el motor los resuelve antes de
+	// delegar los demás tipos al modelo de tramos.
+	const tipoDiligencia = String(body?.tipo_diligencia ?? '') as TipoDiligencia | 'pago' | 'banco';
 	const subtipoPago = body?.subtipo_pago as TipoPago | undefined;
 
 	// Domicilio normal: resolver tarifa de zona.

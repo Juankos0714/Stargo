@@ -146,6 +146,20 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 		expect(e).toEqual({});
 	});
 
+	test('una compra exige punto y dirección de recogida', () => {
+		const e = validarPedido({
+			...pedidoValido,
+			tipoServicio: 'compra_diligencia',
+			tipoDiligencia: 'compra',
+			dilProductos: '2 paquetes de arroz',
+			necesitaRecoger: true,
+			barrioOrigen: null,
+			direccionOrigen: ''
+		});
+		expect(e.origen).toBe('Selecciona el barrio de origen.');
+		expect(e.dirOrigen).toBe('La dirección de origen es obligatoria.');
+	});
+
 	test('compra/diligencia sigue exigiendo destino', () => {
 		const e = validarPedido({
 			...pedidoValido,

@@ -82,20 +82,20 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 	}
 
-	// Domicilio requiere origen completo. En compra/diligencia sin recogida,
-	// el destino funciona como origen interno de la cotización.
+	// Domicilio y compra requieren origen completo. Una compra debe identificar
+	// el local o punto donde se recogerán los productos.
 	if (!barrioDestino) {
 		return json({ error: 'Falta el barrio de destino.' }, { status: 400 });
 	}
 	if (!direccionDestino) {
 		return json({ error: 'La dirección de destino es obligatoria.' }, { status: 400 });
 	}
-	if (tipoServicio === 'domicilio') {
+	if (tipoServicio === 'domicilio' || tipoDiligencia === 'compra') {
 		if (!barrioOrigen) {
-			return json({ error: 'Falta el barrio de origen.' }, { status: 400 });
+			return json({ error: tipoDiligencia === 'compra' ? 'Falta el barrio de recogida.' : 'Falta el barrio de origen.' }, { status: 400 });
 		}
 		if (!direccionOrigen) {
-			return json({ error: 'La dirección de origen es obligatoria.' }, { status: 400 });
+			return json({ error: tipoDiligencia === 'compra' ? 'La dirección de recogida es obligatoria.' : 'La dirección de origen es obligatoria.' }, { status: 400 });
 		}
 	} else if (barrioOrigen || direccionOrigen) {
 		// Si se declaró una recogida aparte, sus dos datos son obligatorios.

@@ -166,9 +166,8 @@
 		tipo_servicio?: TipoServicio;
 	} | null>(null);
 
-	// En compra/diligencia el origen se pide solo si se debe recoger algo antes.
-	// En compra/diligencia el origen solo existe cuando hay una recogida aparte.
-	// Sin recogida, la cotización usa el destino como origen interno.
+	// Una compra siempre parte del punto de recogida. Las demás diligencias
+	// pueden no requerirlo (por ejemplo, un pago directo en un banco).
 	const mostrarOrigen = $derived(tipoServicio === 'domicilio' || necesitaRecoger === true);
 	const origenRequerido = $derived(tipoServicio === 'domicilio' || necesitaRecoger === true);
 
@@ -273,6 +272,18 @@
 	// Para domicilio, el desglose que devuelve el servidor usa los valores
 	// vigentes de la BD. Mientras llega, se conserva el cálculo local como vista
 	// previa para no dejar el formulario sin respuesta.
+	function nombreRecargoCalculado(codigo: string): string {
+		const nombres: Record<string, string> = {
+			paradas: 'Paradas adicionales',
+			peso: 'Recargo por peso',
+			peso_extra: 'Recargo por peso',
+			transferencia: 'Transferencia bancaria',
+			recargo_compra: 'Recargo por compra',
+			compra: 'Recargo por compra'
+		};
+		return nombres[codigo] ?? codigo.replaceAll('_', ' ');
+	}
+
 	const recargosAplicados = $derived.by(() => {
 		const remotos = precio?.meta?.recargos;
 		if (Array.isArray(remotos)) {
@@ -284,13 +295,39 @@
 				typeof (recargo as { valor?: unknown }).valor === 'number'
 			);
 		}
+		// Compra, trámite y otros cálculos devuelven el desglose con esta clave.
+		// Normalizarlo aquí evita que la interfaz vuelva a calcular recargos y
+		// muestre cantidades distintas a las que respondió el servidor.
+		const desglose = precio?.meta?.recargos_desglose;
+		if (Array.isArray(desglose)) {
+			return desglose.flatMap((recargo) => {
+				if (
+					typeof recargo !== 'object' || recargo === null ||
+					typeof (recargo as { id?: unknown }).id !== 'string' ||
+					typeof (recargo as { valor?: unknown }).valor !== 'number'
+				) return [];
+				const codigo = (recargo as { id: string }).id;
+				return [{ codigo, nombre: nombreRecargoCalculado(codigo), valor: (recargo as { valor: number }).valor }];
+			});
+		}
 		return calculoRecargos.aplicados;
 	});
-	const recargoTotal = $derived(recargosAplicados.reduce((s, r) => s + r.valor, 0));
+	const recargoTotal = $derived(
+		typeof precio?.meta?.recargo_total === 'number'
+			? precio.meta.recargo_total
+			: recargosAplicados.reduce((s, r) => s + r.valor, 0)
+	);
 	const precioDisponible = $derived(precio?.meta?.disponible === true && precio?.valor != null);
-	// Con ruta completa (origen+destino) el estimado incluye la tarifa; sin
-	// ella (compra/diligencia solo con destino) va solo el total de recargos.
-	const totalEstimado = $derived(precioDisponible ? (precio?.valor ?? 0) + recargoTotal : recargoTotal);
+	// En domicilio el endpoint devuelve la tarifa base y los recargos aparte.
+	// En compra/diligencia devuelve el total completo, incluidos los recargos.
+	const totalEstimado = $derived(precioDisponible
+		? (tipoServicio === 'compra_diligencia' ? (precio?.valor ?? 0) : (precio?.valor ?? 0) + recargoTotal)
+		: recargoTotal);
+	const tarifaBaseMostrada = $derived(
+		precioDisponible
+			? (tipoServicio === 'compra_diligencia' ? Math.max(0, (precio?.valor ?? 0) - recargoTotal) : (precio?.valor ?? 0))
+			: 0
+	);
 	const tieneRutaCompleta = $derived(Boolean(origen && destino));
 	// valor_mandado: dinero del cliente que el domiciliario adelanta (solo pago/banco).
 	const valorMandadoNum = $derived(
@@ -369,13 +406,12 @@
 			// (transferencia, paradas) ya que recargosSel está vacío para estos tipos.
 			const recargosPayload: { id: string; paradas?: number }[] = [];
 
-			// Transferencia: auto-detectar tier según monto
+			// Los recargos dinámicos usan los identificadores que entiende el motor
+			// de tarifas; el monto y el peso determinan su valor escalonado.
 			if (transferencia === 'si' && transferenciaMonto) {
-				const monto = Number(transferenciaMonto) || 0;
-				if (monto > 1000000) recargosPayload.push({ id: 'transferencia_1m' });
-				else if (monto > 500000) recargosPayload.push({ id: 'transferencia_500k' });
-				else if (monto > 100000) recargosPayload.push({ id: 'transferencia_100k' });
+				recargosPayload.push({ id: 'transferencia' });
 			}
+			if (tipoDiligencia === 'compra' && Number(pesoKg) > 0) recargosPayload.push({ id: 'peso' });
 
 			// Paradas adicionales
 			const numParadas = Number(dilCantidad) || 0;
@@ -394,7 +430,9 @@
 
 			// Peso y monto de pago para recargos escalonados.
 			if (pesoKg) payload.peso_kg = Number(pesoKg);
-			if (dilValorFactura) payload.monto_pago = Number(dilValorFactura);
+			if (tipoDiligencia === 'compra' && transferencia === 'si' && transferenciaMonto) {
+				payload.monto_pago = Number(transferenciaMonto);
+			} else if (dilValorFactura) payload.monto_pago = Number(dilValorFactura);
 		} else {		// Domicilio: incluir peso y monto de transferencia para recargo escalonado.
 				if (pesoKg) payload.peso_kg = Number(pesoKg);
 				if (transferencia === 'si' && transferenciaMonto) {
@@ -485,8 +523,8 @@
 			valor: r.valor
 		}));
 
-		const tarifaBase = tipoServicio === 'domicilio' ? (precio?.valor ?? 0) : 0;
-		const recargoTotalCalc = recargosResultado.reduce((s, r) => s + r.valor, 0);
+		const tarifaBase = tarifaBaseMostrada;
+		const recargoTotalCalc = recargoTotal;
 		const valorMandadoCalc = (tipoDiligencia === 'pago' || tipoDiligencia === 'banco')
 			&& String(dilValorFactura ?? '').trim()
 			? Math.round(Number(String(dilValorFactura ?? ''))) || 0
@@ -496,7 +534,7 @@
 			tarifaBase,
 			recargos: recargosResultado,
 			recargoTotal: recargoTotalCalc,
-			total: tarifaBase + recargoTotalCalc,
+			total: totalEstimado,
 			valorMandado: valorMandadoCalc
 		};
 
@@ -554,8 +592,8 @@
 		tipoServicio = opcion.tipoServicio;
 		tipoDiligencia = opcion.tipoDiligencia;
 
-		// En compra no hay recogida separada: la compra ES el recogido.
-		necesitaRecoger = opcion.tipoDiligencia === 'compra' ? false : null;
+		// Una compra requiere siempre el local o punto donde se recogen productos.
+		necesitaRecoger = opcion.tipoDiligencia === 'compra' ? true : null;
 
 		// Limpiar precio, errores y cálculo.
 		precio = null;
@@ -1311,7 +1349,7 @@
 							Detalles del pedido
 						</h2>
 						<p class="mb-4 ml-7 text-xs text-slate-400">
-							Indica la transferencia y las paradas si aplican.
+							Indica el peso, la transferencia y las paradas si aplican.
 						</p>
 
 						{#if tipoDiligencia === 'compra'}
@@ -1331,6 +1369,7 @@
 								<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">kg</span>
 							</div>
 							{#if errores.peso}<p class="mt-1 text-xs text-red-600">{errores.peso}</p>{/if}
+							<p class="mt-1 text-xs text-slate-400">El peso se incluye en el cálculo; el recargo aplica según la escala vigente para más de 20 kg.</p>
 						</div>
 						{/if}
 
@@ -1536,8 +1575,8 @@
 							<div class="mt-4 space-y-1.5 rounded-xl bg-white p-4 text-sm shadow-sm">
 								{#if precioDisponible}
 									<p class="flex justify-between text-slate-600">
-										<span>Tarifa base</span>
-										<span class="font-semibold text-slate-900">{formatearPeso(precio?.valor)}</span>
+									<span>{tipoServicio === 'compra_diligencia' ? 'Tarifa del trayecto' : 'Tarifa base'}</span>
+									<span class="font-semibold text-slate-900">{formatearPeso(tarifaBaseMostrada)}</span>
 									</p>
 								{/if}
 								{#each recargosAplicados as r (r.codigo)}

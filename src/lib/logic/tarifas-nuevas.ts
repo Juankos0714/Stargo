@@ -136,6 +136,7 @@ export function calcularPrecio(pedido: PedidoCalculo): ResultadoCalculo {
 				recargos_desglose: [],
 				recargo_total: 0,
 				disponible: false,
+				aproximado: false,
 				motivo: 'sin_tarifa_tramo_adicional'
 			};
 		}
