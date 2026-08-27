@@ -17,7 +17,7 @@
 		previsualizarSonido
 	} from '$lib/sonido';
 	import Icon from './Icon.svelte';
-	import { Bell, ClipboardList, CircleCheck, VolumeX, Volume2, TriangleAlert, RotateCw } from 'lucide';
+	import { Bell, ClipboardList, CircleCheck, VolumeX, Volume2, TriangleAlert, RotateCw, X } from 'lucide';
 
 	interface Notificacion {
 		id: number;
@@ -260,9 +260,10 @@
 			role="dialog"
 			aria-modal="false"
 		>
-			<div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
+			<div class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
 				<p class="text-xs font-bold tracking-wide text-slate-500 uppercase">Notificaciones</p>
-				{#if lista.length > 0}
+				<div class="flex items-center gap-1">
+					{#if lista.length > 0}
 					<button
 						type="button"
 						onclick={marcarTodo}
@@ -271,7 +272,16 @@
 					>
 						{marcando ? 'Marcando…' : 'Marcar todo leído'}
 					</button>
-				{/if}
+					{/if}
+					<button
+						type="button"
+						onclick={() => (abierto = false)}
+						aria-label="Cerrar notificaciones"
+						class="flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-primary"
+					>
+						<Icon icon={X} class="size-4" />
+					</button>
+				</div>
 			</div>
 
 			<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">

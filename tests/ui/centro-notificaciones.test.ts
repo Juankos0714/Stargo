@@ -87,6 +87,14 @@ async function abrirPanel() {
 }
 
 describe('CentroNotificaciones — estados de activación de Web Push', () => {
+	test('la X cierra el panel de notificaciones', async () => {
+		const user = await abrirPanel();
+
+		await user.click(screen.getByRole('button', { name: 'Cerrar notificaciones' }));
+
+		expect(screen.queryByText('Notificaciones')).not.toBeInTheDocument();
+	});
+
 	test('pushActivo === null (estado desconocido): muestra el botón de activar', async () => {
 		// El navegador soporta push pero aún no se sabe si hay suscripción:
 		// antes este caso no mostraba NADA; ahora el botón debe aparecer.
