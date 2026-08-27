@@ -30,8 +30,7 @@ export const GET: RequestHandler = async (event) => {
 			...d,
 			bloqueado: d.bloqueado === true,
 			deuda: resumen?.deuda ?? 0,
-			total_comision: resumen?.total_comision ?? 0,
-			total_pagos: resumen?.total_pagos ?? 0,
+			credito_favor: resumen?.credito_favor ?? 0,
 			pagos: resumen?.pagos ?? []
 		};
 	});

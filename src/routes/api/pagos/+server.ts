@@ -5,12 +5,13 @@ import { requireAdmin } from '$lib/server/auth';
 import { redondearComision } from '$lib/logic/comisiones';
 
 /**
- * Abonos de domiciliarios (Fase 10):
+ * Abonos de domiciliarios (Fase 10 + 23):
  *   POST /api/pagos        → solo admin; { domiciliario_id, valor, nota? }
  *   GET  /api/pagos        → solo admin; ?domiciliario_id= para filtrar
  *
- * La escritura pasa por el RPC registrar_pago_domiciliario (SECURITY
- * DEFINER, valida es_admin) y el abono reduce la deuda del domiciliario.
+ * Fase 23: La escritura pasa por registrar_abono_deuda (SECURITY DEFINER)
+ * que registra el movimiento en el ledger deuda_movimientos, actualiza
+ * deuda_actual/credito_favor, E inserta en pagos_domiciliarios.
  */
 export const GET: RequestHandler = async (event) => {
 	const sesion = await requireAdmin(event);
@@ -45,10 +46,11 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'La nota es demasiado larga (máx. 300 caracteres).' }, { status: 400 });
 	}
 
-	const { data, error: err } = await db.rpc('registrar_pago_domiciliario', {
+	const { data, error: err } = await db.rpc('registrar_abono_deuda', {
 		p_domiciliario_id: domiciliarioId,
 		p_valor: redondearComision(valor),
-		p_nota: nota
+		p_nota: nota,
+		p_registrado_por: sesion.user.id
 	});
 	if (err) return json({ error: err.message }, { status: 400 });
 	return json({ data });

@@ -375,16 +375,16 @@
 				<Icon icon={Coins} class="size-3.5 text-primary" />
 				Generado en comisiones
 			</p>
-			<p class="mt-1 text-2xl font-extrabold text-slate-900">{formatearPeso(cuenta?.total_comision ?? null)}</p>
-			<p class="mt-0.5 text-xs text-slate-400">comisión diaria acumulada por días trabajados</p>
+			<p class="mt-1 text-2xl font-extrabold text-slate-900">{formatearPeso(cuenta?.deuda ?? null)}</p>
+			<p class="mt-0.5 text-xs text-slate-400">saldo pendiente de comisiones</p>
 		</div>
 		<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">
 				<Icon icon={CircleCheck} class="size-3.5 text-primary" />
 				Abonos registrados
 			</p>
-			<p class="mt-1 text-2xl font-extrabold text-slate-900">{formatearPeso(cuenta?.total_pagos ?? null)}</p>
-			<p class="mt-0.5 text-xs text-slate-400">pagos que ha registrado el administrador</p>
+			<p class="mt-1 text-2xl font-extrabold text-slate-900">{formatearPeso(cuenta?.credito_favor ?? 0)}</p>
+			<p class="mt-0.5 text-xs text-slate-400">crédito a favor (abono excedente)</p>
 		</div>
 		<div
 			class="rounded-2xl border p-4 shadow-sm {cuenta && cuenta.deuda > 0
@@ -436,7 +436,7 @@
 			<span
 				class="ml-auto whitespace-nowrap rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-bold text-primary"
 			>
-				total abonado {formatearPeso(cuenta?.total_pagos ?? 0)}
+				deuda {formatearPeso(cuenta?.deuda ?? 0)}
 			</span>
 			<!-- Estado de la deuda: verde al día, rojo en deuda (mismos colores que la tarjeta de deuda). -->
 			<span

@@ -164,12 +164,10 @@ export interface CuentaDomiciliario {
 	/** Niveles vigentes de comisión (ordenados), para saber cuánto pagar por día. */
 	niveles: ComisionNivel[];
 	bloqueado: boolean;
-	/** Σ comisiones DIARIAS generadas (Fase 13: comisión por día según el total acumulado). */
-	total_comision: number;
-	/** Σ abonos registrados. */
-	total_pagos: number;
-	/** total_comision − total_pagos (nunca negativo). */
+	/** Saldo persistente de deuda (Fase 23: ledger deuda_movimientos). */
 	deuda: number;
+	/** Crédito a favor cuando un abono excede la deuda (Fase 23). */
+	credito_favor: number;
 	/** Últimos abonos (descendente). */
 	pagos: PagoDomiciliario[];
 	/** Resumen del día de hoy (entregas de hoy → nivel y comisión del día). */

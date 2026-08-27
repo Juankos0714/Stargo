@@ -9,8 +9,7 @@
 
 	interface DomiciliarioFila extends Domiciliario {
 		deuda: number;
-		total_comision: number;
-		total_pagos: number;
+		credito_favor: number;
 		pagos: PagoDomiciliario[];
 	}
 
@@ -87,9 +86,7 @@
 		}
 		lista = (r.data ?? []).map((d) => ({
 			...d,
-			deuda: d.deuda ?? 0,
-			total_comision: d.total_comision ?? 0,
-			total_pagos: d.total_pagos ?? 0,
+			deuda: d.deuda ?? 0,				credito_favor: d.credito_favor ?? 0,
 			pagos: d.pagos ?? []
 		}));
 		if (!rB.error) baseData = rB.data ?? [];
@@ -483,7 +480,7 @@
 								<p class="mt-1 text-lg font-extrabold {d.deuda > 0 ? 'text-red-700' : 'text-green-700'}">
 									{formatearPeso(d.deuda)}
 								</p>										<p class="text-[10px] text-slate-500">
-											{formatearPeso(d.total_comision)} generado · {formatearPeso(d.total_pagos)} abonado
+											deuda {formatearPeso(d.deuda)}{d.credito_favor > 0 ? ` · crédito ${formatearPeso(d.credito_favor)}` : ''}
 										</p>
 									</div>
 

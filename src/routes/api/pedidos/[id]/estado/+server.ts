@@ -3,6 +3,8 @@ import type { RequestHandler } from './$types';
 import { getSupabaseAsUser } from '$lib/server/supabase';
 import { requireRol } from '$lib/server/auth';
 import { transicionar } from '$lib/logic/estado-pedido';
+import { comisionDiaria, fechaBogota, nivelesParaFecha, nivelDiario } from '$lib/logic/comisiones';
+import type { ComisionHistorico, ComisionNivel } from '$lib/types';
 import { ESTADOS_PEDIDO, type EstadoPedido } from '$lib/types';
 
 /**
@@ -56,5 +58,100 @@ export const POST: RequestHandler = async (event) => {
 		p_motivo: nuevoEstado === 'cancelado' ? motivo : null
 	});
 	if (err) return json({ error: err.message }, { status: 400 });
+
+	// Fase 23: Al entregar, registrar la comisión generada en el ledger de deuda.
+	// Calcula la comisión incremental (diferencia antes/después de esta entrega).
+	if (nuevoEstado === 'entregado' && data?.domiciliario_id) {
+		try {
+			await registrarComisionDeuda(db, data.pedido_id, data.domiciliario_id);
+		} catch {
+			// Best-effort: si falla el registro de deuda, el pedido ya cambió de estado.
+			// El admin puede registrar la comisión manualmente después.
+		}
+	}
+
 	return json({ data });
 };
+
+/**
+ * Registra la comisión generada por un pedido entregado en el ledger de deuda.
+ * Calcula la comisión incremental: la diferencia entre la comisión diaria
+ * DESPUÉS y ANTES de agregar este pedido al total del día.
+ */
+async function registrarComisionDeuda(
+	db: ReturnType<typeof getSupabaseAsUser>,
+	pedidoId: string,
+	domiciliarioId: string
+): Promise<void> {
+	// 1) Obtener el pedido entregado para saber su total y fecha
+	const { data: pedido } = await db
+		.from('pedidos')
+		.select('total, tarifa_base, recargo_total, updated_at, domiciliario_id')
+		.eq('id', pedidoId)
+		.maybeSingle();
+
+	if (!pedido || !pedido.domiciliario_id) return;
+
+	const totalPedido = pedido.total ?? (pedido.tarifa_base + (pedido.recargo_total ?? 0));
+	if (totalPedido <= 0) return;
+
+	const fechaPedido = fechaBogota(pedido.updated_at);
+	if (!fechaPedido) return;
+
+	// 2) Obtener escalera congelada para ese día o la vigente
+	const { data: historico } = await db
+		.from('comision_historico')
+		.select('niveles')
+		.eq('fecha', fechaPedido)
+		.maybeSingle();
+
+	let niveles: ComisionNivel[];
+	if (historico?.niveles) {
+		niveles = historico.niveles as ComisionNivel[];
+	} else {
+		const { data: nivelesData } = await db.from('comision_niveles').select('*').order('nivel');
+		niveles = (nivelesData ?? []) as ComisionNivel[];
+	}
+
+	if (niveles.length === 0) return;
+
+	// 3) Obtener todos los pedidos entregados de ESTE domiciliario en ESTE día
+	//    (incluyendo el que acabamos de entregar)
+	const inicioDia = new Date(fechaPedido + 'T05:00:00Z'); // 00:00 Bogotá = 05:00 UTC
+	const finDia = new Date(inicioDia);
+	finDia.setUTCDate(finDia.getUTCDate() + 1);
+
+	const { data: entregados } = await db
+		.from('pedidos')
+		.select('total, tarifa_base, recargo_total')
+		.eq('estado', 'entregado')
+		.eq('domiciliario_id', domiciliarioId)
+		.gte('updated_at', inicioDia.toISOString())
+		.lt('updated_at', finDia.toISOString());
+
+	if (!entregados || entregados.length === 0) return;
+
+	// 4) Calcular comisión diaria ACTUAL (con este pedido incluido)
+	const totalDia = entregados.reduce((acc, e) => {
+		const t = e.total ?? (e.tarifa_base + (e.recargo_total ?? 0));
+		return acc + Math.max(0, t);
+	}, 0);
+
+	const comisionActual = comisionDiaria(niveles, totalDia);
+
+	// 5) Calcular comisión diaria ANTES de este pedido (sin este pedido)
+	const totalDiaAntes = totalDia - totalPedido;
+	const comisionAntes = comisionDiaria(niveles, totalDiaAntes);
+
+	// 6) La comisión incremental es la diferencia
+	const comisionIncremental = Math.max(0, comisionActual - comisionAntes);
+
+	if (comisionIncremental <= 0) return;
+
+	// 7) Registrar en el ledger
+	await db.rpc('registrar_generacion_deuda', {
+		p_pedido_id: pedidoId,
+		p_domiciliario_id: domiciliarioId,
+		p_monto: comisionIncremental
+	});
+}
