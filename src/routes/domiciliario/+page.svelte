@@ -3,7 +3,7 @@
 	import { esCapacitor } from '$lib/capacitor-auth';
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
-	import { Ban, Sun, Coins, CircleCheck, TriangleAlert, Clock, Truck, Phone, MapPin } from 'lucide';
+	import { Ban, Sun, Coins, CircleCheck, TriangleAlert, Clock, Truck, Phone, MapPin, Package, WalletCards, StickyNote } from 'lucide';
 	import BadgeEstado from '$lib/components/BadgeEstado.svelte';
 	import BotonWhatsApp from '$lib/components/BotonWhatsApp.svelte';
 	import TablaNiveles from '$lib/components/TablaNiveles.svelte';
@@ -14,6 +14,7 @@
 		ESTADOS_ACTIVOS_DOMICILIARIO,
 		ESTADOS_FINALES,
 		accionDomiciliario,
+		etiquetaTipoServicio,
 		etiquetaEstado,
 		formatearPeso,
 		mensajeWhatsAppDomiciliario,
@@ -90,8 +91,8 @@
 		});
 	}
 
-	function urlNavegacion(p: PedidoFila): string {
-		const destino = `${p.direccion_destino}, ${p.barrio_destino_nombre ?? ''}, Armenia, Quindío`.trim();
+	function urlNavegacion(direccion: string | null, barrio: string | null): string {
+		const destino = `${direccion ?? ''}, ${barrio ?? ''}, Armenia, Quindío`.trim();
 		return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}`;
 	}
 
@@ -513,19 +514,48 @@
 						<p class="text-[10px] font-semibold tracking-wide text-slate-400 uppercase">Pedido</p>
 						<p class="font-mono text-xl font-black tracking-widest text-slate-900">{p.numero}</p>
 					</div>
+					<div class="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+						{etiquetaTipoServicio(p.tipo_servicio)}
+					</div>
 					<BadgeEstado estado={p.estado} size="md" class="ml-auto" />
 				</div>
 
 				<div class="grid gap-4 p-4 sm:p-5 sm:grid-cols-2">
 					<div class="rounded-xl bg-slate-50 p-4">
-						<p class="text-xs font-semibold text-slate-400 uppercase">Recoger en</p>
-						<p class="mt-1 font-medium text-slate-900">{p.barrio_origen_nombre ?? '—'}</p>
-						<p class="text-sm text-slate-600">{p.direccion_origen}</p>
+						<p class="text-xs font-semibold text-slate-400 uppercase">{p.direccion_origen ? 'Recoger en' : 'Sin recogida'}</p>
+						{#if p.direccion_origen}
+							<p class="mt-1 font-medium text-slate-900">{p.barrio_origen_nombre ?? 'Barrio sin registrar'}</p>
+							<p class="text-sm text-slate-600">{p.direccion_origen}</p>
+						{:else}
+							<p class="mt-1 text-sm text-slate-500">Este servicio no requiere recoger un artículo.</p>
+						{/if}
 					</div>
 					<div class="rounded-xl bg-slate-50 p-4">
 						<p class="text-xs font-semibold text-slate-400 uppercase">Entregar en</p>
 						<p class="mt-1 font-medium text-slate-900">{p.barrio_destino_nombre ?? '—'}</p>
 						<p class="text-sm text-slate-600">{p.direccion_destino}</p>
+					</div>
+				</div>
+
+				<div class="mx-4 grid gap-3 sm:mx-5 sm:grid-cols-2">
+					<div class="rounded-xl border border-slate-200 p-3.5">
+						<p class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase"><Icon icon={Phone} class="size-3.5 text-primary" /> Cliente</p>
+						<p class="mt-1 font-semibold text-slate-900">{p.nombre_cliente ?? 'Cliente sin nombre'}</p>
+						<p class="text-sm text-slate-600">{p.telefono ?? 'Sin teléfono registrado'}</p>
+					</div>
+					<div class="rounded-xl border border-slate-200 p-3.5">
+						<p class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase"><Icon icon={WalletCards} class="size-3.5 text-primary" /> Efectivo para el servicio</p>
+						{#if p.valor_mandado != null && p.valor_mandado > 0}
+							<p class="mt-1 font-semibold text-slate-900">Adelantar {formatearPeso(p.valor_mandado)}</p>
+							<p class="text-xs text-slate-500">Dinero para pagar o comprar.</p>
+						{/if}
+						{#if p.base_necesaria != null && p.base_necesaria > 0}
+							<p class="font-semibold text-slate-900" class:mt-2={p.valor_mandado != null && p.valor_mandado > 0}>Base requerida {formatearPeso(p.base_necesaria)}</p>
+							<p class="text-xs text-slate-500">Efectivo que debes tener disponible.</p>
+						{/if}
+						{#if !(p.valor_mandado != null && p.valor_mandado > 0) && !(p.base_necesaria != null && p.base_necesaria > 0)}
+							<p class="mt-1 text-sm text-slate-500">No necesitas adelantar efectivo.</p>
+						{/if}
 					</div>
 				</div>
 
@@ -554,9 +584,10 @@
 				</div>
 
 				{#if p.observaciones}
-					<p class="px-4 pb-2 text-sm text-slate-600 sm:px-5">
-						<span class="font-semibold text-slate-700">Observaciones:</span> {p.observaciones}
-					</p>
+					<div class="mx-4 mt-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3.5 py-3 text-sm text-amber-900 sm:mx-5">
+						<Icon icon={StickyNote} class="mt-0.5 size-4 shrink-0" />
+						<p><span class="font-semibold">Instrucciones:</span> {p.observaciones}</p>
+					</div>
 				{/if}
 
 				<div class="flex flex-wrap items-center gap-2 px-4 py-4 sm:px-5">
@@ -588,14 +619,25 @@
 							label="Escribir al cliente"
 						/>
 					{/if}
+					{#if p.direccion_origen}
+						<a
+							href={urlNavegacion(p.direccion_origen, p.barrio_origen_nombre)}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-[#8BB4FF] hover:text-primary-dark"
+						>
+							<Icon icon={Package} class="size-3.5" />
+							Navegar a recogida
+						</a>
+					{/if}
 					<a
-						href={urlNavegacion(p)}
+						href={urlNavegacion(p.direccion_destino, p.barrio_destino_nombre)}
 						target="_blank"
 						rel="noopener noreferrer"
 						class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-[#8BB4FF] hover:text-primary-dark"
 					>
 						<Icon icon={MapPin} class="size-3.5" />
-						Abrir navegación
+						Navegar a entrega
 					</a>
 					<details class="sm:ml-auto">
 						<summary class="cursor-pointer text-xs font-medium text-primary-dark hover:underline">

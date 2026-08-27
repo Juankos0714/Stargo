@@ -22,7 +22,7 @@ export const GET: RequestHandler = async (event) => {
 	if (err) return json({ error: err.message }, { status: 500 });
 	// Excluir entradas con nombre vacío o solo espacios.
 	const filtrados = (data ?? []).filter((r: any) => r.nombre?.trim());
-	return json({ data: filtrados });
+	return json({ data: filtrados }, { headers: { 'Cache-Control': 'no-store' } });
 };
 export const POST: RequestHandler = (event) => manejarTabla('recargos', event);
 export const PUT: RequestHandler = (event) => manejarTabla('recargos', event);

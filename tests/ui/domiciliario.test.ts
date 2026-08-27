@@ -87,6 +87,8 @@ function pedido(p: FixturePedido) {
 		recargo_total: 0,
 		total: p.total,
 		comision: p.estado === 'entregado' ? 1300 : undefined,
+		base_necesaria: null,
+		valor_mandado: null,
 		motivo_cancelacion: null,
 		zona_origen_id: 'zona-1',
 		zona_destino_id: 'zona-2',
@@ -294,6 +296,29 @@ describe('Panel del domiciliario: comisión diaria y resaltado del nivel del dí
 		);
 		// El número del cliente también es visible (Tarea 2), junto al botón.
 		expect(screen.getByText('Ana · 3001234567')).toBeInTheDocument();
+	});
+
+	test('muestra una ficha completa y accionable del pedido activo', async () => {
+		const pedidoCompleto = {
+			...pedido({ id: 'p1', numero: 'KAA1AA', estado: 'asignado', total: 6000, created_at: '2026-08-07T10:00:00' }),
+			base_necesaria: 25000,
+			valor_mandado: 45000,
+			observaciones: 'Pedir portería antes de subir'
+		};
+		getMock.mockImplementation((path: string) => {
+			if (path.startsWith('/api/pedidos')) return Promise.resolve({ data: [pedidoCompleto], error: null });
+			if (path.startsWith('/api/domiciliarios/mi-cuenta')) return Promise.resolve({ data: cuenta(), error: null });
+			return Promise.resolve({ data: null, error: null });
+		});
+		render(Pagina);
+
+		await screen.findByText('Adelantar $ 45.000');
+		expect(screen.getByText('Cliente')).toBeInTheDocument();
+		expect(screen.getByText('Adelantar $ 45.000')).toBeInTheDocument();
+		expect(screen.getByText('Base requerida $ 25.000')).toBeInTheDocument();
+		expect(screen.getByText(/Pedir portería antes de subir/)).toBeInTheDocument();
+		expect(screen.getByRole('link', { name: 'Navegar a recogida' })).toBeInTheDocument();
+		expect(screen.getByRole('link', { name: 'Navegar a entrega' })).toBeInTheDocument();
 	});
 
 	test('sin teléfono no se ofrece el botón de WhatsApp', async () => {

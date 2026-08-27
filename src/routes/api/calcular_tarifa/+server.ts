@@ -238,14 +238,34 @@ export const POST: RequestHandler = async ({ request }) => {
 		monto_pago: Number(body?.monto_pago) || undefined,
 		peso_kg: Number(body?.peso_kg) || undefined
 	});
+	// La matriz acotada del motor sirve para aplicar recargos y mantener la
+	// lógica urbana del PDF. La tarifa principal, en cambio, siempre se toma
+	// de la matriz administrable por barrios: así también cubre destinos
+	// departamentales (Calarcá, Salento, pueblos, etc.) con su valor vigente.
+	const tarifaPrincipal = await calcularTarifa(barrioOrigen, barrioDestino);
+	if (!tarifaPrincipal.meta.disponible || tarifaPrincipal.valor == null) {
+		return json({
+			data: null,
+			meta: {
+				disponible: false,
+				aproximado: false,
+				motivo: tarifaPrincipal.meta.motivo,
+				tramo_principal: resultado.tramo_principal,
+				tramos_adicionales: resultado.tramos_adicionales,
+				recargos_desglose: resultado.recargos_desglose,
+				recargo_total: resultado.recargo_total
+			}
+		});
+	}
+	const totalConTarifaVigente = resultado.total - resultado.tramo_principal.valor + tarifaPrincipal.valor;
 
 	return json({
-		data: resultado.disponible ? resultado.total : null,
+		data: resultado.disponible ? totalConTarifaVigente : null,
 		meta: {
 			disponible: resultado.disponible,
 			aproximado: resultado.aproximado,
 			motivo: resultado.disponible ? 'ok' : (resultado.motivo ?? 'sin_tarifa'),
-			tramo_principal: resultado.tramo_principal,
+			tramo_principal: { ...resultado.tramo_principal, valor: tarifaPrincipal.valor },
 			tramos_adicionales: resultado.tramos_adicionales,
 			recargos_desglose: resultado.recargos_desglose,
 			recargo_total: resultado.recargo_total

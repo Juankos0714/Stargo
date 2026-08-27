@@ -15,19 +15,22 @@ import type { Barrio, HorarioHoy, Recargo, Zona } from '$lib/types';
  * (select y orden idénticos). Si algo falla se degrada a catálogo vacío con
  * mensaje (página pública): el formulario nunca rompe por un fallo de BD.
  */
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ setHeaders }) => {
+	// Cada nuevo pedido consulta el catálogo vigente: un cambio guardado por
+	// administración no puede quedarse servido desde una caché intermedia.
+	setHeaders({ 'Cache-Control': 'no-store' });
 	try {
 		const db = getSupabaseAnon();
 		const [rBarrios, rZonas, rRecargos, rHorario] = await Promise.all([
 			db.from('barrios').select('id,nombre,zona_id').order('nombre'),
 			db.from('zonas').select('id,nombre,tipo'),
-			db.from('recargos').select('*').gte('valor', 0),
+			db.from('recargos').select('*').eq('activo', true).gte('valor', 0),
 			db.rpc('horario_hoy')
 		]);
 		return {
 			barrios: (rBarrios.data as Barrio[]) ?? [],
 			zonas: (rZonas.data as Zona[]) ?? [],
-			recargos: (rRecargos.data as Recargo[]) ?? [],
+			recargos: ((rRecargos.data as Recargo[]) ?? []).filter((recargo) => recargo.nombre?.trim()),
 			horario: (rHorario.data as HorarioHoy | null) ?? null,
 			error: rBarrios.error ? rBarrios.error.message : null
 		};

@@ -253,6 +253,8 @@ export interface Pedido {
 	comision?: number;
 	/** Base necesaria: efectivo que el domiciliario debe tener para comprar/pagar en el local (Fase 21). */
 	base_necesaria?: number;
+	/** Dinero que el domiciliario debe adelantar para un mandado o pago (Fase 22). */
+	valor_mandado?: number | null;
 	motivo_cancelacion: string | null;
 	zona_origen_id: string | null;
 	zona_destino_id: string | null;

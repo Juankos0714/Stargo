@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
-	import { Plus } from 'lucide';
+	import { CircleCheck, Plus, RefreshCw, Search, SlidersHorizontal } from 'lucide';
 	import { TIPOS_RECARGO, etiquetaTipoRecargo, type Recargo, type TipoRecargo } from '$lib/types';
 
 	let recargos = $state<Recargo[]>([]);
@@ -22,6 +22,9 @@
 	let editando = $state<Record<string, { nombre: string; tipo: string; valor: number; descripcion: string; activo: boolean }>>({});
 	let guardando = $state<Record<string, boolean>>({});
 	let alternando = $state<Record<string, boolean>>({});
+	let busqueda = $state('');
+	let filtroTipo = $state<string>('todos');
+	let filtroEstado = $state<'todos' | 'activos' | 'inactivos'>('todos');
 
 	const colorTipo = $derived((t: string) => TIPOS_RECARGO.find((x) => x.valor === t)?.color ?? 'bg-slate-100 text-slate-600 border-slate-200');
 
@@ -31,6 +34,15 @@
 			return t !== 0 ? t : a.nombre.localeCompare(b.nombre, 'es');
 		})
 	);
+	const recargosFiltrados = $derived(
+		ordenado.filter((r) => {
+			const texto = `${r.codigo} ${r.nombre} ${r.descripcion ?? ''}`.toLocaleLowerCase('es');
+			if (busqueda.trim() && !texto.includes(busqueda.trim().toLocaleLowerCase('es'))) return false;
+			if (filtroTipo !== 'todos' && r.tipo !== filtroTipo) return false;
+			return filtroEstado === 'todos' || (filtroEstado === 'activos' ? r.activo : !r.activo);
+		})
+	);
+	const activos = $derived(recargos.filter((r) => r.activo).length);
 
 	async function cargar() {
 		cargando = true;
@@ -123,7 +135,7 @@
 			return;
 		}
 		cancelarEdicion(r.codigo);
-		mensaje = { tipo: 'ok', texto: `Recargo «${r.nombre}» actualizado.` };
+		mensaje = { tipo: 'ok', texto: `Recargo «${r.nombre}» actualizado. El nuevo valor se usará en los próximos pedidos.` };
 		await cargar();
 	}
 
@@ -169,7 +181,7 @@
 	<div>
 		<h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Recargos</h1>
 		<p class="mt-1 text-sm text-slate-500">
-			Variaciones del precio: compras, tiempo de espera, paradas, peso y pagos. El cliente los elige al hacer el pedido.
+			Configura los valores que se aplican en los próximos pedidos. Los pedidos ya creados conservan su valor original.
 		</p>
 	</div>
 	<button
@@ -182,6 +194,24 @@
 	</button>
 </header>
 
+<section class="mb-6 grid gap-3 sm:grid-cols-3">
+	<div class="rounded-xl border border-primary/20 bg-primary-light/50 p-4">
+		<p class="text-xs font-semibold tracking-wide text-primary-dark uppercase">Recargos activos</p>
+		<p class="mt-1 text-2xl font-extrabold text-slate-900">{activos}</p>
+		<p class="mt-1 text-xs text-slate-500">Disponibles para nuevas cotizaciones.</p>
+	</div>
+	<div class="rounded-xl border border-slate-200 bg-white p-4">
+		<p class="text-xs font-semibold tracking-wide text-slate-500 uppercase">Configurados</p>
+		<p class="mt-1 text-2xl font-extrabold text-slate-900">{recargos.length}</p>
+		<p class="mt-1 text-xs text-slate-500">Activos e inactivos en el catálogo.</p>
+	</div>
+	<div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+		<div class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-emerald-700 uppercase"><Icon icon={CircleCheck} class="size-3.5" /> Actualización inmediata</div>
+		<p class="mt-1 text-sm font-semibold text-emerald-900">Guardar aplica el precio nuevo.</p>
+		<p class="mt-1 text-xs text-emerald-700">No hace falta publicar ni reiniciar la aplicación.</p>
+	</div>
+</section>
+
 {#if mensaje}
 	<div
 		class="mb-5 rounded-xl border px-4 py-3 text-sm {mensaje.tipo === 'ok'
@@ -191,6 +221,24 @@
 		{mensaje.texto}
 	</div>
 {/if}
+
+<div class="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center">
+	<div class="relative flex-1">
+		<Icon icon={Search} class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+		<input bind:value={busqueda} class="input pl-9" placeholder="Buscar por nombre, código o descripción…" aria-label="Buscar recargos" />
+	</div>
+	<div class="flex items-center gap-2">
+		<Icon icon={SlidersHorizontal} class="size-4 text-slate-400" />
+		<select bind:value={filtroTipo} class="input w-auto" aria-label="Filtrar por tipo">
+			<option value="todos">Todos los tipos</option>
+			{#each TIPOS_RECARGO as t (t.valor)}<option value={t.valor}>{t.label}</option>{/each}
+		</select>
+		<select bind:value={filtroEstado} class="input w-auto" aria-label="Filtrar por estado">
+			<option value="todos">Todos</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option>
+		</select>
+		<button type="button" onclick={cargar} class="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50" aria-label="Actualizar catálogo" title="Actualizar catálogo"><Icon icon={RefreshCw} class="size-4" /></button>
+	</div>
+</div>
 
 {#if formAbierto}
 	<form onsubmit={crear} class="mb-6 rounded-2xl border border-primary/30 bg-primary-light/50 p-5">
@@ -254,7 +302,7 @@
 		</div>
 	{:else if error}
 		<div class="p-6 text-sm text-red-600">No se pudieron cargar los recargos: {error}</div>
-	{:else if ordenado.length === 0}
+	{:else if recargos.length === 0}
 		<p class="p-10 text-center text-sm text-slate-400">
 			Aún no hay recargos. Crea el primero con «Nuevo recargo» para que aparezca en el formulario de pedidos.
 		</p>
@@ -273,7 +321,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each ordenado as r (r.codigo)}
+					{#each recargosFiltrados as r (r.codigo)}
 						{@const editandoRecargo = editando[r.codigo]}
 						<tr class="border-b border-slate-100 transition hover:bg-slate-50/60 {!r.activo ? 'opacity-60' : ''}">
 							{#if editandoRecargo}
@@ -363,6 +411,8 @@
 								</td>
 							{/if}
 						</tr>
+					{:else}
+						<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-400">No hay recargos que coincidan con los filtros.</td></tr>
 					{/each}
 				</tbody>
 			</table>

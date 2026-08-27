@@ -10,6 +10,24 @@ import { recargoPeso, recargoTransferencia, recargoPagoAlto } from '$lib/logic/t
 // ---------- obtenerTarifaDomicilio ----------
 
 describe('obtenerTarifaDomicilio', () => {
+	test.each([
+		['centro', 'sur_despues_puerto_espejo', 8000],
+		['norte_38_50', 'centro', 8000],
+		['norte_38_50', 'sur_despues_puerto_espejo', 12000],
+		['norte_19_37', 'centro', 7000],
+		['norte_19_37', 'sur_despues_puerto_espejo', 10000],
+		['norte_1_18', 'centro', 6000],
+		['norte_1_18', 'sur_despues_naranjos', 8000],
+		['sur_27_50', 'centro', 6000],
+		['sur_27_50', 'norte_38_50', 8000],
+		['sur_despues_naranjos', 'centro', 7000],
+		['sur_despues_naranjos', 'norte_38_50', 9000],
+		['sur_despues_puerto_espejo', 'centro', 8000],
+		['sur_despues_puerto_espejo', 'norte_38_50', 10000]
+	] as const)('respeta la tarifa 2026: %s → %s = $%i', (origen, destino, esperado) => {
+		expect(obtenerTarifaDomicilio(origen, destino)).toBe(esperado);
+	});
+
 	test('mismo sector retorna 5000', () => {
 		expect(obtenerTarifaDomicilio('centro', 'centro')).toBe(5000);
 	});
@@ -128,14 +146,16 @@ describe('calcularPrecio: compra', () => {
 			tramo_principal: crearTramoPrincipal('centro', 'norte_19_37', 'compra'),
 			tramos_adicionales: [],
 			recargos: [
-				{ id: 'compra', bloques_20min: 2, paradas: 1 }
+				{ id: 'compra', bloques_20min: 2, paradas: 1 },
+				{ id: 'peso' }
 			],
 			peso_kg: 25
 		};
 
 		const resultado = calcularPrecio(pedido);
-		// 7000 (matriz) + 6000 (compra: 2 bloques × 3000 + 1 parada × 3000) + 2000 (peso >20kg)
-		expect(resultado.total).toBe(15000);
+		// 6000 (matriz) + 9000 (compra: 2 bloques × $3000 + 1 parada × $3000)
+		// + 2000 (peso >20kg), según el PDF de tarifas 2026.
+		expect(resultado.total).toBe(17000);
 	});
 });
 
