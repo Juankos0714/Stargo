@@ -341,6 +341,23 @@
 <!-- Mi cuenta: comisión por domicilio entregado, niveles y deuda -->
 <section class="mb-6">
 	<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+		<div class="rounded-2xl border border-green-200 bg-green-50 p-4 shadow-sm">
+			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-green-700 uppercase">
+				<Icon icon={WalletCards} class="size-3.5" />
+				Hoy
+			</p>
+			{#if (cuenta?.hoy?.total ?? 0) > 0}
+				<p class="mt-1 text-2xl font-extrabold text-green-800">
+					{formatearPeso(cuenta?.hoy?.total ?? 0)}
+				</p>
+				<p class="mt-0.5 text-xs text-green-700">
+					nivel {cuenta?.hoy?.nivel} · comisión {formatearPeso(cuenta?.hoy?.comision ?? 0)}
+				</p>
+			{:else}
+				<p class="mt-1 text-lg font-extrabold text-slate-700">sin entregas aún</p>
+				<p class="mt-0.5 text-xs text-slate-500">Aquí verás lo generado al completar tu primera entrega.</p>
+			{/if}
+		</div>
 		<div class="rounded-2xl border border-primary/25 bg-primary-light/40 p-4 shadow-sm">
 			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary-dark uppercase">
 				<Icon icon={Coins} class="size-3.5" />
@@ -356,7 +373,7 @@
 		<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">
 				<Icon icon={Coins} class="size-3.5 text-primary" />
-				Generado en comisiones
+				Deuda por comisiones
 			</p>
 			<p class="mt-1 text-2xl font-extrabold text-slate-900">{formatearPeso(cuenta?.deuda ?? null)}</p>
 			<p class="mt-0.5 text-xs text-slate-400">saldo pendiente de comisiones</p>
@@ -389,10 +406,20 @@
 		</div>
 	</div>
 
+	{#if cuenta?.hoy?.escalera_anterior}
+		<p class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+			<Icon icon={TriangleAlert} class="mt-0.5 size-4 shrink-0" />
+			<span>
+				La escalera de comisiones cambió hoy. Tu comisión del día se calculó con la escalera anterior;
+				los días anteriores tampoco se modifican.
+			</span>
+		</p>
+	{/if}
+
 	<TablaNiveles
 		niveles={nivelesConRango}
-		nivelDestacado={null}
-		titulo="Tarifa por domicilio entregado"
+		nivelDestacado={cuenta?.hoy?.nivel ?? null}
+		titulo="Comisión por nivel según el total del día"
 		notaPie="Cada domicilio entregado genera una comisión con el valor configurado para tu nivel al momento de la entrega."
 	/>
 </section>
