@@ -109,7 +109,7 @@
 	let dilValorFactura = $state('');
 	let dilEntidad = $state('');
 	let dilProductos = $state('');
-	let dilCantidad = $state('');
+	let dilParadas = $state('');
 	let dilPresupuesto = $state('');
 	let dilTramite = $state('');
 	let dilInstrucciones = $state('');
@@ -366,7 +366,6 @@
 			dilValorFactura,
 				dilEntidad,
 			dilProductos,
-			dilCantidad,
 			dilPresupuesto,
 			dilTramite,
 			dilInstrucciones,
@@ -412,7 +411,7 @@
 			if (tipoDiligencia === 'compra' && Number(pesoKg) > 0) recargosPayload.push({ id: 'peso' });
 
 			// Paradas adicionales
-			const numParadas = Number(dilCantidad) || 0;
+			const numParadas = Number(dilParadas) || 0;
 			if (numParadas > 0) {
 				recargosPayload.push({ id: 'paradas', paradas: numParadas });
 			}
@@ -473,7 +472,6 @@
 			dilValorFactura,
 			dilEntidad,
 			dilProductos,
-			dilCantidad,
 			dilPresupuesto,
 			dilTramite,
 			dilInstrucciones,
@@ -558,7 +556,7 @@
 		dilValorFactura = '';
 		dilEntidad = '';
 		dilProductos = '';
-		dilCantidad = '';
+		dilParadas = '';
 		dilPresupuesto = '';
 		dilTramite = '';
 		dilInstrucciones = '';
@@ -613,11 +611,6 @@
 		if (dilEntidad.trim()) parts.push(`Entidad: ${dilEntidad.trim()}`);
 		if (String(dilValorFactura ?? '').trim()) parts.push(`Valor a pagar: $${formatearMontoCampo(dilValorFactura)}`);
 		if (dilProductos.trim()) parts.push(`Productos: ${dilProductos.trim()}`);
-		// Los <input type="number"> entregan un número a bind:value. Normalizar
-		// evita que al confirmar un pago con paradas se intente hacer .trim() sobre
-		// ese número y el formulario quede en estado «Confirmando…».
-		const cantidad = String(dilCantidad ?? '').trim();
-		if (cantidad) parts.push(`Cantidad: ${cantidad}`);
 		if (String(dilPresupuesto ?? '').trim()) parts.push(`Presupuesto: $${formatearMontoCampo(dilPresupuesto)}`);
 		if (dilTramite.trim()) parts.push(`Trámite: ${dilTramite.trim()}`);
 		if (dilInstrucciones.trim()) parts.push(`Instrucciones: ${dilInstrucciones.trim()}`);
@@ -641,7 +634,7 @@
 		}
 
 		// Paradas adicionales
-		const numParadas = Number(dilCantidad) || 0;
+		const numParadas = Number(dilParadas) || 0;
 		if (numParadas > 0) {
 			resultado.push({ id: 'paradas', paradas: numParadas });
 		}
@@ -671,8 +664,8 @@
 			return construirRecargosPagoBanco();
 		}
 
-		const resultado = recargosSelFiltrados.map((id) => ({ id }));
-		const cantidadParadas = Number(dilCantidad) || 0;
+		const resultado: { id: string; paradas?: number }[] = recargosSelFiltrados.map((id) => ({ id }));
+		const cantidadParadas = Number(dilParadas) || 0;
 		if (cantidadParadas > 0 && !resultado.some((recargo) => recargo.id === 'paradas')) {
 			resultado.push({ id: 'paradas', paradas: cantidadParadas });
 		}
@@ -1074,7 +1067,7 @@
 															type="number"
 															inputmode="numeric"
 															min="0"
-															bind:value={dilCantidad}
+															bind:value={dilParadas}
 															placeholder="0"
 															class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
 														/>
@@ -1127,7 +1120,7 @@
 															type="number"
 															inputmode="numeric"
 															min="0"
-															bind:value={dilCantidad}
+															bind:value={dilParadas}
 															placeholder="0"
 															class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
 														/>
@@ -1148,15 +1141,6 @@
 													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilProductos ? 'border-red-400' : ''}"
 												></textarea>
 													{#if errores.dilProductos}<p class="mt-1 text-xs text-red-600">{errores.dilProductos}</p>{/if}						</div>
-					<div>
-												<label for="dil-cantidad" class="mb-1.5 block text-sm font-semibold text-slate-700">Cantidad</label>
-												<input
-													id="dil-cantidad"
-													type="text"
-													bind:value={dilCantidad}														maxlength="100"
-														placeholder="Ej: 3 artículos, 1 paquete…"
-													class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
-													/>						</div>
 					<div class="grid gap-4 sm:grid-cols-2">
 												<div>
 													<label for="dil-presupuesto" class="mb-1.5 block text-sm font-semibold text-slate-700">Presupuesto / valor estimado</label>
@@ -1455,7 +1439,7 @@
 									type="text"
 									inputmode="numeric"
 									pattern="[0-9]*"
-									bind:value={dilCantidad}
+									bind:value={dilParadas}
 									placeholder="0"
 									class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
 								/>

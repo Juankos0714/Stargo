@@ -294,6 +294,7 @@ describe('Formulario de creación de pedido', () => {
 		// 1) Selecciona "Compra de productos": campos de compra visibles.
 		await user.click(screen.getByText('Compra de productos'));
 		expect(screen.getByLabelText(/Productos \/ descripción/)).toBeInTheDocument();
+		expect(screen.queryByLabelText(/^Cantidad$/)).not.toBeInTheDocument();
 
 		// 2) Cambia a "Pago en corresponsal".
 		await user.click(screen.getByText('Pago en corresponsal'));
