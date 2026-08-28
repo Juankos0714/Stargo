@@ -19,6 +19,7 @@
 	let resultado = $state<{ valor: number | null; meta: Record<string, unknown> } | null>(null);
 	let calculado = $state(false);
 	let calcId = 0;
+	let { integrado = false }: { integrado?: boolean } = $props();
 	// El deep-link comparte la selección: /calculadora?origen=<id>&destino=<id>.
 	// `deepLinkAplicado` evita que la primera pasada vuelva a escribir la URL.
 	let deepLinkAplicado = $state(false);
@@ -131,19 +132,27 @@
 		const params = new URLSearchParams();
 		params.set('origen', origen);
 		params.set('destino', destino);
-		goto(`/nuevo-pedido?${params.toString()}`);
+		goto(`${rutaNuevoPedido}?${params.toString()}`);
 	}
 
 	const meta = $derived(resultado?.meta ?? {});
 	const disponible = $derived(meta.disponible === true);
 	const motivo = $derived(String(meta.motivo ?? ''));
+	const rutaNuevoPedido = $derived(
+		page.url.pathname.startsWith('/admin')
+			? '/admin/nuevo-pedido'
+			: page.url.pathname.startsWith('/domiciliario')
+				? '/domiciliario/nuevo-pedido'
+				: '/nuevo-pedido'
+	);
 </script>
 
 <svelte:head>
 	<title>Calculadora — StarGo</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-b from-slate-50 via-primary-light/40 to-slate-50">
+<div class:integrado class="min-h-screen bg-gradient-to-b from-slate-50 via-primary-light/40 to-slate-50">
+	{#if !integrado}
 	<header class="border-b border-slate-200/70 bg-white/80 backdrop-blur">
 		<div class="mx-auto flex max-w-3xl flex-col items-start gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
 			<a href="/" class="flex items-center">
@@ -155,6 +164,7 @@
 			</nav>
 		</div>
 	</header>
+	{/if}
 
 	<main class="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
 		<div class="text-center">
@@ -227,7 +237,7 @@
 								{String(meta.barrio_destino)} <span class="text-slate-300">·</span> {nombreZona(String(meta.zona_destino))}
 							</p>
 							<a
-								href="/nuevo-pedido?origen={origen}&destino={destino}"
+								href="{rutaNuevoPedido}?origen={origen}&destino={destino}"
 								class="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:bg-primary-dark"
 							>
 								Solicitar este domicilio

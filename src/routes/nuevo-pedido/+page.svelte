@@ -29,7 +29,7 @@
 	// servidor (+page.server.ts): el formulario ya viene en el HTML inicial,
 	// sin las 4 llamadas /api encadenadas que retrasaban el render en mobile.
 	// En Capacitor (ssr: false), se cargan via API en el cliente.
-	let { data } = $props();
+	let { data, integrado = false }: { data: any; integrado?: boolean } = $props();
 	let horario = $state<HorarioHoy | null>(data?.horario ?? null);
 	let barrios = $state<Barrio[]>(data?.barrios ?? []);
 	let zonas = $state<Zona[]>(data?.zonas ?? []);
@@ -814,7 +814,8 @@
 	<title>Nuevo pedido — StarGo</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-b from-slate-50 via-primary-light/40 to-slate-50">
+<div class:integrado class="min-h-screen bg-gradient-to-b from-slate-50 via-primary-light/40 to-slate-50">
+	{#if !integrado}
 	<header class="border-b border-slate-200/70 bg-white/80 backdrop-blur">
 		<div class="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 sm:px-6 sm:py-4">
 			<a href="/" class="flex items-center">
@@ -825,6 +826,7 @@
 			</nav>
 		</div>
 	</header>
+	{/if}
 
 	<main class="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
 		{#if creado}

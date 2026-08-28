@@ -6,7 +6,7 @@
 	import { esCapacitor } from '$lib/push-capacitor';
 	import Logo from '$lib/components/Logo.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { Truck, LogOut } from 'lucide';
+	import { Truck, LogOut, PlusCircle, Calculator } from 'lucide';
 	import CentroNotificaciones from '$lib/components/CentroNotificaciones.svelte';
 
 	let { children } = $props();
@@ -56,6 +56,14 @@
 				<Icon icon={Truck} class="size-4.5" />
 				Mis entregas
 			</a>
+			<a href="/domiciliario/nuevo-pedido" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition hover:bg-white/5 hover:text-white">
+				<Icon icon={PlusCircle} class="size-4.5" />
+				Nuevo pedido
+			</a>
+			<a href="/domiciliario/calculadora" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition hover:bg-white/5 hover:text-white">
+				<Icon icon={Calculator} class="size-4.5" />
+				Calculadora
+			</a>
 		</nav>
 
 		<div class="border-t border-white/10 p-4">
@@ -102,6 +110,11 @@
 						Salir
 					</button>
 				</div>
+			</div>
+			<div class="flex gap-1.5 px-4 pb-3">
+				<a href="/domiciliario" class="flex-1 rounded-lg px-3 py-2 text-center text-xs font-bold transition {page.url.pathname === '/domiciliario' ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">Entregas</a>
+				<a href="/domiciliario/nuevo-pedido" class="flex-1 rounded-lg px-3 py-2 text-center text-xs font-bold transition {page.url.pathname.startsWith('/domiciliario/nuevo-pedido') ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">Nuevo</a>
+				<a href="/domiciliario/calculadora" class="flex-1 rounded-lg px-3 py-2 text-center text-xs font-bold transition {page.url.pathname.startsWith('/domiciliario/calculadora') ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">Tarifa</a>
 			</div>
 		</header>
 

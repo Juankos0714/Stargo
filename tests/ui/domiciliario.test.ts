@@ -231,13 +231,14 @@ describe('Panel del domiciliario: comisión diaria y resaltado del nivel del dí
 			pagos: [
 				{ id: 'pg1', valor: 12000, nota: 'abono 1', created_at: '2026-08-01T10:00:00' },
 				{ id: 'pg2', valor: 8000, nota: null, created_at: '2026-08-02T10:00:00' }
-			]
+			],
+			deuda: 50000
 		});
 
 		// Conteo de abonos visibles en el título.
 		expect(screen.getByText('Últimos abonos (2)')).toBeInTheDocument();
 		// Total acumulado (no la suma de los visibles: 12000+8000 ≠ 50000).
-		expect(screen.getByText('total abonado $ 50.000')).toBeInTheDocument();
+		expect(screen.getByText('deuda $ 50.000')).toBeInTheDocument();
 		// El valor y la nota de cada abono se siguen listando (la nota va
 		// precedida de «·» en el mismo nodo de texto).
 		expect(screen.getByText(/abono 1/)).toBeInTheDocument();

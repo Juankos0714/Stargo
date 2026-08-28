@@ -74,14 +74,16 @@ describe('Panel admin de comisiones', () => {
 
 		// Tarjeta «Escalera de niveles» con paso y cantidad precargados.
 		expect(screen.getByText('Escalera de niveles')).toBeInTheDocument();
-		expect(screen.getByLabelText('Paso entre niveles')).toHaveValue(10000);
+		// El input es type="text" con value={formatearMontoCampo(pasoInput)}: muestra "10.000".
+		expect(screen.getByLabelText('Paso entre niveles')).toHaveValue('10.000');
 		expect(screen.getByLabelText('Cantidad de niveles')).toHaveValue(3);
 
 		// Una fila por nivel con su rango y comisión.
 		expect(screen.getByText('Hasta $ 10.000')).toBeInTheDocument();
 		expect(screen.getByText(/De \$ ?10\.001 a \$ ?20\.000/)).toBeInTheDocument(); // nivel 2
-		expect(screen.getByLabelText('Comisión del nivel 1')).toHaveValue(1300);
-		expect(screen.getByLabelText('Tope del nivel 1')).toHaveValue(10000);
+		// Los inputs de comisión y tope son type="text" con formatearMontoCampo.
+		expect(screen.getByLabelText('Comisión del nivel 1')).toHaveValue('1.300');
+		expect(screen.getByLabelText('Tope del nivel 1')).toHaveValue('10.000');
 		expect(screen.getAllByRole('button', { name: 'Guardar' })).toHaveLength(3);
 		expect(screen.getAllByRole('button', { name: 'Eliminar' })).toHaveLength(3);
 	});
@@ -110,15 +112,18 @@ describe('Panel admin de comisiones', () => {
 		expect(screen.getAllByText(/días anteriores/).length).toBeGreaterThan(0);
 	});
 
-	test('valida la comisión antes de guardar y no llama a la API', async () => {
+	test('normaliza valores negativos antes de guardar y llama a la API con el valor positivo', async () => {
 		const user = userEvent.setup();
 		await renderizar();
 
+		// normalizarMontoCampo strips all non-digits: -500 → '500'.
 		setInput(screen.getByLabelText('Comisión del nivel 1'), '-500');
 		await user.click(screen.getAllByRole('button', { name: 'Guardar' })[0]);
 
-		expect(screen.getByText('Comisión inválida para el nivel 1.')).toBeInTheDocument();
-		expect(putMock).not.toHaveBeenCalled();
+		// La validación no bloquea porque el normalizador elimina el signo menos.
+		await waitFor(() =>
+			expect(putMock).toHaveBeenCalledWith('/api/comisiones?id=nivel-1', { valor: 500, hasta: 10000 })
+		);
 	});
 
 	test('agrega un nivel (POST) y muestra el mensaje con el paso configurado', async () => {

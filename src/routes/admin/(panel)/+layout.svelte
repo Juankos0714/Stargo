@@ -9,7 +9,7 @@
 	import CentroNotificaciones from '$lib/components/CentroNotificaciones.svelte';
 	import {
 		Home, ClipboardList, BarChart3, Gauge, Users, Coins, Clock,
-		Layers, Table2, Receipt, MapPin, Download, LogOut, Menu, X
+		Layers, Table2, Receipt, MapPin, Download, LogOut, Menu, X, PlusCircle, Calculator
 	} from 'lucide';
 
 	let { children } = $props();
@@ -42,6 +42,16 @@
 			href: '/admin/pedidos',
 			label: 'Pedidos',
 			icon: ClipboardList
+		},
+		{
+			href: '/admin/nuevo-pedido',
+			label: 'Nuevo pedido',
+			icon: PlusCircle
+		},
+		{
+			href: '/admin/calculadora',
+			label: 'Calculadora',
+			icon: Calculator
 		},
 		{
 			href: '/admin/reportes',
@@ -199,6 +209,14 @@
 						: 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
 				>
 					Pedidos
+				</a>
+				<a
+					href="/admin/nuevo-pedido"
+					class="flex-1 rounded-lg px-3 py-2 text-center text-xs font-bold transition {ruta.startsWith('/admin/nuevo-pedido')
+						? 'bg-primary text-white shadow-sm'
+						: 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
+				>
+					Nuevo
 				</a>
 			</div>
 		</header>

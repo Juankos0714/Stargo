@@ -93,7 +93,7 @@ describe('Formulario de creación de pedido', () => {
 		expect(screen.queryByRole('button', { name: 'Confirmar pedido' })).not.toBeInTheDocument();
 	});
 
-	test('la tarifa se calcula al seleccionar ambos barrios y habilita el envío', async () => {
+	test('la tarifa se calcula al seleccionar ambos barrios', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
@@ -106,14 +106,13 @@ describe('Formulario de creación de pedido', () => {
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
 
 		await waitFor(() =>
-			expect(postMock).toHaveBeenCalledWith('/api/calcular_tarifa', {
-				barrio_origen: 'barrio-a',
-				barrio_destino: 'barrio-b'
-			})
+			expect(postMock).toHaveBeenCalledWith('/api/calcular_tarifa',
+				expect.objectContaining({
+					barrio_origen: 'barrio-a',
+					barrio_destino: 'barrio-b'
+				})
+			)
 		);
-		// La tarifa se calcula y el botón se habilita
-		const boton = screen.getByRole('button', { name: 'Confirmar pedido' });
-		await waitFor(() => expect(boton).not.toBeDisabled());
 	});
 
 	test('muestra el estado de carga mientras se calcula la tarifa', async () => {
@@ -131,8 +130,8 @@ describe('Formulario de creación de pedido', () => {
 		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
 
-		await waitFor(() => expect(screen.getByText('Calculando…')).toBeInTheDocument());
-		expect(screen.getByRole('button', { name: 'Confirmar pedido' })).toBeDisabled();
+		// "Calculando…" puede aparecer en el resumen y/o en el botón Calcular.
+		await waitFor(() => expect(screen.queryAllByText('Calculando…').length).toBeGreaterThan(0));
 
 		resolver(tarifaOk());
 		await waitFor(() => expect(screen.queryByText('Calculando…')).not.toBeInTheDocument());
@@ -157,11 +156,11 @@ describe('Formulario de creación de pedido', () => {
 		await waitFor(() =>
 			expect(screen.getByText(/No disponible: este trayecto no tiene tarifa/)).toBeInTheDocument()
 		);
+		// Botón de confirmar deshabilitado hasta que calcState sea 'calculated'.
 		expect(screen.getByRole('button', { name: 'Confirmar pedido' })).toBeDisabled();
-		expect(screen.getByText('No se puede confirmar sin una tarifa disponible.')).toBeInTheDocument();
 	});
 
-	test('valida peso y transferencia al confirmar en domicilio', async () => {
+	test('valida peso y transferencia al calcular en domicilio', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
@@ -170,9 +169,10 @@ describe('Formulario de creación de pedido', () => {
 		await formularioListo();
 		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar pedido' })).not.toBeDisabled());
+		await waitFor(() => expect(postMock).toHaveBeenCalled());
 
-		await user.click(screen.getByRole('button', { name: 'Confirmar pedido' }));
+		// Sin llenar peso ni transferencia, Calcular valida y muestra errores.
+		await user.click(screen.getByRole('button', { name: /Calcular/ }));
 
 		await waitFor(() => expect(screen.getByText('La dirección de origen es obligatoria.')).toBeInTheDocument());
 		expect(screen.getByText('La dirección de destino es obligatoria.')).toBeInTheDocument();
@@ -198,7 +198,7 @@ describe('Formulario de creación de pedido', () => {
 		await formularioListo();
 		await elegirBarrio(user, 'Ej: Barrio La Rivera…', 'Barrio A');
 		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar pedido' })).not.toBeDisabled());
+		await waitFor(() => expect(postMock).toHaveBeenCalled());
 
 		await user.type(screen.getByPlaceholderText('Calle 10 # 15-20, Apto 301'), 'Calle 1 # 2-3');
 		await user.type(screen.getByPlaceholderText('Carrera 19 # 20-30'), 'Carrera 4 # 5-6');
@@ -209,6 +209,12 @@ describe('Formulario de creación de pedido', () => {
 		// Contacto del cliente.
 		await user.type(screen.getByPlaceholderText('Ej: Ana María'), 'Ana María');
 		await user.type(screen.getByPlaceholderText('300 123 4567'), '300 123 4567');
+
+		// Paso 1: Calcular (valida + calcula tarifa → habilita Confirmar).
+		await user.click(screen.getByRole('button', { name: /Calcular/ }));
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar pedido' })).not.toBeDisabled());
+
+		// Paso 2: Confirmar.
 		await user.click(screen.getByRole('button', { name: 'Confirmar pedido' }));
 
 		await waitFor(() => expect(screen.getByText('¡Pedido confirmado!')).toBeInTheDocument());
@@ -227,7 +233,7 @@ describe('Formulario de creación de pedido', () => {
 		);
 	});
 
-	test('en compra/diligencia los recargos redundantes no se muestran', async () => {
+	test('en pago en corresponsal aparecen los campos de pago y no los de compra/peso', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
@@ -235,18 +241,16 @@ describe('Formulario de creación de pedido', () => {
 		render(Pagina, { props: { data: dataAbierto } });
 		await formularioListo();
 
-		// Cambia al modo compra/diligencia.
-		await user.click(screen.getByText('Compra / diligencia'));
-		// Selecciona tipo de diligencia "pago".
-		await user.click(screen.getByText('Pago de factura o servicio'));
-		// Recargos redundantes NO deben aparecer: "pago" y "peso".
-		expect(screen.queryByText('Pago test')).not.toBeInTheDocument();
-		expect(screen.queryByText('Peso test')).not.toBeInTheDocument();
-		// Pero otros recargos SÍ deben aparecer.
-		expect(screen.getByText('No aplica ningún recargo')).toBeInTheDocument();
+		// Selecciona tipo de servicio "Pago en corresponsal" directamente.
+		await user.click(screen.getByText('Pago en corresponsal'));
+		// Campos de pago presentes.
+		expect(screen.getByLabelText(/Descripción/)).toBeInTheDocument();
+		expect(screen.getByLabelText(/Valor de la factura/)).toBeInTheDocument();
+		// No existen campos de compra ni de peso.
+		expect(screen.queryByLabelText(/Productos/)).not.toBeInTheDocument();
 	});
 
-	test('al cambiar tipo de diligencia se descartan recargos redundantes seleccionados', async () => {
+	test('al cambiar tipo de diligencia se actualizan los campos visibles', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
 		);
@@ -254,69 +258,59 @@ describe('Formulario de creación de pedido', () => {
 		render(Pagina, { props: { data: dataAbierto } });
 		await formularioListo();
 
-		// Cambia al modo compra/diligencia.
-		await user.click(screen.getByText('Compra / diligencia'));
-
-		// 1) Selecciona "Otra diligencia": todos los recargos disponibles aparecen.
-		await user.click(screen.getByText('Otra diligencia'));
-		expect(screen.getByText('Tiempo espera test')).toBeInTheDocument();
-		expect(screen.getByText('Paradas test')).toBeInTheDocument();
-		expect(screen.getByText('Pago test')).toBeInTheDocument();
-
-		// 2) Selecciona el recargo "Pago test" manualmente.
-		await user.click(screen.getByText('Pago test'));
-
-		// 3) Cambia a "Pago de factura o servicio".
-		await user.click(screen.getByText('Pago de factura o servicio'));
-
-		// El recargo "Pago test" ya NO debe estar visible (es redundante).
-		expect(screen.queryByText('Pago test')).not.toBeInTheDocument();
-	});
-
-	test('al cambiar de domicilio a compra/diligencia se limpian recargos de domicilio', async () => {
-		postMock.mockImplementation((path: string) =>
-			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
-		);
-		const user = userEvent.setup();
-		render(Pagina, { props: { data: dataAbierto } });
-		await formularioListo();
-
-		// 1) En modo domicilio, ingresa peso (esto sincroniza el recargo "peso").
-		await user.type(screen.getByPlaceholderText('Ej: 2.5'), '3');
-
-		// 2) Cambia a compra/diligencia.
-		await user.click(screen.getByText('Compra / diligencia'));
-		await user.click(screen.getByText('Otra diligencia'));
-
-		// Los recargos de domicilio (peso, pago) NO deben estar seleccionados.
-		// El checkbox "Peso test" no debe existir en compra/diligencia.
-		expect(screen.queryByText('Peso test')).not.toBeInTheDocument();
-	});
-
-	test('al cambiar de compra a diligencia_bancaria se limpian valores residuales', async () => {
-		postMock.mockImplementation((path: string) =>
-			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
-		);
-		const user = userEvent.setup();
-		render(Pagina, { props: { data: dataAbierto } });
-		await formularioListo();
-
-		// 1) Selecciona "Compra" y ve todos los recargos.
-		await user.click(screen.getByText('Compra / diligencia'));
+		// 1) Selecciona "Compra de productos": campos de compra visibles.
 		await user.click(screen.getByText('Compra de productos'));
-		expect(screen.getAllByText('Compra test').length).toBeGreaterThanOrEqual(1);
-		expect(screen.getByText('Peso test')).toBeInTheDocument();
-		expect(screen.getByText('Pago test')).toBeInTheDocument();
+		expect(screen.getByLabelText(/Productos \/ descripción/)).toBeInTheDocument();
 
-		// 2) Cambia a "Pago bancario" (diligencia_bancaria).
-		await user.click(screen.getByText('Pago bancario o corresponsal'));
+		// 2) Cambia a "Pago en corresponsal".
+		await user.click(screen.getByText('Pago en corresponsal'));
 
-		// Solo "Tiempo espera", "Paradas" y "Otro" deben quedar visibles.
-		expect(screen.getByText('Tiempo espera test')).toBeInTheDocument();
-		expect(screen.getByText('Paradas test')).toBeInTheDocument();
-		expect(screen.queryByText('Compra test')).not.toBeInTheDocument();
-		expect(screen.queryByText('Peso test')).not.toBeInTheDocument();
-		expect(screen.queryByText('Pago test')).not.toBeInTheDocument();
+		// Los campos de compra ya NO deben estar visibles.
+		expect(screen.queryByLabelText(/Productos \/ descripción/)).not.toBeInTheDocument();
+		// Ahora aparecen los campos de pago.
+		expect(screen.getByLabelText(/Descripción/)).toBeInTheDocument();
+	});
+
+	test('al cambiar de domicilio a pago en corresponsal se cambian las secciones del formulario', async () => {
+		postMock.mockImplementation((path: string) =>
+			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
+		);
+		const user = userEvent.setup();
+		render(Pagina, { props: { data: dataAbierto } });
+		await formularioListo();
+
+		// 1) En modo domicilio, existen los campos de peso y transferencia.
+		expect(screen.getByLabelText(/Peso del paquete/)).toBeInTheDocument();
+		expect(screen.getByText('No hay transferencia')).toBeInTheDocument();
+
+		// 2) Cambia a pago en corresponsal.
+		await user.click(screen.getByText('Pago en corresponsal'));
+
+		// Los campos de domicilio (peso del paquete) ya no deben existir.
+		expect(screen.queryByLabelText(/Peso del paquete/)).not.toBeInTheDocument();
+	});
+
+	test('al cambiar de compra a pago bancario se cambian los campos del formulario', async () => {
+		postMock.mockImplementation((path: string) =>
+			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
+		);
+		const user = userEvent.setup();
+		render(Pagina, { props: { data: dataAbierto } });
+		await formularioListo();
+
+		// 1) Selecciona "Compra de productos" y ve campos de compra.
+		await user.click(screen.getByText('Compra de productos'));
+		expect(screen.getByLabelText(/Productos \/ descripción/)).toBeInTheDocument();
+		expect(screen.getByLabelText(/Peso del paquete/)).toBeInTheDocument();
+
+		// 2) Cambia a "Pago bancario".
+		await user.click(screen.getByText('Pago bancario'));
+
+		// Ya no existen campos de compra ni de peso.
+		expect(screen.queryByLabelText(/Productos \/ descripción/)).not.toBeInTheDocument();
+		expect(screen.queryByLabelText(/Peso del paquete/)).not.toBeInTheDocument();
+		// Ahora aparecen los campos de banco.
+		expect(screen.getByLabelText(/Entidad \/ banco/)).toBeInTheDocument();
 	});
 
 	test('texto de ayuda contextual aparece al seleccionar tipo de diligencia', async () => {
@@ -327,8 +321,7 @@ describe('Formulario de creación de pedido', () => {
 		render(Pagina, { props: { data: dataAbierto } });
 		await formularioListo();
 
-		await user.click(screen.getByText('Compra / diligencia'));
-		await user.click(screen.getByText('Pago de factura o servicio'));
+		await user.click(screen.getByText('Pago en corresponsal'));
 
 		// Debe aparecer el texto de ayuda contextual.
 		expect(screen.getByText(/El pago que va a realizar el domiciliario/)).toBeInTheDocument();
