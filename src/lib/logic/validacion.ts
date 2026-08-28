@@ -44,8 +44,8 @@ export interface DatosPedido {
 	dilEntidad?: string;
 	/** Productos / descripción (compra). */
 	dilProductos?: string;
-	/** Cantidad (compra). */
-	dilCantidad?: string;
+	/** Cantidad de paradas adicionales. */
+	dilParadas?: string;
 	/** Presupuesto / valor estimado (compra). */
 	dilPresupuesto?: string;
 	/** Tipo de trámite (tramite). */
@@ -186,6 +186,12 @@ export function validarPedido(d: DatosPedido): Record<string, string> {
 				// Compra de productos
 				if (!(d.dilProductos ?? '').trim()) {
 					errores.dilProductos = 'Describe los productos que necesitas.';
+				}
+				const paradas = String(d.dilParadas ?? '').trim();
+				if (!paradas) {
+					errores.dilParadas = 'Indica la cantidad de paradas.';
+				} else if (!/^\d+$/.test(paradas) || Number(paradas) < 1) {
+					errores.dilParadas = 'Indica al menos una parada.';
 				}
 			} else if (td === 'tramite') {
 				// Trámite o documento

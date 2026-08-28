@@ -10,8 +10,10 @@ describe('MATRIZ_RECARGOS', () => {
 		}
 	});
 
-	test('compra tiene recargo_compra como obligatorio', () => {
-		expect(MATRIZ_RECARGOS.compra.obligatorios).toContain('compra');
+	test('compra calcula su recargo por paradas y no selecciona un recargo fijo', () => {
+		expect(MATRIZ_RECARGOS.compra.obligatorios).not.toContain('compra');
+		expect(MATRIZ_RECARGOS.compra.visibles).not.toContain('compra');
+		expect(MATRIZ_RECARGOS.compra.ocultos).toContain('compra');
 	});
 
 	test('pago y banco ocultan el recargo pago (redundante)', () => {
@@ -56,14 +58,14 @@ describe('filtrarRecargosServidor', () => {
 		expect(resultado.error).toContain('rc-peso');
 	});
 
-	test('para tipo compra, acepta todos los recargos incluido compra', () => {
+	test('para tipo compra rechaza el recargo fijo de compra y acepta los demás', () => {
 		const resultado = filtrarRecargosServidor(
 			'compra',
 			['rc-compra', 'rc-peso', 'rc-pago', 'rc-tiempo'],
 			tiposPorCodigo
 		);
-		expect(resultado.validos).toEqual(['rc-compra', 'rc-peso', 'rc-pago', 'rc-tiempo']);
-		expect(resultado.error).toBeUndefined();
+		expect(resultado.validos).toEqual(['rc-peso', 'rc-pago', 'rc-tiempo']);
+		expect(resultado.error).toContain('rc-compra');
 	});
 
 	test('para tipo tramite, rechaza compra, peso y pago', () => {

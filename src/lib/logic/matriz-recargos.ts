@@ -28,9 +28,12 @@ export const MATRIZ_RECARGOS: Record<string, ReglaRecargos> = {
 		obligatorios: []
 	},
 	compra: {
-		visibles: ['compra', 'tiempo_espera', 'paradas', 'peso', 'pago', 'otro'],
-		ocultos: [],
-		obligatorios: ['compra']
+		// El cobro de compra se determina con el número obligatorio de paradas.
+		// No se selecciona un recargo fijo de tipo «compra», pues duplicaría el
+		// valor calculado por `paradas:N`.
+		visibles: ['tiempo_espera', 'paradas', 'peso', 'pago', 'otro'],
+		ocultos: ['compra'],
+		obligatorios: []
 	},
 	tramite: {
 		visibles: ['tiempo_espera', 'paradas', 'transferencia', 'otro'],

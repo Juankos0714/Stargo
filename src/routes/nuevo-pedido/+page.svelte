@@ -364,8 +364,9 @@
 			tipoDiligencia: tipoDiligencia as TipoDiligencia,
 			dilDescripcion,
 			dilValorFactura,
-				dilEntidad,
+			dilEntidad,
 			dilProductos,
+			dilParadas,
 			dilPresupuesto,
 			dilTramite,
 			dilInstrucciones,
@@ -472,6 +473,7 @@
 			dilValorFactura,
 			dilEntidad,
 			dilProductos,
+			dilParadas,
 			dilPresupuesto,
 			dilTramite,
 			dilInstrucciones,
@@ -792,7 +794,7 @@
 		} else {
 			// En compra/diligencia: la API calcula todo (tarifa + recargos escalonados).
 			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-			tipoDiligencia; pesoKg; dilValorFactura; transferencia; transferenciaMonto; recargosSelFiltrados;
+			tipoDiligencia; pesoKg; dilValorFactura; dilParadas; transferencia; transferenciaMonto; recargosSelFiltrados;
 			destino;
 			if (destino) calcular();
 		}
@@ -1432,7 +1434,7 @@
 
 						<!-- Campo: paradas adicionales -->
 						<div class="mb-4">
-							<label for="cd-paradas" class="mb-1.5 block text-sm font-semibold text-slate-700">Paradas adicionales <span class="font-normal text-slate-400">(opcional)</span></label>
+							<label for="cd-paradas" class="mb-1.5 block text-sm font-semibold text-slate-700">Paradas adicionales {#if tipoDiligencia === 'compra'}<span class="text-amber-600">(obligatorio)</span>{:else}<span class="font-normal text-slate-400">(opcional)</span>{/if}</label>
 							<div class="relative">
 								<input
 									id="cd-paradas"
@@ -1441,10 +1443,11 @@
 									pattern="[0-9]*"
 									bind:value={dilParadas}
 									placeholder="0"
-									class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11"
+									class="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none min-h-11 {errores.dilParadas ? 'border-red-400' : ''}"
 								/>
 								<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">#</span>
 							</div>
+							{#if errores.dilParadas}<p class="mt-1 text-xs text-red-600">{errores.dilParadas}</p>{/if}
 						</div>
 
 						{#if errores.recargos}

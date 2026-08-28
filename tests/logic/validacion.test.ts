@@ -139,6 +139,7 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 			tipoServicio: 'compra_diligencia',
 			tipoDiligencia: 'compra',
 			dilProductos: '2 paquetes de arroz',
+			dilParadas: '1',
 			barrioOrigen: 'b-origen',
 			direccionOrigen: 'Calle 10 # 15-20',
 			recargosConfirmadosNoAplica: true
@@ -238,9 +239,24 @@ describe('validarPedido — compra/diligencia (Fase 14)', () => {
 			recargosConfirmadosNoAplica: true
 		});
 		expect(e.dilProductos).toBe('Describe los productos que necesitas.');
+		expect(e.dilParadas).toBe('Indica la cantidad de paradas.');
 		// No debe exigir campos de otros tipos.
 		expect(e.dilDescripcion).toBeUndefined();
 		expect(e.dilValorFactura).toBeUndefined();
+	});
+
+	test('compra: exige al menos una parada válida', () => {
+		const baseCompra = {
+			...pedidoValido,
+			tipoServicio: 'compra_diligencia',
+			tipoDiligencia: 'compra' as const,
+			dilProductos: '2 paquetes de arroz',
+			barrioOrigen: 'b-origen',
+			direccionOrigen: 'Calle 10 # 15-20',
+			recargosConfirmadosNoAplica: true
+		};
+		expect(validarPedido({ ...baseCompra, dilParadas: '0' }).dilParadas).toBe('Indica al menos una parada.');
+		expect(validarPedido({ ...baseCompra, dilParadas: '2' }).dilParadas).toBeUndefined();
 	});
 
 	test('tramite: exige trámite e instrucciones', () => {
