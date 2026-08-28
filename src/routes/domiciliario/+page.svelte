@@ -3,7 +3,7 @@
 	import { esCapacitor } from '$lib/capacitor-auth';
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
-	import { Ban, Sun, Coins, CircleCheck, TriangleAlert, Clock, Truck, Phone, MapPin, Package, WalletCards, StickyNote } from 'lucide';
+	import { Ban, Coins, CircleCheck, TriangleAlert, Clock, Truck, Phone, MapPin, Package, WalletCards, StickyNote } from 'lucide';
 	import BadgeEstado from '$lib/components/BadgeEstado.svelte';
 	import BotonWhatsApp from '$lib/components/BotonWhatsApp.svelte';
 	import TablaNiveles from '$lib/components/TablaNiveles.svelte';
@@ -64,25 +64,6 @@
 
 	/** Niveles con su rango calculado, para la tabla de comisiones. */
 	const nivelesConRango = $derived(rangoDeNiveles(cuenta?.niveles ?? []));
-
-	/** Resumen del día de hoy: total acumulado, nivel alcanzado y comisión del día. */
-	const hoy = $derived(cuenta?.hoy ?? null);
-
-	/** Faltan $X para el siguiente nivel (solo si hay nivel y hay niveles superiores). */
-	const faltanParaSiguienteNivel = $derived.by(() => {
-		if (!hoy?.nivel || !cuenta?.niveles?.length) return null;
-		const ordenados = [...cuenta.niveles].sort((a, b) => a.nivel - b.nivel);
-		const idx = ordenados.findIndex((n) => n.nivel === hoy.nivel);
-		if (idx < 0 || idx >= ordenados.length - 1) return null; // ya está en el máximo
-		const siguienteHasta = ordenados[idx + 1].hasta;
-		const falta = Math.max(0, siguienteHasta - hoy.total);
-		return falta > 0 ? falta : null;
-	});
-
-	/** Fecha legible del resumen de hoy. */
-	const hoyEtiqueta = $derived(
-		hoy?.fecha ? new Date(hoy.fecha + 'T12:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }) : ''
-	);
 
 	function formatearFecha(iso: string): string {
 		return new Date(iso).toLocaleString('es-CO', {
@@ -357,27 +338,19 @@
 	</section>
 {/if}
 
-<!-- Mi cuenta: comisión diaria, niveles y deuda -->
+<!-- Mi cuenta: comisión por domicilio entregado, niveles y deuda -->
 <section class="mb-6">
 	<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 		<div class="rounded-2xl border border-primary/25 bg-primary-light/40 p-4 shadow-sm">
 			<p class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary-dark uppercase">
-				<Icon icon={Sun} class="size-3.5" />
-				Hoy {hoyEtiqueta}
+				<Icon icon={Coins} class="size-3.5" />
+				Comisión por entrega
 			</p>
 			<p class="mt-1 text-2xl font-extrabold text-slate-900">
-				{hoy ? formatearPeso(hoy.total) : formatearPeso(null)}
+				Se registra al entregar
 			</p>
 			<p class="mt-0.5 text-xs text-slate-500">
-				{#if hoy && hoy.nivel}
-					total del día · nivel {hoy.nivel} → <span class="font-bold text-primary-dark">comisión {formatearPeso(hoy.comision)}</span>
-					{#if faltanParaSiguienteNivel !== null}
-						<br />
-						<span class="text-primary/70">faltan {formatearPeso(faltanParaSiguienteNivel)} para el siguiente nivel</span>
-					{/if}
-				{:else}
-					acumulado de tus entregas de hoy (sin entregas aún)
-				{/if}
+				Cada domicilio entregado genera la tarifa de tu nivel vigente.
 			</p>
 		</div>
 		<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -416,23 +389,11 @@
 		</div>
 	</div>
 
-	{#if hoy?.escalera_anterior}
-		<div class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-			<Icon icon={Clock} class="mt-0.5 size-4 shrink-0" />
-			<span>
-				La escalera de comisiones cambió <strong>hoy</strong>: la comisión de este día se calcula con la
-				escalera anterior y la nueva aplica <strong>desde mañana</strong>. Tus días anteriores tampoco se
-				modifican.
-			</span>
-		</div>
-	{/if}
-
 	<TablaNiveles
 		niveles={nivelesConRango}
-		nivelDestacado={hoy?.nivel ?? null}
-		etiquetaDestacado="hoy"
-		titulo="Comisión por nivel según el total del día"
-		notaPie="La comisión de cada día se calcula según el total acumulado de tus entregas: se cobra el valor de cada nivel que cruza el total del día."
+		nivelDestacado={null}
+		titulo="Tarifa por domicilio entregado"
+		notaPie="Cada domicilio entregado genera una comisión con el valor configurado para tu nivel al momento de la entrega."
 	/>
 </section>
 

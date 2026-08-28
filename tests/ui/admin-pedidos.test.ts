@@ -119,6 +119,11 @@ describe('Tabla de pedidos del admin', () => {
 		expect(screen.queryByRole('row', { name: /KAA1AA/ })).not.toBeInTheDocument();
 	});
 
+	test('nombra la pestaña de recogida igual que el estado visible al cliente', async () => {
+		await renderizarCon([{ id: 'p1', numero: 'KAA1AA', estado: 'recogido' }]);
+		expect(screen.getByRole('button', { name: /En punto de recogida/ })).toBeInTheDocument();
+	});
+
 	test('«Todos» muestra todas las filas en el orden que trae la API', async () => {
 		const user = userEvent.setup();
 		const { container } = await renderizarCon([

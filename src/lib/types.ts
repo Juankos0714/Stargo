@@ -439,7 +439,7 @@ export const ACCIONES_DOMICILIARIO: Partial<Record<EstadoPedido, EstadoPedido>> 
 
 const ETIQUETAS_ACCION: Partial<Record<EstadoPedido, string>> = {
 	aceptado: 'Aceptar pedido',
-	recogido: 'Marcar recogido',
+	recogido: 'Marcar en punto de recogida',
 	en_camino: 'Marcar en camino',
 	entregado: 'Marcar entregado'
 };

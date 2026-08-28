@@ -59,25 +59,30 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public VOLATILE
 AS $$
 DECLARE
     v_dom RECORD;
+    v_pedido RECORD;
+    v_actor_domiciliario UUID;
+    v_tarifa INTEGER;
     monto_efectivo INTEGER;
     credito_aplicado INTEGER;
     nuevo_saldo INTEGER;
     v_existe BOOLEAN;
 BEGIN
-    IF NOT public.es_admin() THEN
-        RAISE EXCEPTION 'Solo un administrador puede registrar generación de deuda';
+    -- Un domiciliario puede registrar únicamente la comisión de SU propio
+    -- pedido ya entregado. El admin también puede reintentar la operación.
+    -- Nunca se confía en p_monto: la tarifa se resuelve en esta transacción.
+    v_actor_domiciliario := public.mi_domiciliario_id();
+    IF NOT public.es_admin()
+       AND (v_actor_domiciliario IS NULL OR v_actor_domiciliario <> p_domiciliario_id) THEN
+        RAISE EXCEPTION 'No tienes permisos para registrar esta comisión';
     END IF;
 
-    IF p_monto < 0 THEN
-        RAISE EXCEPTION 'El monto de generación no puede ser negativo';
-    END IF;
-
-    IF p_monto = 0 THEN
-        RETURN JSONB_BUILD_OBJECT(
-            'monto', 0, 'monto_efectivo', 0,
-            'credito_aplicado', 0, 'deuda_actual', 0, 'credito_favor', 0,
-            'ya_registrado', false
-        );
+    SELECT id, domiciliario_id, estado INTO v_pedido
+    FROM public.pedidos
+    WHERE id = p_pedido_id;
+    IF v_pedido IS NULL
+       OR v_pedido.domiciliario_id <> p_domiciliario_id
+       OR v_pedido.estado <> 'entregado' THEN
+        RAISE EXCEPTION 'La comisión solo se puede registrar para un pedido entregado y asignado al domiciliario';
     END IF;
 
     -- Idempotencia: si ya existe un movimiento para este pedido, no duplicar
@@ -93,7 +98,7 @@ BEGIN
         FROM public.domiciliarios WHERE id = p_domiciliario_id;
 
         RETURN JSONB_BUILD_OBJECT(
-            'monto', p_monto, 'monto_efectivo', 0,
+            'monto', 0, 'monto_efectivo', 0,
             'credito_aplicado', 0,
             'deuda_actual', COALESCE(v_dom.deuda_actual, 0),
             'credito_favor', COALESCE(v_dom.credito_favor, 0),
@@ -110,6 +115,16 @@ BEGIN
     IF v_dom IS NULL THEN
         RAISE EXCEPTION 'Domiciliario no encontrado';
     END IF;
+
+    SELECT valor INTO v_tarifa
+    FROM public.comision_niveles
+    WHERE nivel = v_dom.nivel;
+    IF v_tarifa IS NULL OR v_tarifa <= 0 THEN
+        RAISE EXCEPTION 'No hay una tarifa de comisión válida para el nivel %', v_dom.nivel;
+    END IF;
+
+    -- La única fuente de verdad para la comisión es el nivel vigente en BD.
+    p_monto := v_tarifa;
 
     -- Aplicar crédito a favor primero
     credito_aplicado := LEAST(v_dom.credito_favor, p_monto);
@@ -129,7 +144,7 @@ BEGIN
             v_dom.deuda_actual + monto_efectivo,
             'pedido', p_pedido_id,
             'Comisión por servicio completado',
-            p_nivel, p_tarifa
+            v_dom.nivel, v_tarifa
         );
         nuevo_saldo := v_dom.deuda_actual + monto_efectivo;
     ELSE

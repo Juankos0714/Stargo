@@ -54,7 +54,7 @@
 		{ valor: 'pendiente', label: 'Pendientes' },
 		{ valor: 'asignado', label: 'Asignados' },
 		{ valor: 'aceptado', label: 'Aceptados' },
-		{ valor: 'recogido', label: 'Recogidos' },
+		{ valor: 'recogido', label: 'En punto de recogida' },
 		{ valor: 'en_camino', label: 'En camino' },
 		{ valor: 'entregado', label: 'Entregados' },
 		{ valor: 'cancelado', label: 'Cancelados' },

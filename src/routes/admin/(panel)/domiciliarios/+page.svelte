@@ -405,10 +405,9 @@
 		<div class="mt-6 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-800">
 			<p class="font-semibold">Deuda por comisiones</p>
 			<p class="mt-1">
-				Por cada día trabajado se calcula la comisión según el total acumulado del día (el nivel alcanzado se
-				cobra por cada nivel que cruza; configúrala en
-				<a href="/admin/comisiones" class="font-semibold underline">Comisiones</a>). Esa deuda se acumula hasta que registres
-				un abono; si no la paga, puedes bloquear al domiciliario.
+				Cada domicilio entregado genera una comisión con la tarifa del nivel vigente, configurada en
+				<a href="/admin/comisiones" class="font-semibold underline">Comisiones</a>. Cada abono se descuenta
+				inmediatamente de la deuda; si la supera, queda como crédito a favor.
 			</p>
 		</div>
 	</div>

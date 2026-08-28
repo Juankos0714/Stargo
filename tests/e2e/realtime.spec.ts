@@ -84,7 +84,7 @@ test.skip(
 
 	for (const [boton, esperado] of [
 		['Aceptar pedido', 'Aceptado'],
-		['Marcar recogido', 'Recogido'],
+		['Marcar en punto de recogida', 'En punto de recogida'],
 		['Marcar en camino', 'En camino']
 	] as const) {
 		await card.getByRole('button', { name: boton }).click();

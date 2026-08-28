@@ -396,13 +396,9 @@
 			payload.tipo_diligencia = tipoDiligencia;
 			payload.subtipo_pago = tipoDiligencia === 'banco' ? 'bancario' : tipoDiligencia === 'pago' ? 'corresponsal' : undefined;
 
-			// Si necesita recoger en otro punto, enviar como tramo adicional.
-			if (necesitaRecoger && origen) {
-				payload.tramos_adicionales = [{
-					origen: origen,
-					destino: destino
-				}];
-			}
+			// El origen ya es el punto de recogida del tramo principal. No se
+			// agrega como tramo adicional: hacerlo cobraría el mismo trayecto dos
+			// veces y dejaría una cotización distinta de la que persiste la BD.
 
 			// Para pago/banco: construir recargos desde los campos del formulario
 			// (transferencia, paradas) ya que recargosSel está vacío para estos tipos.

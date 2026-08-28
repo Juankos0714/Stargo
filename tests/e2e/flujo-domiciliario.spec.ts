@@ -1,7 +1,7 @@
 /**
  * Parte 5 — Flujo del DOMICILIARIO.
  *
- * login → ver el pedido asignado → aceptar → marcar recogido → marcar en
+ * login → ver el pedido asignado → aceptar → marcar en punto de recogida → marcar en
  * camino → marcar entregado (con el confirm del navegador) → aparece en
  * "Completadas" como Entregado.
  */
@@ -34,7 +34,7 @@ test('domiciliario avanza el pedido asignado hasta Entregado', async ({ page }) 
 	await botonAccion(page, codigo, 'Aceptar pedido').click();
 	await expect(card.getByText('Aceptado').first()).toBeVisible({ timeout: 15_000 });
 
-	await botonAccion(page, codigo, 'Marcar recogido').click();
+	await botonAccion(page, codigo, 'Marcar en punto de recogida').click();
 	await expect(card.getByText('En punto de recogida').first()).toBeVisible({ timeout: 15_000 });
 
 	await botonAccion(page, codigo, 'Marcar en camino').click();

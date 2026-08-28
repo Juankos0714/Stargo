@@ -81,55 +81,21 @@ export const POST: RequestHandler = async (event) => {
  * Registra la comisión generada por un servicio completado en el ledger
  * de deuda (Fase 24 — comisión por servicio, no por día).
  *
- * Flujo:
- *   1. Verificar idempotencia (pedido ya registrado)
- *   2. Leer nivel actual del domiciliario
- *   3. Buscar la tarifa configurada para ese nivel
- *   4. Registrar en el ledger con nivel y tarifa
+ * La base de datos obtiene el nivel y la tarifa dentro de una transacción.
+ * Así el cliente no puede alterar el valor de la comisión ni dejar una
+ * entrega sin registrar por una carrera entre sus lecturas y la escritura.
  */
 async function registrarComisionDeuda(
 	db: ReturnType<typeof getSupabaseAsUser>,
 	pedidoId: string,
 	domiciliarioId: string
 ): Promise<void> {
-	// 0) Idempotencia: si ya existe un movimiento para este pedido, salir.
-	//    Esto evita llamadas duplicadas al RPC (retry, race condition).
-	const { data: existente } = await db
-		.from('deuda_movimientos')
-		.select('id')
-		.eq('domiciliario_id', domiciliarioId)
-		.eq('referencia_tipo', 'pedido')
-		.eq('referencia_id', pedidoId)
-		.maybeSingle();
-	if (existente) return;
-
-	// 1) Leer nivel actual del domiciliario
-	const { data: dom } = await db
-		.from('domiciliarios')
-		.select('nivel')
-		.eq('id', domiciliarioId)
-		.maybeSingle();
-
-	const nivel = dom?.nivel ?? 1;
-
-	// 2) Buscar la tarifa configurada para ese nivel
-	const { data: comisionNivel } = await db
-		.from('comision_niveles')
-		.select('valor')
-		.eq('nivel', nivel)
-		.maybeSingle();
-
-	const tarifa = comisionNivel?.valor ?? 0;
-
-	// Sin tarifa configurada: no generar deuda (nivel sin comisión)
-	if (tarifa <= 0) return;
-
-	// 3) Registrar en el ledger (el RPC maneja idempotencia y FOR UPDATE)
-	await db.rpc('registrar_generacion_deuda', {
+	// El RPC maneja idempotencia, permisos y bloqueo de fila. `p_monto` se
+	// conserva por compatibilidad de firma; la función calcula la tarifa real.
+	const { error } = await db.rpc('registrar_generacion_deuda', {
 		p_pedido_id: pedidoId,
 		p_domiciliario_id: domiciliarioId,
-		p_monto: tarifa,
-		p_nivel: nivel,
-		p_tarifa: tarifa
+		p_monto: 0
 	});
+	if (error) throw new Error(error.message);
 }

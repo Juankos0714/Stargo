@@ -144,8 +144,8 @@ test('comisiones: configurar en admin → entregar → deuda → abono', async (
 
 		await card.getByRole('button', { name: 'Aceptar pedido' }).click();
 		await expect(card.getByText('Aceptado').first()).toBeVisible({ timeout: 15_000 });
-		await card.getByRole('button', { name: 'Marcar recogido' }).click();
-		await expect(card.getByText('Recogido').first()).toBeVisible({ timeout: 15_000 });
+		await card.getByRole('button', { name: 'Marcar en punto de recogida' }).click();
+		await expect(card.getByText('En punto de recogida').first()).toBeVisible({ timeout: 15_000 });
 		await card.getByRole('button', { name: 'Marcar en camino' }).click();
 		await expect(card.getByText('En camino').first()).toBeVisible({ timeout: 15_000 });
 
