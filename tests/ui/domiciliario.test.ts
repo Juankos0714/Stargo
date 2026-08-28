@@ -318,8 +318,25 @@ describe('Panel del domiciliario: comisión diaria y resaltado del nivel del dí
 		expect(screen.getByText('Adelantar $ 45.000')).toBeInTheDocument();
 		expect(screen.getByText('Base requerida $ 25.000')).toBeInTheDocument();
 		expect(screen.getByText(/Pedir portería antes de subir/)).toBeInTheDocument();
-		expect(screen.getByRole('link', { name: 'Navegar a recogida' })).toBeInTheDocument();
-		expect(screen.getByRole('link', { name: 'Navegar a entrega' })).toBeInTheDocument();
+		const recogida = screen.getByRole('link', { name: 'Navegar a recogida' });
+		const entrega = screen.getByRole('link', { name: 'Navegar a entrega' });
+		expect(recogida).toBeInTheDocument();
+		expect(entrega).toBeInTheDocument();
+		// Maps recibe exactamente la dirección de cada tramo y una ciudad no ambigua.
+		expect(decodeURIComponent(recogida.getAttribute('href') ?? '')).toContain(
+			'destination=Calle 1 # 2-3, Barrio A, Armenia, Quindío, Colombia'
+		);
+		expect(decodeURIComponent(entrega.getAttribute('href') ?? '')).toContain(
+			'destination=Carrera 4 # 5-6, Barrio B, Armenia, Quindío, Colombia'
+		);
+	});
+
+	test('muestra “En punto de recogida” cuando el pedido ya fue recogido', async () => {
+		await renderizarCon([
+			{ id: 'p1', numero: 'KAA1AA', estado: 'recogido', total: 6000, created_at: '2026-08-07T10:00:00' }
+		]);
+
+		expect(screen.getByText('En punto de recogida')).toBeInTheDocument();
 	});
 
 	test('sin teléfono no se ofrece el botón de WhatsApp', async () => {

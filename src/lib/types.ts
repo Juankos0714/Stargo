@@ -408,7 +408,7 @@ export const ESTADOS_PEDIDO: Record<
 		next: ['recogido', 'cancelado']
 	},
 	recogido: {
-		label: 'Recogido',
+		label: 'En punto de recogida',
 		color: 'bg-cyan-50 text-cyan-700 border-cyan-200',
 		next: ['en_camino', 'cancelado']
 	},

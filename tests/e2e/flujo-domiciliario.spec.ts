@@ -30,12 +30,12 @@ test('domiciliario avanza el pedido asignado hasta Entregado', async ({ page }) 
 	await expect(card).toBeVisible({ timeout: 15_000 });
 	await expect(card.getByText('Asignado').first()).toBeVisible();
 
-	// Aceptar → Recogido → En camino → Entregado.
+	// Aceptar → En punto de recogida → En camino → Entregado.
 	await botonAccion(page, codigo, 'Aceptar pedido').click();
 	await expect(card.getByText('Aceptado').first()).toBeVisible({ timeout: 15_000 });
 
 	await botonAccion(page, codigo, 'Marcar recogido').click();
-	await expect(card.getByText('Recogido').first()).toBeVisible({ timeout: 15_000 });
+	await expect(card.getByText('En punto de recogida').first()).toBeVisible({ timeout: 15_000 });
 
 	await botonAccion(page, codigo, 'Marcar en camino').click();
 	await expect(card.getByText('En camino').first()).toBeVisible({ timeout: 15_000 });

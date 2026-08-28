@@ -59,6 +59,13 @@ describe('calcularTarifaPura (barrio → zona → matriz)', () => {
 		expect(r.meta.motivo).toBe('ok');
 	});
 
+	test('el mismo barrio no recibe una tarifa automática', () => {
+		const mismoBarrio = { id: 'barrio-centro', nombre: 'Centro', zona_id: 'z1' };
+		const r = calcularTarifaPura(mismoBarrio, mismoBarrio, [tarifa('z1', 'z1', 5000)]);
+		expect(r.valor).toBeNull();
+		expect(r.meta.motivo).toBe('sin_tarifa');
+	});
+
 	test('una tarifa de valor 0 es válida (no se confunde con «no hay tarifa»)', () => {
 		const r = calcularTarifaPura(CENTRO, CANO, [tarifa('z1', 'z2', 0)]);
 		expect(r.valor).toBe(0);

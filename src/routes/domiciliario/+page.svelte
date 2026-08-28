@@ -94,7 +94,13 @@
 	}
 
 	function urlNavegacion(direccion: string | null, barrio: string | null): string {
-		const destino = `${direccion ?? ''}, ${barrio ?? ''}, Armenia, Quindío`.trim();
+		// Armenia existe también como país; incluir departamento y país evita que Maps
+		// resuelva la ruta fuera de la ciudad. Filtrar los campos vacíos previene
+		// consultas malformadas en pedidos antiguos sin barrio asociado.
+		const destino = [direccion, barrio, 'Armenia', 'Quindío', 'Colombia']
+			.map((parte) => parte?.trim())
+			.filter((parte): parte is string => Boolean(parte))
+			.join(', ');
 		return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}`;
 	}
 

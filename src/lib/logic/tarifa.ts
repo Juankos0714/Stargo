@@ -28,6 +28,7 @@ export interface ResultadoTarifa {
 
 /** Barrio ya resuelto contra la BD (solo lo que necesita la tarificación). */
 export interface BarrioResuelto {
+	id?: string;
 	nombre: string | null;
 	zona_id: string | null;
 }
@@ -81,6 +82,23 @@ export function calcularTarifaPura(
 				motivo: 'barrio_no_encontrado',
 				barrio_origen: origen?.nombre ?? null,
 				barrio_destino: destino?.nombre ?? null
+			}
+		};
+	}
+
+	// Un trayecto que empieza y termina en el mismo barrio no tiene una
+	// tarifa automática. Esta validación se hace con el ID, no con la zona:
+	// barrios diferentes de una misma zona conservan la tarifa de la matriz.
+	if (origen.id && origen.id === destino.id) {
+		return {
+			valor: null,
+			meta: {
+				disponible: false,
+				motivo: 'sin_tarifa',
+				barrio_origen: origen.nombre,
+				barrio_destino: destino.nombre,
+				zona_origen: origen.zona_id,
+				zona_destino: destino.zona_id
 			}
 		};
 	}
