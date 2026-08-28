@@ -241,23 +241,24 @@
 		</p>
 	{:else}
 		<div class="overflow-x-auto">
-			<table class="w-full text-left text-sm">
+			<table class="min-w-[1400px] border-separate border-spacing-0 text-left text-sm">
 				<thead>
-					<tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">						<th class="px-4 py-3">Pedido</th>
-						<th class="px-4 py-3">Origen → Destino</th>
-						<th class="px-4 py-3">Tarifa</th>
-						<th class="px-4 py-3">Base</th>
-						<th class="px-4 py-3">Domiciliario</th>
-						<th class="px-4 py-3">Cliente</th>
-						<th class="px-4 py-3">Estado</th>
-						<th class="px-4 py-3 text-right">Acción</th>
+					<tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+						<th class="whitespace-nowrap px-4 py-3">Pedido</th>
+						<th class="whitespace-nowrap px-4 py-3">Origen → Destino</th>
+						<th class="whitespace-nowrap px-4 py-3">Tarifa</th>
+						<th class="whitespace-nowrap px-4 py-3">Base</th>
+						<th class="whitespace-nowrap px-4 py-3">Domiciliario</th>
+						<th class="whitespace-nowrap px-4 py-3">Cliente</th>
+						<th class="whitespace-nowrap px-4 py-3">Estado</th>
+						<th class="whitespace-nowrap px-4 py-3 text-right">Acción</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each visibles as p (p.id)}
 						{@const recs = p.recargos ?? []}
 						<tr class="border-b border-slate-100 align-top transition hover:bg-slate-50/60">
-							<td class="px-4 py-3">
+							<td class="whitespace-nowrap px-4 py-3">
 								<div class="flex flex-wrap items-center gap-1.5">
 									<p class="font-mono text-sm font-bold text-slate-900">{p.numero}</p>
 									<span
@@ -284,7 +285,7 @@
 									</ul>
 								</details>
 							</td>
-							<td class="px-4 py-3">
+							<td class="whitespace-nowrap px-4 py-3">
 								<p class="font-medium text-slate-900">
 									{p.barrio_origen_nombre ?? p.zona_origen_id ?? '—'}
 									<span class="text-slate-300">→</span>
@@ -292,7 +293,7 @@
 								</p>
 								<p class="text-xs text-slate-500">{p.direccion_origen} → {p.direccion_destino}</p>
 							</td>
-							<td class="px-4 py-3 font-bold whitespace-nowrap text-slate-900">
+							<td class="whitespace-nowrap px-4 py-3 font-bold text-slate-900">
 								{formatearPeso(p.total ?? p.tarifa_base)}
 								{#if recs.length > 0}
 									<span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500" title={recs.map((r) => r.nombre).join(' · ')}>
@@ -300,7 +301,7 @@
 									</span>
 								{/if}
 							</td>
-							<td class="px-4 py-3">
+							<td class="whitespace-nowrap px-4 py-3">
 								{#if (p.base_necesaria ?? 0) > 0}
 									<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
 										💰 {formatearPeso(p.base_necesaria)}
@@ -309,7 +310,7 @@
 									<span class="text-xs text-slate-300">—</span>
 								{/if}
 							</td>
-							<td class="px-4 py-3">
+							<td class="whitespace-nowrap px-4 py-3">
 								{#if p.domiciliario_nombre}
 									<span class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-800">
 										<span class="flex size-6 items-center justify-center rounded-full bg-primary-light text-[10px] font-bold text-primary">
@@ -321,7 +322,7 @@
 									<span class="text-xs text-slate-300">Sin asignar</span>
 								{/if}
 							</td>
-							<td class="px-4 py-3">
+							<td class="whitespace-nowrap px-4 py-3">
 								{#if p.telefono}
 									<p class="text-sm font-medium text-slate-900">{p.nombre_cliente ?? 'Cliente'}</p>
 									<p class="text-xs text-slate-500">{p.telefono}</p>
@@ -335,10 +336,10 @@
 									<span class="text-xs text-slate-300">—</span>
 								{/if}
 							</td>
-							<td class="px-4 py-3">
-							<BadgeEstado estado={p.estado} />
+							<td class="whitespace-nowrap px-4 py-3">
+								<BadgeEstado estado={p.estado} />
 							</td>
-							<td class="px-4 py-3 text-right">
+							<td class="whitespace-nowrap px-4 py-3 text-right">
 								{#if p.estado === 'pendiente'}
 									<div class="flex flex-col items-end gap-1.5">
 										<select
