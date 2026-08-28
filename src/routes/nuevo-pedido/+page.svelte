@@ -652,6 +652,29 @@
 		return resultado;
 	}
 
+	/** Convierte las paradas dinámicas al formato que entiende crear_pedido(). */
+	function serializarRecargosPedido(recargos: { id: string; paradas?: number }[]): string[] {
+		return recargos.map(({ id, paradas }) => {
+			if (id !== 'paradas') return id;
+			const cantidad = Math.max(1, Math.floor(Number(paradas) || 1));
+			return `paradas:${cantidad}`;
+		});
+	}
+
+	/** Incluye las paradas dinámicas en cualquier clase de compra o diligencia. */
+	function construirRecargosDiligencia(): { id: string; paradas?: number }[] {
+		if (tipoDiligencia === 'pago' || tipoDiligencia === 'banco') {
+			return construirRecargosPagoBanco();
+		}
+
+		const resultado = recargosSelFiltrados.map((id) => ({ id }));
+		const cantidadParadas = Number(dilCantidad) || 0;
+		if (cantidadParadas > 0 && !resultado.some((recargo) => recargo.id === 'paradas')) {
+			resultado.push({ id: 'paradas', paradas: cantidadParadas });
+		}
+		return resultado;
+	}
+
 	function sincronizarRecargos() {
 		if (tipoServicio === 'domicilio') {
 			recargosSel = sincronizarRecargosDomicilio(
@@ -702,11 +725,13 @@
 				payloadPedido.monto_pago = Number(transferenciaMonto);
 			}
 		}
-		// Pago/banco: incluir monto de pago y códigos de recargos construidos desde el formulario.
-		// El backend espera un array de strings (códigos), no objetos.
-		if (tipoServicio === 'compra_diligencia' && (tipoDiligencia === 'pago' || tipoDiligencia === 'banco')) {
-			if (dilValorFactura) payloadPedido.monto_pago = Number(dilValorFactura);
-			payloadPedido.recargos = construirRecargosPagoBanco().map((r) => r.id);
+		// Compra/diligencia: persistir las paradas con su cantidad, además de los
+		// recargos seleccionados. El backend espera códigos, no objetos.
+		if (tipoServicio === 'compra_diligencia') {
+			if ((tipoDiligencia === 'pago' || tipoDiligencia === 'banco') && dilValorFactura) {
+				payloadPedido.monto_pago = Number(dilValorFactura);
+			}
+			payloadPedido.recargos = serializarRecargosPedido(construirRecargosDiligencia());
 		}
 		const r = await api.post<typeof creado>('/api/pedidos', payloadPedido);
 		confirmando = false;

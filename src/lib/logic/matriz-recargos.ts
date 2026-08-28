@@ -51,6 +51,14 @@ export const MATRIZ_RECARGOS: Record<string, ReglaRecargos> = {
 const CODIGOS_VIRTUALES = new Set(['paradas']);
 
 /**
+ * `paradas` se calcula por cantidad, por lo que al guardar el pedido se
+ * serializa como `paradas:N`. No existe como fila individual en `recargos`.
+ */
+function esCodigoParadas(codigo: string): boolean {
+	return CODIGOS_VIRTUALES.has(codigo) || /^paradas:[1-9]\d*$/.test(codigo);
+}
+
+/**
  * Valida que un array de códigos de recargo sean válidos para un tipo
  * de diligencia dado. Devuelve los códigos filtrados (solo los válidos).
  *
@@ -84,7 +92,7 @@ export function filtrarRecargosServidor(
 	for (const codigo of recargos) {
 		// Los códigos virtuales se aceptan siempre (el frontend los construye
 		// y su costo se calcula por separado en el motor de tarifas).
-		if (CODIGOS_VIRTUALES.has(codigo)) {
+		if (esCodigoParadas(codigo)) {
 			validos.push(codigo);
 			continue;
 		}

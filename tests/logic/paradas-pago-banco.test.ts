@@ -67,6 +67,15 @@ describe('filtrarRecargosServidor: código virtual paradas', () => {
 		expect(resultado.error).toBeUndefined();
 	});
 
+	test('acepta paradas con cantidad serializada para tipo pago', () => {
+		const tiposPorCodigo = new Map<string, string>();
+
+		const resultado = filtrarRecargosServidor('pago', ['paradas:2'], tiposPorCodigo);
+
+		expect(resultado.validos).toEqual(['paradas:2']);
+		expect(resultado.error).toBeUndefined();
+	});
+
 	test('acepta paradas para tipo banco sin registro en BD', () => {
 		const tiposPorCodigo = new Map<string, string>();
 
