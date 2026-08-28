@@ -613,7 +613,11 @@
 		if (dilEntidad.trim()) parts.push(`Entidad: ${dilEntidad.trim()}`);
 		if (String(dilValorFactura ?? '').trim()) parts.push(`Valor a pagar: $${formatearMontoCampo(dilValorFactura)}`);
 		if (dilProductos.trim()) parts.push(`Productos: ${dilProductos.trim()}`);
-		if (dilCantidad.trim()) parts.push(`Cantidad: ${dilCantidad.trim()}`);
+		// Los <input type="number"> entregan un número a bind:value. Normalizar
+		// evita que al confirmar un pago con paradas se intente hacer .trim() sobre
+		// ese número y el formulario quede en estado «Confirmando…».
+		const cantidad = String(dilCantidad ?? '').trim();
+		if (cantidad) parts.push(`Cantidad: ${cantidad}`);
 		if (String(dilPresupuesto ?? '').trim()) parts.push(`Presupuesto: $${formatearMontoCampo(dilPresupuesto)}`);
 		if (dilTramite.trim()) parts.push(`Trámite: ${dilTramite.trim()}`);
 		if (dilInstrucciones.trim()) parts.push(`Instrucciones: ${dilInstrucciones.trim()}`);
@@ -696,7 +700,6 @@
 		if (!puedeConfirmarCalc) return;
 		// Re-sincronizar recargos por seguridad (ya se hizo en calcularPedido)
 		sincronizarRecargos();
-		confirmando = true;
 		error = null;
 		const obs = empaquetarObservaciones();
 		// valor_mandado: solo para pago/banco cuando hay valor de factura.
@@ -733,13 +736,19 @@
 			}
 			payloadPedido.recargos = serializarRecargosPedido(construirRecargosDiligencia());
 		}
-		const r = await api.post<typeof creado>('/api/pedidos', payloadPedido);
-		confirmando = false;
-		if (r.error) {
-			error = r.error;
-			return;
+		confirmando = true;
+		try {
+			const r = await api.post<typeof creado>('/api/pedidos', payloadPedido);
+			if (r.error) {
+				error = r.error;
+				return;
+			}
+			creado = r.data;
+		} catch {
+			error = 'No se pudo crear el pedido. Intenta nuevamente.';
+		} finally {
+			confirmando = false;
 		}
-		creado = r.data;
 	}
 
 	function reiniciar() {

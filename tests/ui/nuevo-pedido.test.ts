@@ -250,6 +250,39 @@ describe('Formulario de creación de pedido', () => {
 		expect(screen.queryByLabelText(/Productos/)).not.toBeInTheDocument();
 	});
 
+	test('confirma un pago con paradas numéricas sin quedarse en confirmando', async () => {
+		postMock.mockImplementation((path: string) => {
+			if (path === '/api/calcular_tarifa') return Promise.resolve(tarifaOk());
+			if (path === '/api/pedidos') {
+				return Promise.resolve({
+					data: { pedido_id: 'pago-1', numero: 'PAGO01', tarifa_base: 0, recargos: [], recargo_total: 6000, total: 6000, estado: 'pendiente' },
+					error: null
+				});
+			}
+			return Promise.resolve({ data: null, error: null });
+		});
+		const user = userEvent.setup();
+		render(Pagina, { props: { data: dataAbierto } });
+		await formularioListo();
+
+		await user.click(screen.getByText('Pago en corresponsal'));
+		await user.click(screen.getByText('No, solo el destino'));
+		await elegirBarrio(user, 'Ej: Mall Privilegio…', 'Barrio B');
+		await user.type(screen.getByPlaceholderText('Carrera 19 # 20-30'), 'Calle 4 # 5-6');
+		await user.type(screen.getByLabelText(/Descripción/), 'Pago de recibo');
+		await user.type(screen.getByLabelText(/Valor de la factura/), '200000');
+		await user.type(screen.getByRole('spinbutton', { name: /Paradas adicionales/ }), '2');
+		await user.click(screen.getByText('No hay transferencia'));
+		await user.type(screen.getByPlaceholderText('300 123 4567'), '3001234567');
+
+		await user.click(screen.getByRole('button', { name: /Calcular/ }));
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar pedido' })).not.toBeDisabled());
+		await user.click(screen.getByRole('button', { name: 'Confirmar pedido' }));
+
+		await waitFor(() => expect(screen.getByText('¡Pedido confirmado!')).toBeInTheDocument());
+		expect(postMock).toHaveBeenCalledWith('/api/pedidos', expect.objectContaining({ recargos: expect.arrayContaining(['paradas:2']) }));
+	});
+
 	test('al cambiar tipo de diligencia se actualizan los campos visibles', async () => {
 		postMock.mockImplementation((path: string) =>
 			path === '/api/calcular_tarifa' ? Promise.resolve(tarifaOk()) : Promise.resolve({ data: null, error: null })
