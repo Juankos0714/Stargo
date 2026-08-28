@@ -4,6 +4,7 @@ import { sincronizarRecargosDomicilio, type RecargoSeleccionable } from '$lib/lo
 // El catálogo antiguo de producción usa códigos correctos, pero no siempre
 // tiene los tipos peso/transferencia normalizados.
 const catalogo: RecargoSeleccionable[] = [
+	{ codigo: 'sin_peso', nombre: 'Menos de 15 kg', valor: 0, activo: true, tipo: 'otro' },
 	{ codigo: 'peso_mas_20kg', nombre: 'Entre 16 a 30 kg', valor: 2000, activo: true, tipo: 'otro' },
 	{ codigo: 'peso_mas_40kg', nombre: 'Entre 31 a 45 kg', valor: 5000, activo: true, tipo: 'otro' },
 	{ codigo: 'peso_mas_60kg', nombre: 'Más de 45 kg', valor: 10000, activo: true, tipo: 'otro' },
@@ -14,6 +15,15 @@ const catalogo: RecargoSeleccionable[] = [
 ];
 
 describe('sincronizarRecargosDomicilio', () => {
+	test('aplica el primer recargo desde 15 kg inclusive', () => {
+		const desdeQuince = sincronizarRecargosDomicilio(catalogo, [], '15', 'no', '');
+		const antesDeQuince = sincronizarRecargosDomicilio(catalogo, [], '14.9', 'no', '');
+
+		expect(desdeQuince).toContain('peso_mas_20kg');
+		expect(desdeQuince).not.toContain('sin_peso');
+		expect(antesDeQuince).toContain('sin_peso');
+	});
+
 	test('carga los recargos de peso y transferencia usando códigos del catálogo histórico', () => {
 		const seleccion = sincronizarRecargosDomicilio(catalogo, ['tiempo_espera'], '25', 'si', '150000');
 

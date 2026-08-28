@@ -163,7 +163,7 @@ describe('calcularPrecio: compra', () => {
 
 describe('calcularPrecio: recargos', () => {
 	test('recargo por peso escala correctamente', () => {
-		expect(recargoPeso(15)).toBe(0);
+		expect(recargoPeso(15)).toBe(2000);
 		expect(recargoPeso(25)).toBe(2000);
 		expect(recargoPeso(45)).toBe(5000);
 		expect(recargoPeso(65)).toBe(10000);

@@ -107,7 +107,7 @@ export function sincronizarRecargosDomicilio(
 			? 'peso_mas_60kg'
 			: peso > 40
 				? 'peso_mas_40kg'
-				: peso > 20
+				: peso >= 15
 					? 'peso_mas_20kg'
 					: 'sin_peso';
 		if (recargosPeso.some((recargo) => recargo.codigo === codigoPeso)) seleccion.add(codigoPeso);

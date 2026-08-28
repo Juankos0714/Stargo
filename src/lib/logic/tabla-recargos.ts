@@ -37,12 +37,12 @@ export type TipoPago = keyof typeof TABLA_RECARGOS.pagos;
 
 /**
  * Calcula el recargo por peso del paquete.
- * Escala escalonada: >20kg, >40kg, >60kg.
+ * Escala escalonada: desde 15kg, >40kg, >60kg.
  */
 export function recargoPeso(pesoKg: number): number {
 	if (pesoKg > 60) return TABLA_RECARGOS.peso.mas_60kg;
 	if (pesoKg > 40) return TABLA_RECARGOS.peso.mas_40kg;
-	if (pesoKg > 20) return TABLA_RECARGOS.peso.mas_20kg;
+	if (pesoKg >= 15) return TABLA_RECARGOS.peso.mas_20kg;
 	return 0;
 }
 

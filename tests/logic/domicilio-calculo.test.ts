@@ -16,14 +16,15 @@ import { calcularRecargos, type RecargoSeleccionable } from '$lib/logic/recargos
 // ---------- recargoPeso (escalonado) ----------
 
 describe('recargoPeso — cálculo escalonado', () => {
-	test('peso <= 20kg → sin recargo', () => {
+	test('peso menor de 15kg → sin recargo', () => {
 		expect(recargoPeso(0)).toBe(0);
 		expect(recargoPeso(10)).toBe(0);
-		expect(recargoPeso(20)).toBe(0);
+		expect(recargoPeso(14.9)).toBe(0);
 	});
 
-	test('peso > 20kg y <= 40kg → $2,000', () => {
-		expect(recargoPeso(21)).toBe(2000);
+	test('peso desde 15kg y hasta 40kg → $2,000', () => {
+		expect(recargoPeso(15)).toBe(2000);
+		expect(recargoPeso(20)).toBe(2000);
 		expect(recargoPeso(30)).toBe(2000);
 		expect(recargoPeso(40)).toBe(2000);
 	});
@@ -44,7 +45,7 @@ describe('recargoPeso — cálculo escalonado', () => {
 	});
 
 	test('peso decimal → se usa tal cual (no redondea)', () => {
-		expect(recargoPeso(20.5)).toBe(2000); // >20
+		expect(recargoPeso(15.1)).toBe(2000); // >=15
 		expect(recargoPeso(40.1)).toBe(5000); // >40
 		expect(recargoPeso(60.9)).toBe(10000); // >60
 	});
@@ -139,11 +140,11 @@ describe('domicilio normal — cálculo integrado', () => {
 		expect(total).toBe(9000);
 	});
 
-	test('peso 15kg + transferencia $50,000 → ambos sin recargo', () => {
+	test('peso 15kg + transferencia $50,000 → solo aplica recargo por peso', () => {
 		const peso = 15;
 		const monto = 50000;
 
-		expect(recargoPeso(peso)).toBe(0);
+		expect(recargoPeso(peso)).toBe(2000);
 		expect(recargoTransferencia(monto)).toBe(0);
 	});
 
