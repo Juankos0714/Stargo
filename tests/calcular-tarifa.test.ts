@@ -137,6 +137,18 @@ describe('calcularTarifa (barrio → zona → matriz)', () => {
 		expect(r.meta.zona_destino).toBe('z2');
 	});
 
+	test('el mismo barrio consulta y aplica la tarifa intra-zona', async () => {
+		const { cliente } = crearCliente({
+			barrios: [CENTRO],
+			tarifas: [{ zona_origen_id: 'z1', zona_destino_id: 'z1', valor: 6000 }]
+		});
+		const r = await calcularTarifa(CENTRO.id, CENTRO.id, cliente);
+
+		expect(r.valor).toBe(6000);
+		expect(r.meta.disponible).toBe(true);
+		expect(r.meta.motivo).toBe('ok');
+	});
+
 	test('resuelve por nombre insensible a mayúsculas', async () => {
 		const { cliente } = crearCliente({
 			barrios: [CENTRO, CANO],

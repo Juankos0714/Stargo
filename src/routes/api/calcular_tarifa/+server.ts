@@ -243,24 +243,6 @@ export const POST: RequestHandler = async ({ request }) => {
 	// de la matriz administrable por barrios: así también cubre destinos
 	// departamentales (Calarcá, Salento, pueblos, etc.) con su valor vigente.
 	const tarifaPrincipal = await calcularTarifa(barrioOrigen, barrioDestino);
-	// El negocio no asigna tarifa automática cuando el local y la entrega están
-	// en el mismo barrio. En una compra sí se deben poder cotizar y confirmar
-	// los recargos (peso, transferencia y paradas), con tarifa base $0.
-	if (tipoDiligencia === 'compra' && barrioOrigen === barrioDestino) {
-		const totalSinTramo = resultado.total - resultado.tramo_principal.valor;
-		return json({
-			data: resultado.disponible ? totalSinTramo : null,
-			meta: {
-				disponible: resultado.disponible,
-				aproximado: false,
-				motivo: 'mismo_barrio_sin_tarifa',
-				tramo_principal: { ...resultado.tramo_principal, valor: 0 },
-				tramos_adicionales: resultado.tramos_adicionales,
-				recargos_desglose: resultado.recargos_desglose,
-				recargo_total: resultado.recargo_total
-			}
-		});
-	}
 	if (!tarifaPrincipal.meta.disponible || tarifaPrincipal.valor == null) {
 		return json({
 			data: null,

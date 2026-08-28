@@ -198,11 +198,10 @@ export async function sembrarCatalogo(): Promise<Catalogo> {
 	if (errBarrios || !barrios) throw new Error(`Siembra de barrios falló: ${errBarrios?.message}`);
 
 	const porNombre = new Map(barrios.map((b) => [b.nombre, b.id]));
-	const { error: errTarifa } = await s.from('tarifas').insert({
-		zona_origen_id: zonaA,
-		zona_destino_id: zonaB,
-		valor: 6000
-	});
+	const { error: errTarifa } = await s.from('tarifas').insert([
+		{ zona_origen_id: zonaA, zona_destino_id: zonaA, valor: 6000 },
+		{ zona_origen_id: zonaA, zona_destino_id: zonaB, valor: 6000 }
+	]);
 	if (errTarifa) throw new Error(`Siembra de tarifa falló: ${errTarifa.message}`);
 
 	const { error: errRecargos } = await s.from('recargos').insert([

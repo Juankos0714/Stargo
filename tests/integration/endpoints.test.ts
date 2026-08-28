@@ -239,7 +239,7 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Endpoints de pedidos (SvelteKit ↔ Su
 			expect(r.data?.meta.motivo).toBe('ok');
 		});
 
-		test('zona roja / sin tarifa → fallo controlado con motivo, no excepción', async () => {
+		test('zona roja falla de forma controlada y el mismo barrio usa la tarifa de su zona', async () => {
 			const roja = await peticion<{ data: number | null; meta: { motivo: string } }>('/api/calcular_tarifa', {
 				metodo: 'POST',
 				cuerpo: { barrio_origen: cat.barrioRojo, barrio_destino: cat.barrioB }
@@ -248,13 +248,13 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Endpoints de pedidos (SvelteKit ↔ Su
 			expect(roja.data?.data).toBeNull();
 			expect(roja.data?.meta.motivo).toBe('zona_no_disponible');
 
-			const sinTarifa = await peticion<{ data: number | null; meta: { motivo: string } }>('/api/calcular_tarifa', {
+			const mismoBarrio = await peticion<{ data: number | null; meta: { motivo: string } }>('/api/calcular_tarifa', {
 				metodo: 'POST',
 				cuerpo: { barrio_origen: cat.barrioA, barrio_destino: cat.barrioA }
 			});
-			expect(sinTarifa.status).toBe(200);
-			expect(sinTarifa.data?.data).toBeNull();
-			expect(sinTarifa.data?.meta.motivo).toBe('sin_tarifa');
+			expect(mismoBarrio.status).toBe(200);
+			expect(mismoBarrio.data?.data).toBe(6000);
+			expect(mismoBarrio.data?.meta.motivo).toBe('ok');
 		});
 
 		test('faltan barrios → 400', async () => {

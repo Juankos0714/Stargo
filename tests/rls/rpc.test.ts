@@ -90,6 +90,15 @@ describe.skipIf(!RLS_DISPONIBLE)('RPCs (base real)', () => {
 			expect(data).toBe(6000);
 		});
 
+		test('el mismo barrio usa la tarifa intra-zona de la matriz', async () => {
+			const { data, error } = await anon.rpc('calcular_tarifa', {
+				p_barrio_origen: cat.barrioA,
+				p_barrio_destino: cat.barrioA
+			});
+			expect(error, `calcular_tarifa falló: ${error?.message}`).toBeNull();
+			expect(data).toBe(6000);
+		});
+
 		test('fallback simétrico (sentido inverso)', async () => {
 			const { data, error } = await anon.rpc('calcular_tarifa', {
 				p_barrio_origen: barrioC,

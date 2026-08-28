@@ -86,23 +86,6 @@ export function calcularTarifaPura(
 		};
 	}
 
-	// Un trayecto que empieza y termina en el mismo barrio no tiene una
-	// tarifa automática. Esta validación se hace con el ID, no con la zona:
-	// barrios diferentes de una misma zona conservan la tarifa de la matriz.
-	if (origen.id && origen.id === destino.id) {
-		return {
-			valor: null,
-			meta: {
-				disponible: false,
-				motivo: 'sin_tarifa',
-				barrio_origen: origen.nombre,
-				barrio_destino: destino.nombre,
-				zona_origen: origen.zona_id,
-				zona_destino: destino.zona_id
-			}
-		};
-	}
-
 	if (
 		!origen.zona_id ||
 		!destino.zona_id ||
