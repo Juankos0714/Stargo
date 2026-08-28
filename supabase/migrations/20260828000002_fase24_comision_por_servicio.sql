@@ -48,6 +48,10 @@ COMMENT ON COLUMN public.deuda_movimientos.tarifa_aplicada IS
 -- ============================================================
 -- Ahora recibe el nivel y la tarifa del domiciliario al momento
 -- del servicio, en vez de calcular incrementalmente por día.
+-- La versión de Fase 23 tenía tres parámetros. PostgreSQL no reemplaza
+-- funciones cuando cambia su firma: sin este DROP coexistirían ambas y
+-- PostgREST escogería la antigua al recibir solo tres argumentos.
+DROP FUNCTION IF EXISTS public.registrar_generacion_deuda(UUID, UUID, INTEGER);
 CREATE OR REPLACE FUNCTION public.registrar_generacion_deuda(
     p_pedido_id UUID,
     p_domiciliario_id UUID,
@@ -107,7 +111,7 @@ BEGIN
     END IF;
 
     -- FOR UPDATE para serializar acceso al saldo
-    SELECT id, deuda_actual, credito_favor INTO v_dom
+    SELECT id, deuda_actual, credito_favor, nivel INTO v_dom
     FROM public.domiciliarios
     WHERE id = p_domiciliario_id
     FOR UPDATE;
@@ -161,6 +165,8 @@ BEGIN
     );
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.registrar_generacion_deuda(UUID, UUID, INTEGER, INTEGER, INTEGER) TO authenticated;
 
 -- ============================================================
 -- 4) domiciliarios_con_deuda: incluir nivel

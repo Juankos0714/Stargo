@@ -39,8 +39,17 @@ export const POST: RequestHandler = async (event) => {
 	// Postgres y con los mismos mensajes de la BD. La BD sigue siendo la
 	// autoridad final (si el pedido no es visible para el rol, el RPC decide).
 	const rol = esAdmin ? 'admin' : 'domiciliario';
-	const { data: actual } = await db.from('pedidos').select('estado').eq('id', id).limit(1);
-	const estadoActual = (actual?.[0]?.estado as EstadoPedido | undefined) ?? null;
+	// `transicionar_pedido` solo devuelve el pedido y el nuevo estado. Conservamos
+	// el domiciliario antes de la transición para poder cobrar la comisión aun
+	// con las versiones del RPC que no lo incluyen en su respuesta.
+	const { data: actual } = await db
+		.from('pedidos')
+		.select('estado, domiciliario_id')
+		.eq('id', id)
+		.limit(1);
+	const pedidoActual = actual?.[0];
+	const estadoActual = (pedidoActual?.estado as EstadoPedido | undefined) ?? null;
+	const domiciliarioId = pedidoActual?.domiciliario_id ?? null;
 	if (estadoActual) {
 		try {
 			transicionar(rol, estadoActual, nuevoEstado);
@@ -59,9 +68,9 @@ export const POST: RequestHandler = async (event) => {
 
 	// Fase 24: Al entregar, registrar la comisión por servicio en el ledger.
 	// Cada servicio genera una comisión = tarifa del nivel vigente del domiciliario.
-	if (nuevoEstado === 'entregado' && data?.domiciliario_id) {
+	if (nuevoEstado === 'entregado' && domiciliarioId) {
 		try {
-			await registrarComisionDeuda(db, data.pedido_id, data.domiciliario_id);
+			await registrarComisionDeuda(db, id, domiciliarioId);
 		} catch (e) {
 			// Log the error but don't fail the whole request — the pedido
 			// state change already succeeded. The admin can retry or register
@@ -95,7 +104,12 @@ async function registrarComisionDeuda(
 	const { error } = await db.rpc('registrar_generacion_deuda', {
 		p_pedido_id: pedidoId,
 		p_domiciliario_id: domiciliarioId,
-		p_monto: 0
+		p_monto: 0,
+		// Incluir estos argumentos selecciona explícitamente la versión por
+		// servicio (Fase 24), en vez de la antigua sobrecarga de 3 parámetros
+		// que interpreta el monto 0 como «no generar deuda».
+		p_nivel: null,
+		p_tarifa: null
 	});
 	if (error) throw new Error(error.message);
 }
