@@ -85,6 +85,28 @@ export function nivelComision(niveles: ComisionNivel[], total: number): number {
 	return nivelDeTotal(niveles, total)?.valor ?? 0;
 }
 
+/** Resumen de comisiones de entregas, clasificando cada pedido por separado. */
+export function resumenComisionesPorServicio(
+	niveles: ComisionNivel[],
+	entregas: { total?: number | null; tarifa_base?: number; recargo_total?: number }[]
+): { total: number; nivel: number | null; comision: number } {
+	let total = 0;
+	let nivel: number | null = null;
+	let comision = 0;
+	for (const entrega of entregas) {
+		const totalPedido = totalPedidoComision(
+			entrega.total ?? null,
+			entrega.tarifa_base ?? 0,
+			entrega.recargo_total ?? 0
+		);
+		const nivelPedido = nivelDeTotal(niveles, totalPedido);
+		total += totalPedido;
+		comision += nivelPedido?.valor ?? 0;
+		nivel = Math.max(nivel ?? 0, nivelPedido?.nivel ?? 0) || null;
+	}
+	return { total, nivel, comision };
+}
+
 // ---------- Comisión DIARIA acumulada (Fase 13) ----------
 
 /**

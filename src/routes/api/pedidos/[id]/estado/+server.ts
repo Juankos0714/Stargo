@@ -67,7 +67,7 @@ export const POST: RequestHandler = async (event) => {
 	if (err) return json({ error: err.message }, { status: 400 });
 
 	// Fase 24: Al entregar, registrar la comisión por servicio en el ledger.
-	// Cada servicio genera una comisión = tarifa del nivel vigente del domiciliario.
+	// Cada servicio genera una comisión según el nivel de su propio total.
 	if (nuevoEstado === 'entregado' && domiciliarioId) {
 		try {
 			await registrarComisionDeuda(db, id, domiciliarioId);
@@ -90,7 +90,7 @@ export const POST: RequestHandler = async (event) => {
  * Registra la comisión generada por un servicio completado en el ledger
  * de deuda (Fase 24 — comisión por servicio, no por día).
  *
- * La base de datos obtiene el nivel y la tarifa dentro de una transacción.
+	 * La base de datos obtiene el nivel y la tarifa desde el total de ese pedido dentro de una transacción.
  * Así el cliente no puede alterar el valor de la comisión ni dejar una
  * entrega sin registrar por una carrera entre sus lecturas y la escritura.
  */

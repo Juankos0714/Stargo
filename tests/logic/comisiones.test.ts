@@ -10,6 +10,7 @@ import {
 	nivelesParaFecha,
 	rangoDeNiveles,
 	redondearComision,
+	resumenComisionesPorServicio,
 	totalPedidoComision,
 	totalesDiarios,
 	validarTopeNivel,
@@ -114,6 +115,18 @@ describe('nivelComision', () => {
 
 	test('sin niveles devuelve 0', () => {
 		expect(nivelComision([], 5000)).toBe(0);
+	});
+});
+
+describe('resumenComisionesPorServicio', () => {
+	test('cada servicio usa su propio total, sin acumular niveles del día', () => {
+		const escalera = niveles([1, 10000, 1300], [2, 20000, 2600], [3, 30000, 3900]);
+		const resumen = resumenComisionesPorServicio(escalera, [
+			{ total: 8000 },
+			{ total: 18000 },
+			{ total: 6000 }
+		]);
+		expect(resumen).toEqual({ total: 32000, nivel: 2, comision: 5200 });
 	});
 });
 

@@ -351,7 +351,7 @@
 					{formatearPeso(cuenta?.hoy?.total ?? 0)}
 				</p>
 				<p class="mt-0.5 text-xs text-green-700">
-					nivel {cuenta?.hoy?.nivel} · comisión {formatearPeso(cuenta?.hoy?.comision ?? 0)}
+					nivel más alto {cuenta?.hoy?.nivel} · comisión {formatearPeso(cuenta?.hoy?.comision ?? 0)}
 				</p>
 			{:else}
 				<p class="mt-1 text-lg font-extrabold text-slate-700">sin entregas aún</p>
@@ -367,7 +367,7 @@
 				Se registra al entregar
 			</p>
 			<p class="mt-0.5 text-xs text-slate-500">
-				Cada domicilio entregado genera la tarifa de tu nivel vigente.
+				Cada domicilio entregado genera la tarifa del nivel que corresponde a su propio valor.
 			</p>
 		</div>
 		<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -410,7 +410,7 @@
 		<p class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
 			<Icon icon={TriangleAlert} class="mt-0.5 size-4 shrink-0" />
 			<span>
-				La escalera de comisiones cambió hoy. Tu comisión del día se calculó con la escalera anterior;
+				La escalera de comisiones cambió hoy. Tus entregas de hoy se calcularon con la escalera anterior;
 				los días anteriores tampoco se modifican.
 			</span>
 		</p>
@@ -419,8 +419,8 @@
 	<TablaNiveles
 		niveles={nivelesConRango}
 		nivelDestacado={cuenta?.hoy?.nivel ?? null}
-		titulo="Comisión por nivel según el total del día"
-		notaPie="Cada domicilio entregado genera una comisión con el valor configurado para tu nivel al momento de la entrega."
+		titulo="Comisión por nivel según el valor de cada domicilio"
+		notaPie="Cada domicilio entregado genera una comisión con el valor configurado para el rango de su propio total."
 	/>
 </section>
 

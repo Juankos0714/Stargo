@@ -1,11 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-	comisionDiaria,
 	fechaBogota,
 	mismasEscaleras,
-	nivelDiario,
 	nivelesParaFecha,
-	totalesDiarios
+	resumenComisionesPorServicio
 } from '$lib/logic/comisiones';
 import type { ComisionHistorico, ComisionNivel, PagoDomiciliario, ResumenDia } from '$lib/types';
 
@@ -108,11 +106,15 @@ export async function obtenerResumenes(
 		((historico ?? []) as ComisionHistorico[]).map((h) => [h.fecha, h.niveles])
 	);
 	const entregados = await obtenerEntregadosHoy(db, unicos);
-	const porDia = totalesDiarios(entregados);
-	for (const [domId, dias] of porDia) {
+	for (const domId of unicos) {
 		const r = mapa.get(domId);
 		if (!r) continue;
-		r.hoy = comisionHoy(porFecha, escalera, dias, hoyBogota);
+		r.hoy = comisionHoy(
+			porFecha,
+			escalera,
+			entregados.filter((entrega) => entrega.domiciliario_id === domId),
+			hoyBogota
+		);
 	}
 
 	// Abonos recientes (paginado)
@@ -133,23 +135,15 @@ export async function obtenerResumenes(
 function comisionHoy(
 	porFecha: Map<string, ComisionNivel[]>,
 	escalera: ComisionNivel[],
-	totales: Map<string, number> | undefined,
+	entregas: { total: number | null; tarifa_base: number; recargo_total: number }[],
 	hoyBogota: string
 ): ResumenDia {
-	let hoy: ResumenDia = { fecha: hoyBogota, total: 0, nivel: null, comision: 0, escalera_anterior: false };
-	for (const [fecha, totalDia] of totales ?? []) {
-		if (fecha !== hoyBogota) continue;
-		const nivelesDia = nivelesParaFecha(porFecha, fecha, escalera);
-		const comision = comisionDiaria(nivelesDia, totalDia);
-		hoy = {
-			fecha,
-			total: totalDia,
-			nivel: nivelDiario(nivelesDia, totalDia)?.nivel ?? null,
-			comision,
-			escalera_anterior: !mismasEscaleras(nivelesDia, escalera)
-		};
-	}
-	return hoy;
+	const nivelesDia = nivelesParaFecha(porFecha, hoyBogota, escalera);
+	return {
+		fecha: hoyBogota,
+		...resumenComisionesPorServicio(nivelesDia, entregas),
+		escalera_anterior: entregas.length > 0 && !mismasEscaleras(nivelesDia, escalera)
+	};
 }
 
 const PAGE = 1000;

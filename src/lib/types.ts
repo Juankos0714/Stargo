@@ -182,9 +182,9 @@ export interface ResumenDia {
 	fecha: string;
 	/** Σ de los totales de los pedidos entregados ese día. */
 	total: number;
-	/** Nivel alcanzado por el total del día (null si no hubo entregas). */
+	/** Nivel más alto entre las entregas del día (null si no hubo entregas). */
 	nivel: number | null;
-	/** Comisión del día = Σ valores de los niveles hasta el alcanzado. */
+	/** Comisión del día = suma de la comisión de cada entrega individual. */
 	comision: number;
 	/**
 	 * true si HOY se calculó con la escalera ANTERIOR (el admin la cambió

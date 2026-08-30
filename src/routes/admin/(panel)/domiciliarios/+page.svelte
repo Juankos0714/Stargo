@@ -405,7 +405,7 @@
 		<div class="mt-6 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-800">
 			<p class="font-semibold">Deuda por comisiones</p>
 			<p class="mt-1">
-				Cada domicilio entregado genera una comisión con la tarifa del nivel vigente, configurada en
+				Cada domicilio entregado genera una comisión según el nivel que corresponde al valor de ese servicio, configurada en
 				<a href="/admin/comisiones" class="font-semibold underline">Comisiones</a>. Cada abono se descuenta
 				inmediatamente de la deuda; si la supera, queda como crédito a favor.
 			</p>

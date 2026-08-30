@@ -187,26 +187,24 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 		expect(porId.get(caro.id)).toBe(2200);
 	});
 
-	test('el domiciliario ve los niveles, su deuda DIARIA y el resumen de hoy', async () => {
+	test('el domiciliario ve los niveles y la comisión por cada servicio del resumen de hoy', async () => {
 		const cuenta = await cuentaDomA();
 		expect(cuenta.niveles.length).toBe(4);
 		expect(cuenta.niveles.find((n) => n.nivel === 2)?.valor).toBe(2200);
-		// Fase 13: comisión por DÍA. Ambos pedidos se entregaron hoy (mismo
-		// día en Bogotá): total 6.000 + 15.000 = 21.000 → nivel 3.
-		// Fase 18: al cambiar un nivel HOY (test anterior), la escalera de hoy
-		// quedó CONGELADA con la anterior (3 niveles × $1.300): el día cobra
-		// 3 × 1.300 = 3.900, aunque la escalera vigente ya tiene el nivel 2 en 2.200.
+		// Cada pedido se cobra por separado. La escalera de hoy quedó congelada
+		// con tres niveles de $1.300, por lo que $6.000 y $15.000 generan
+		// $1.300 cada uno: el acumulado no los hace subir de nivel.
 		expect(cuenta.hoy.total).toBe(21000);
-		expect(cuenta.hoy.nivel).toBe(3);
-		expect(cuenta.hoy.comision).toBe(3900);
-		expect(cuenta.total_comision).toBe(3900);
+		expect(cuenta.hoy.nivel).toBe(2);
+		expect(cuenta.hoy.comision).toBe(2600);
+		expect(cuenta.total_comision).toBe(2600);
 		expect(cuenta.total_pagos).toBe(0);
-		expect(cuenta.deuda).toBe(3900);
+		expect(cuenta.deuda).toBe(2600);
 		expect(cuenta.bloqueado).toBe(false);
 		expect(cuenta.hoy.escalera_anterior).toBe(true);
 	});
 
-	test('varios pedidos el mismo día: extender la escalera NO cambia la comisión del día congelado', async () => {
+	test('varios pedidos el mismo día: cada pedido conserva su propio nivel en la escalera congelada', async () => {
 		const s = clienteService();
 		// Extiende la escalera VIGENTE a 9 niveles de $10.000 (la escalera de
 		// HOY quedó congelada con 3 niveles × $1.300 cuando se cambió un nivel
@@ -223,21 +221,20 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 			{ onConflict: 'nivel' }
 		);
 
-		// Tres pedidos de $30.000 entregados HOY. El día ya tenía 21.000 de
-		// los tests anteriores: total del día 21.000 + 90.000 = 111.000.
+		// Tres pedidos de $30.000 entregados HOY. El día ya tenía $21.000 de
+		// los tests anteriores: total del día $111.000, pero cada pedido de
+		// $30.000 permanece en nivel 3 y no crea niveles por acumulación.
 		const creados: { id: string }[] = [];
 		for (let i = 0; i < 3; i++) creados.push(await crearYEntregar(30000));
 
 		const cuenta = await cuentaDomA();
-		// La escalera de HOY sigue siendo la congelada (3 niveles × $1.300):
-		// aunque la vigente ya tiene 9 niveles, el día cobra 3 × 1.300 = 3.900
-		// y NO 9 × 1.300. Es exactamente el comportamiento pedido: el cambio
-		// aplica desde mañana y hoy conserva la escalera de su día.
+		// La escalera de HOY sigue congelada con tres niveles. Las cinco entregas
+		// cobran $1.300 cada una: $6.000, $15.000 y tres de $30.000.
 		expect(cuenta.hoy.total).toBe(111000);
 		expect(cuenta.hoy.nivel).toBe(3);
-		expect(cuenta.hoy.comision).toBe(3900);
-		expect(cuenta.total_comision).toBe(3900);
-		expect(cuenta.deuda).toBe(3900);
+		expect(cuenta.hoy.comision).toBe(6500);
+		expect(cuenta.total_comision).toBe(6500);
+		expect(cuenta.deuda).toBe(6500);
 
 		// Restaura el estado de la corrida: quita los niveles extra, borra los
 		// pedidos creados y sincroniza la config con la cantidad real. Las
@@ -259,8 +256,8 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Comisiones por niveles y bloqueo (Fase
 
 		const cuenta = await cuentaDomA();
 		expect(cuenta.total_pagos).toBe(ABONO);
-		// Deuda del día congelado: 3.900 (escalera anterior de 3 × $1.300) − abono.
-		expect(cuenta.deuda).toBe(3900 - ABONO);
+		// Cinco servicios de $1.300 = $6.500, menos el abono.
+		expect(cuenta.deuda).toBe(6500 - ABONO);
 
 		const listado = await peticion<{ data: { valor: number }[] }>(
 			`/api/pagos?domiciliario_id=${domA.domiciliarioId}`,
