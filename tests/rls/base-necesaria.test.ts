@@ -118,7 +118,8 @@ describe.skipIf(!RLS_DISPONIBLE)('1. Creación de pedido con base_necesaria', ()
 		});
 		expect(r.error).toBeNull();
 		const d = r.data as Record<string, unknown>;
-		// Para compra_diligencia con tarifa=0 y sin recargos, total=0, base=0
+		// La compra con recogida incluye la tarifa del trayecto; la base sugerida
+		// debe cubrir el total completo, no solo los recargos.
 		expect(d.base_necesaria).toBe(d.total);
 	});
 

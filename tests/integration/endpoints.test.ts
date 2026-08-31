@@ -151,6 +151,36 @@ describe.skipIf(!INTEGRACION_DISPONIBLE)('Endpoints de pedidos (SvelteKit ↔ Su
 			});
 		});
 
+		test('compra con recogida cobra la ruta origen → destino y la persiste', async () => {
+			const r = await crearPedidoHttp({
+				tipo_servicio: 'compra_diligencia',
+				recargos_confirmados_no_aplica: true
+			});
+			expect(r.status, mensaje(r)).toBe(200);
+			expect(r.data?.data).toMatchObject({
+				tarifa_base: 6000,
+				total: 6000,
+				zona_origen: cat.zonaA,
+				zona_destino: cat.zonaB,
+				estado: 'pendiente'
+			});
+
+			const { data: fila, error } = await clienteService()
+				.from('pedidos')
+				.select('tarifa_base, total, barrio_origen_id, barrio_destino_id, zona_origen_id, zona_destino_id')
+				.eq('numero', r.data?.data?.numero)
+				.single();
+			expect(error).toBeNull();
+			expect(fila).toMatchObject({
+				tarifa_base: 6000,
+				total: 6000,
+				barrio_origen_id: cat.barrioA,
+				barrio_destino_id: cat.barrioB,
+				zona_origen_id: cat.zonaA,
+				zona_destino_id: cat.zonaB
+			});
+		});
+
 		test('domicilio sin origen → 400 (el origen sigue siendo obligatorio)', async () => {
 			const antes = await contarPedidosEndpoint();
 			const r = await crearPedidoHttp({ barrio_origen: '', direccion_origen: '' });
