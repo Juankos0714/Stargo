@@ -174,7 +174,7 @@
 						Origen ↓ / Destino →
 					</th>
 					{#each destinos as destino (destino.id)}
-						<th class="sticky top-0 z-10 min-w-36 border-b border-slate-200 bg-slate-50 px-2 py-3 text-center text-xs font-semibold whitespace-nowrap text-slate-600">
+						<th class="sticky top-0 z-10 min-w-36 border-b border-slate-200 bg-slate-50 px-2 py-3 text-center text-xs font-semibold break-words text-slate-600">
 							{destino.nombre}
 						</th>
 					{/each}
@@ -183,7 +183,10 @@
 				<tbody>
 					{#each origenes as origen (origen.id)}
 						<tr>
-							<th class="sticky left-0 z-10 max-w-52 border-r border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-left align-middle text-xs font-bold whitespace-nowrap text-slate-700">
+							<th
+								title={origen.nombre}
+								class="sticky left-0 z-10 max-w-52 break-words border-r border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-left align-middle text-xs font-bold text-slate-700"
+							>
 								{origen.nombre}
 							</th>
 							{#each destinos as destino (destino.id)}
@@ -206,7 +209,7 @@
 											onkeydown={(e) => {
 												if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
 											}}
-											class="w-full min-w-20 rounded-lg border px-2 py-1.5 text-center text-sm tabular-nums transition {esDiagonal
+											class="w-full min-w-24 rounded-lg border px-2 py-1.5 text-center text-sm tabular-nums transition {esDiagonal
 												? 'border-primary/30 bg-primary-light text-primary-dark focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/30 focus:outline-none'
 												: 'border-slate-200 bg-white text-slate-800 hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none'}"
 										/>
