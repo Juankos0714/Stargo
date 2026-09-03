@@ -62,10 +62,17 @@
 	h2,
 	h3,
 	label,
-	li,
+	li {
+		overflow-wrap: anywhere;
+	}
+	/* En tablas NUNCA se parte una palabra carácter a carácter: con
+	   overflow-wrap normal el ancho mínimo de cada columna es el de su palabra
+	   más larga, así las columnas nunca se comprimen por debajo de lo legible
+	   (si no caben, el contenedor overflow-x-auto se encarga del scroll). */
 	td,
 	th {
-		overflow-wrap: anywhere;
+		overflow-wrap: normal;
+		word-break: normal;
 	}
 	input,
 	select,

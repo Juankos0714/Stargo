@@ -1,8 +1,18 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
-	import { CircleCheck, Plus, RefreshCw, Search, SlidersHorizontal } from 'lucide';
+	import { CircleCheck, Plus, RefreshCw, Search, SlidersHorizontal, Receipt } from 'lucide';
 	import { formatearMontoCampo, normalizarMontoCampo, TIPOS_RECARGO, etiquetaTipoRecargo, type Recargo, type TipoRecargo } from '$lib/types';
+	import Tabla from '$lib/components/tabla/Tabla.svelte';
+	import TablaEncabezado from '$lib/components/tabla/TablaEncabezado.svelte';
+	import TablaVacia from '$lib/components/tabla/TablaVacia.svelte';
+	import TablaError from '$lib/components/tabla/TablaError.svelte';
+	import TablaCargando from '$lib/components/tabla/TablaCargando.svelte';
+	import Badge from '$lib/components/tabla/Badge.svelte';
+	import Boton from '$lib/components/tabla/Boton.svelte';
+	import CampoMovil from '$lib/components/tabla/CampoMovil.svelte';
+	import SoloEscritorio from '$lib/components/tabla/SoloEscritorio.svelte';
+	import SoloMovil from '$lib/components/tabla/SoloMovil.svelte';
 
 	let recargos = $state<Recargo[]>([]);
 	let cargando = $state(true);
@@ -222,21 +232,24 @@
 	</div>
 {/if}
 
+<!-- Filtros -->
 <div class="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center">
-	<div class="relative flex-1">
+	<div class="relative w-full flex-1">
 		<Icon icon={Search} class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
 		<input bind:value={busqueda} class="input pl-9" placeholder="Buscar por nombre, código o descripción…" aria-label="Buscar recargos" />
 	</div>
-	<div class="flex items-center gap-2">
-		<Icon icon={SlidersHorizontal} class="size-4 text-slate-400" />
-		<select bind:value={filtroTipo} class="input w-auto" aria-label="Filtrar por tipo">
-			<option value="todos">Todos los tipos</option>
-			{#each TIPOS_RECARGO as t (t.valor)}<option value={t.valor}>{t.label}</option>{/each}
-		</select>
-		<select bind:value={filtroEstado} class="input w-auto" aria-label="Filtrar por estado">
+	<div class="grid gap-2 sm:flex sm:items-center">
+		<div class="flex items-center gap-2">
+			<Icon icon={SlidersHorizontal} class="size-4 shrink-0 text-slate-400" />
+			<select bind:value={filtroTipo} class="input flex-1 sm:w-44" aria-label="Filtrar por tipo">
+				<option value="todos">Todos los tipos</option>
+				{#each TIPOS_RECARGO as t (t.valor)}<option value={t.valor}>{t.label}</option>{/each}
+			</select>
+		</div>
+		<select bind:value={filtroEstado} class="input w-full sm:w-36" aria-label="Filtrar por estado">
 			<option value="todos">Todos</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option>
 		</select>
-		<button type="button" onclick={cargar} class="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50" aria-label="Actualizar catálogo" title="Actualizar catálogo"><Icon icon={RefreshCw} class="size-4" /></button>
+		<button type="button" onclick={cargar} class="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50" aria-label="Actualizar catálogo" title="Actualizar catálogo"><Icon icon={RefreshCw} class="mx-auto size-4" /></button>
 	</div>
 </div>
 
@@ -294,92 +307,193 @@
 	</form>
 {/if}
 
-<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+<Tabla>
 	{#if cargando}
-		<div class="flex items-center justify-center gap-3 py-16 text-slate-500">
-			<span class="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></span>
-			Cargando recargos…
-		</div>
+		<TablaCargando columnas={7} filas={5} />
 	{:else if error}
-		<div class="p-6 text-sm text-red-600">No se pudieron cargar los recargos: {error}</div>
+		<TablaError
+			titulo="No se pudieron cargar los recargos"
+			mensaje={error}
+			onreintentar={cargar}
+		/>
 	{:else if recargos.length === 0}
-		<p class="p-10 text-center text-sm text-slate-400">
-			Aún no hay recargos. Crea el primero con «Nuevo recargo» para que aparezca en el formulario de pedidos.
-		</p>
+		<TablaVacia
+			icono={Receipt}
+			titulo="No hay recargos todavía"
+			descripcion="Los recargos aparecen en el formulario de pedidos para cotizaciones nuevas. Crea el primero para comenzar."
+		>
+			<Boton variant="primario" onclick={() => (formAbierto = true)}>
+				<Icon icon={Plus} class="size-3.5" />
+				Nuevo recargo
+			</Boton>
+		</TablaVacia>
+	{:else if recargosFiltrados.length === 0}
+		<TablaVacia
+			icono={Search}
+			titulo="No hay recargos que coincidan con los filtros"
+			descripcion="Ajusta la búsqueda o los filtros para ver más resultados."
+		/>
 	{:else}
-		<div class="overflow-x-auto">
-			<table class="w-full text-left text-sm">
-				<thead>
-					<tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-						<th class="px-4 py-3">Código</th>
-						<th class="px-4 py-3">Nombre</th>
-						<th class="px-4 py-3">Tipo</th>
-						<th class="px-4 py-3 text-right">Valor</th>
-						<th class="hidden px-4 py-3 lg:table-cell">Descripción</th>
-						<th class="px-4 py-3">Estado</th>
-						<th class="px-4 py-3 text-right">Acciones</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each recargosFiltrados as r (r.codigo)}
-						{@const editandoRecargo = editando[r.codigo]}
-						<tr class="border-b border-slate-100 transition hover:bg-slate-50/60 {!r.activo ? 'opacity-60' : ''}">
-							{#if editandoRecargo}
-								<td class="px-4 py-2.5 font-mono text-xs text-slate-400">{r.codigo}</td>
-								<td class="px-4 py-2.5"><input bind:value={editandoRecargo.nombre} class="input" /></td>
-								<td class="px-4 py-2.5">
-									<select bind:value={editandoRecargo.tipo} class="input">
+		<SoloEscritorio>
+			<div class="overflow-x-auto">
+				<table class="w-full text-left text-sm">
+					<TablaEncabezado
+						columnas={[
+							{ etiqueta: 'Código' },
+							{ etiqueta: 'Nombre' },
+							{ etiqueta: 'Tipo' },
+							{ etiqueta: 'Valor', alineacion: 'derecha' },
+							{ etiqueta: 'Descripción', clase: 'hidden lg:table-cell' },
+							{ etiqueta: 'Estado' },
+							{ etiqueta: 'Acciones', alineacion: 'derecha' }
+						]}
+					/>
+					<tbody>
+						{#each recargosFiltrados as r (r.codigo)}
+							{@const editandoRecargo = editando[r.codigo]}
+							<tr class="border-b border-slate-100 transition hover:bg-slate-50/60 {!r.activo ? 'opacity-60' : ''}">
+								{#if editandoRecargo}
+									<td class="px-4 py-2.5 font-mono text-xs text-slate-400">{r.codigo}</td>
+									<td class="px-4 py-2.5"><input bind:value={editandoRecargo.nombre} class="input" /></td>
+									<td class="px-4 py-2.5">
+										<select bind:value={editandoRecargo.tipo} class="input">
+											{#each TIPOS_RECARGO as t (t.valor)}
+												<option value={t.valor}>{t.label}</option>
+											{/each}
+										</select>
+									</td>
+									<td class="px-4 py-2.5">
+										<input type="text" inputmode="numeric" value={formatearMontoCampo(editandoRecargo.valor)} oninput={(e) => (editandoRecargo.valor = Number(normalizarMontoCampo(e.currentTarget.value) || 0))} class="input w-28 text-right" />
+									</td>
+									<td class="hidden px-4 py-2.5 lg:table-cell">
+										<input bind:value={editandoRecargo.descripcion} class="input" placeholder="Sin descripción" />
+									</td>
+									<td class="px-4 py-2.5">
+										<label class="flex items-center gap-2 text-xs text-slate-600">
+											<input type="checkbox" bind:checked={editandoRecargo.activo} class="size-4 accent-[#1768FF]" />
+											Activo
+										</label>
+									</td>
+									<td class="px-4 py-2.5 text-right">
+										<div class="inline-flex gap-1.5">
+											<Boton
+												variant="primario"
+												onclick={() => guardarEdicion(r)}
+												disabled={guardando[r.codigo]}
+											>
+												{guardando[r.codigo] ? 'Guardando…' : 'Guardar'}
+											</Boton>
+											<Boton onclick={() => cancelarEdicion(r.codigo)}>
+												Cancelar
+											</Boton>
+										</div>
+									</td>
+								{:else}
+									<td class="px-4 py-3 font-mono text-xs text-slate-500">{r.codigo}</td>
+									<td class="px-4 py-3 font-medium text-slate-900">{r.nombre}</td>
+									<td class="px-4 py-3">
+										<span class="inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium {colorTipo(r.tipo)}">
+											{etiquetaTipoRecargo(r.tipo)}
+										</span>
+									</td>
+									<td class="px-4 py-3 text-right font-bold whitespace-nowrap text-slate-900">
+										{Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(r.valor)}
+									</td>
+									<td class="hidden max-w-xs truncate px-4 py-3 text-slate-500 lg:table-cell" title={r.descripcion ?? ''}>
+										{r.descripcion ?? '—'}
+									</td>
+									<td class="px-4 py-3">
+										<button
+											type="button"
+											onclick={() => alternarActivo(r)}
+											disabled={alternando[r.codigo]}
+											class="inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold transition disabled:opacity-60 {r.activo
+												? 'border-primary/30 bg-primary-light text-primary-dark hover:bg-primary-light'
+												: 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200'}"
+										>
+											{alternando[r.codigo] ? '…' : r.activo ? 'Activo' : 'Inactivo'}
+										</button>
+									</td>
+									<td class="px-4 py-3 text-right">
+										<div class="inline-flex gap-1.5">
+											<Boton variant="secundario" onclick={() => empezarEdicion(r)}>
+												Editar
+											</Boton>
+											<Boton variant="peligro" onclick={() => eliminar(r)}>
+												Eliminar
+											</Boton>
+										</div>
+									</td>
+								{/if}
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</SoloEscritorio>
+
+		<SoloMovil>
+			<ul class="space-y-3 p-3 sm:p-4">
+				{#each recargosFiltrados as r (r.codigo)}
+					{@const editandoRecargo = editando[r.codigo]}
+					<li class="rounded-xl border border-slate-200 bg-white p-4 {!r.activo ? 'opacity-70' : ''}">
+						{#if editandoRecargo}
+							<p class="text-[11px] font-semibold tracking-wide text-slate-400 uppercase">Editar recargo</p>
+							<div class="mt-3 space-y-3">
+								<div>
+									<label for={`rec-movil-nombre-${r.codigo}`} class="mb-1 block text-xs font-semibold text-slate-600">Nombre</label>
+									<input id={`rec-movil-nombre-${r.codigo}`} bind:value={editandoRecargo.nombre} class="input" />
+								</div>
+								<div>
+									<label for={`rec-movil-tipo-${r.codigo}`} class="mb-1 block text-xs font-semibold text-slate-600">Tipo</label>
+									<select id={`rec-movil-tipo-${r.codigo}`} bind:value={editandoRecargo.tipo} class="input">
 										{#each TIPOS_RECARGO as t (t.valor)}
 											<option value={t.valor}>{t.label}</option>
 										{/each}
 									</select>
-								</td>
-								<td class="px-4 py-2.5">
-									<input type="text" inputmode="numeric" value={formatearMontoCampo(editandoRecargo.valor)} oninput={(e) => (editandoRecargo.valor = Number(normalizarMontoCampo(e.currentTarget.value) || 0))} class="input w-28 text-right" />
-								</td>
-								<td class="hidden px-4 py-2.5 lg:table-cell">
-									<input bind:value={editandoRecargo.descripcion} class="input" placeholder="Sin descripción" />
-								</td>
-								<td class="px-4 py-2.5">
-									<label class="flex items-center gap-2 text-xs text-slate-600">
-										<input type="checkbox" bind:checked={editandoRecargo.activo} class="size-4 accent-[#1768FF]" />
-										Activo
-									</label>
-								</td>
-								<td class="px-4 py-2.5 text-right">
-									<div class="inline-flex gap-1.5">
-										<button
-											type="button"
-											onclick={() => guardarEdicion(r)}
-											disabled={guardando[r.codigo]}
-											class="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
-										>
-											{guardando[r.codigo] ? 'Guardando…' : 'Guardar'}
-										</button>
-										<button
-											type="button"
-											onclick={() => cancelarEdicion(r.codigo)}
-											class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
-										>
-											Cancelar
-										</button>
-									</div>
-								</td>
-							{:else}
-								<td class="px-4 py-3 font-mono text-xs text-slate-500">{r.codigo}</td>
-								<td class="px-4 py-3 font-medium text-slate-900">{r.nombre}</td>
-								<td class="px-4 py-3">
-									<span class="inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium {colorTipo(r.tipo)}">
-										{etiquetaTipoRecargo(r.tipo)}
-									</span>
-								</td>
-								<td class="px-4 py-3 text-right font-bold whitespace-nowrap text-slate-900">
-									{Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(r.valor)}
-								</td>
-								<td class="hidden max-w-xs truncate px-4 py-3 text-slate-500 lg:table-cell">
-									{r.descripcion ?? '—'}
-								</td>
-								<td class="px-4 py-3">
+								</div>
+								<div>
+									<label for={`rec-movil-valor-${r.codigo}`} class="mb-1 block text-xs font-semibold text-slate-600">Valor (COP)</label>
+									<input id={`rec-movil-valor-${r.codigo}`} type="text" inputmode="numeric" value={formatearMontoCampo(editandoRecargo.valor)} oninput={(e) => (editandoRecargo.valor = Number(normalizarMontoCampo(e.currentTarget.value) || 0))} class="input" />
+								</div>
+								<div>
+									<label for={`rec-movil-desc-${r.codigo}`} class="mb-1 block text-xs font-semibold text-slate-600">Descripción</label>
+									<input id={`rec-movil-desc-${r.codigo}`} bind:value={editandoRecargo.descripcion} class="input" placeholder="Sin descripción" />
+								</div>
+								<label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+									<input type="checkbox" bind:checked={editandoRecargo.activo} class="size-4 accent-[#1768FF]" />
+									Activo (visible para los clientes)
+								</label>
+							</div>
+							<div class="mt-4 flex gap-2">
+								<Boton
+									variant="primario"
+									onclick={() => guardarEdicion(r)}
+									disabled={guardando[r.codigo]}
+								>
+									{guardando[r.codigo] ? 'Guardando…' : 'Guardar'}
+								</Boton>
+								<Boton onclick={() => cancelarEdicion(r.codigo)}>
+									Cancelar
+								</Boton>
+							</div>
+						{:else}
+							<div class="flex items-start justify-between gap-3">
+								<div class="min-w-0">
+									<p class="font-semibold text-slate-900">{r.nombre}</p>
+									<p class="mt-0.5 font-mono text-xs text-slate-400">{r.codigo}</p>
+								</div>
+								<span class="inline-flex shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium {colorTipo(r.tipo)}">
+									{etiquetaTipoRecargo(r.tipo)}
+								</span>
+							</div>
+							<div class="mt-3 grid grid-cols-2 gap-3">
+								<CampoMovil etiqueta="Valor">
+									<p class="font-bold text-slate-900">
+										{Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(r.valor)}
+									</p>
+								</CampoMovil>
+								<CampoMovil etiqueta="Estado">
 									<button
 										type="button"
 										onclick={() => alternarActivo(r)}
@@ -388,37 +502,32 @@
 											? 'border-primary/30 bg-primary-light text-primary-dark hover:bg-primary-light'
 											: 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200'}"
 									>
-										{r.activo ? 'Activo' : 'Inactivo'}
+										{alternando[r.codigo] ? '…' : r.activo ? 'Activo' : 'Inactivo'}
 									</button>
-								</td>
-								<td class="px-4 py-3 text-right">
-									<div class="inline-flex gap-1.5">
-										<button
-											type="button"
-											onclick={() => empezarEdicion(r)}
-											class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-primary hover:bg-primary-light hover:text-primary-dark"
-										>
-											Editar
-										</button>
-										<button
-											type="button"
-											onclick={() => eliminar(r)}
-											class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50"
-										>
-											Eliminar
-										</button>
-									</div>
-								</td>
+								</CampoMovil>
+							</div>
+							{#if r.descripcion}
+								<div class="mt-3">
+									<CampoMovil etiqueta="Descripción">
+										<p class="text-slate-600">{r.descripcion}</p>
+									</CampoMovil>
+								</div>
 							{/if}
-						</tr>
-					{:else}
-						<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-400">No hay recargos que coincidan con los filtros.</td></tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+							<div class="mt-4 flex gap-2 border-t border-slate-100 pt-3">
+								<Boton variant="secundario" onclick={() => empezarEdicion(r)}>
+									Editar
+								</Boton>
+								<Boton variant="peligro" onclick={() => eliminar(r)}>
+									Eliminar
+								</Boton>
+							</div>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		</SoloMovil>
 	{/if}
-</div>
+</Tabla>
 
 <style>
 	.input {

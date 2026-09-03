@@ -5,6 +5,12 @@
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { ClipboardList, CircleCheck, Ban, Coins, Receipt, TrendingUp, Ticket, CalendarDays, Download, Users } from 'lucide';
+	import Tabla from '$lib/components/tabla/Tabla.svelte';
+	import TablaEncabezado from '$lib/components/tabla/TablaEncabezado.svelte';
+	import TablaVacia from '$lib/components/tabla/TablaVacia.svelte';
+	import CampoMovil from '$lib/components/tabla/CampoMovil.svelte';
+	import SoloEscritorio from '$lib/components/tabla/SoloEscritorio.svelte';
+	import SoloMovil from '$lib/components/tabla/SoloMovil.svelte';
 	import {
 		ESTADOS_PEDIDO,
 		etiquetaEstado,
@@ -395,48 +401,90 @@
 	</div>
 
 	<!-- Por domiciliario -->
-	<section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-		<div class="border-b border-slate-100 px-5 py-4">
-			<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Pedidos por domiciliario</h2>
-		</div>
-		{#if (reporte?.por_domiciliario ?? []).length === 0}
-			<p class="p-8 text-center text-sm text-slate-400">No hay pedidos en este rango.</p>
-		{:else}
-			<div class="overflow-x-auto">
-				<table class="w-full text-left text-sm">
-					<thead>
-						<tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-							<th class="px-5 py-3">Domiciliario</th>
-							<th class="px-5 py-3 text-right">Pedidos</th>
-							<th class="px-5 py-3 text-right">Entregados</th>
-							<th class="px-5 py-3 text-right">Cancelados</th>
-							<th class="px-5 py-3 text-right">Ingresos</th>
-						</tr>
-					</thead>
-					<tbody>
+	<section class="mt-6">
+		<Tabla>
+			<div class="border-b border-slate-100 px-5 py-4">
+				<h2 class="text-sm font-bold tracking-wide text-slate-500 uppercase">Pedidos por domiciliario</h2>
+			</div>
+			{#if (reporte?.por_domiciliario ?? []).length === 0}
+				<TablaVacia
+					icono={Users}
+					titulo="No hay pedidos en este rango"
+					descripcion="Cuando haya pedidos en el rango seleccionado, verás aquí el desempeño por domiciliario."
+				/>
+			{:else}
+				<SoloEscritorio>
+					<div class="overflow-x-auto">
+						<table class="w-full text-left text-sm">
+							<TablaEncabezado
+								columnas={[
+									{ etiqueta: 'Domiciliario' },
+									{ etiqueta: 'Pedidos', alineacion: 'derecha' },
+									{ etiqueta: 'Entregados', alineacion: 'derecha' },
+									{ etiqueta: 'Cancelados', alineacion: 'derecha' },
+									{ etiqueta: 'Ingresos', alineacion: 'derecha' }
+								]}
+							/>
+							<tbody>
+								{#each reporte?.por_domiciliario ?? [] as fila (fila.id ?? 'sin-asignar')}
+									<tr class="border-b border-slate-100 transition hover:bg-slate-50/60">
+										<td class="px-5 py-3">
+											<span class="inline-flex items-center gap-2 font-medium text-slate-800">
+												<span class="flex size-7 items-center justify-center rounded-full bg-primary-light text-[11px] font-bold text-primary">
+													{fila.nombre.charAt(0).toUpperCase()}
+												</span>
+												{fila.nombre}
+												{#if !fila.id}
+													<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">sin asignar</span>
+												{/if}
+											</span>
+										</td>
+										<td class="px-5 py-3 text-right font-bold text-slate-900">{fila.total}</td>
+										<td class="px-5 py-3 text-right text-green-600">{fila.entregados}</td>
+										<td class="px-5 py-3 text-right text-red-500">{fila.cancelados}</td>
+										<td class="px-5 py-3 text-right font-semibold whitespace-nowrap text-slate-900">{formatearPeso(fila.ingresos)}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</SoloEscritorio>
+
+				<SoloMovil>
+					<ul class="space-y-3 p-3 sm:p-4">
 						{#each reporte?.por_domiciliario ?? [] as fila (fila.id ?? 'sin-asignar')}
-							<tr class="border-b border-slate-100 transition hover:bg-slate-50/60">
-								<td class="px-5 py-3">
-									<span class="inline-flex items-center gap-2 font-medium text-slate-800">
-										<span class="flex size-7 items-center justify-center rounded-full bg-primary-light text-[11px] font-bold text-primary">
-											{fila.nombre.charAt(0).toUpperCase()}
-										</span>
+							<li class="rounded-xl border border-slate-200 bg-white p-4">
+								<div class="flex items-center gap-3">
+									<span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary">
+										{fila.nombre.charAt(0).toUpperCase()}
+									</span>
+									<p class="min-w-0 font-medium text-slate-800">
 										{fila.nombre}
 										{#if !fila.id}
-											<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">sin asignar</span>
+											<span class="ml-2 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">sin asignar</span>
 										{/if}
-									</span>
-								</td>
-								<td class="px-5 py-3 text-right font-bold text-slate-900">{fila.total}</td>
-								<td class="px-5 py-3 text-right text-green-600">{fila.entregados}</td>
-								<td class="px-5 py-3 text-right text-red-500">{fila.cancelados}</td>
-								<td class="px-5 py-3 text-right font-semibold whitespace-nowrap text-slate-900">{formatearPeso(fila.ingresos)}</td>
-							</tr>
+									</p>
+								</div>
+								<div class="mt-3 grid grid-cols-2 gap-3">
+									<CampoMovil etiqueta="Pedidos">
+										<p class="font-bold text-slate-900">{fila.total}</p>
+									</CampoMovil>
+									<CampoMovil etiqueta="Entregados">
+										<p class="font-bold text-green-600">{fila.entregados}</p>
+									</CampoMovil>
+									<CampoMovil etiqueta="Cancelados">
+										<p class="font-bold text-red-500">{fila.cancelados}</p>
+									</CampoMovil>
+									<CampoMovil etiqueta="Ingresos">
+										<p class="font-bold whitespace-nowrap text-slate-900">{formatearPeso(fila.ingresos)}</p>
+									</CampoMovil>
+								</div>
+							</li>
 						{/each}
-					</tbody>
-				</table>
-			</div>
-		{/if}
+					</ul>
+				</SoloMovil>
+			{/if}
+		</Tabla>
 	</section>
 {:else}
 	<p class="py-16 text-center text-sm text-slate-400">No hay datos para mostrar.</p>

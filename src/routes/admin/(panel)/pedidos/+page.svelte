@@ -17,6 +17,16 @@
 		type HistorialEstado,
 		type Pedido
 	} from '$lib/types';
+	import Tabla from '$lib/components/tabla/Tabla.svelte';
+	import TablaEncabezado from '$lib/components/tabla/TablaEncabezado.svelte';
+	import TablaVacia from '$lib/components/tabla/TablaVacia.svelte';
+	import TablaError from '$lib/components/tabla/TablaError.svelte';
+	import TablaCargando from '$lib/components/tabla/TablaCargando.svelte';
+	import Boton from '$lib/components/tabla/Boton.svelte';
+	import CampoMovil from '$lib/components/tabla/CampoMovil.svelte';
+	import SoloEscritorio from '$lib/components/tabla/SoloEscritorio.svelte';
+	import SoloMovil from '$lib/components/tabla/SoloMovil.svelte';
+	import { ClipboardList, Truck } from 'lucide';
 
 	interface PedidoFila extends Pedido {
 		barrio_origen_nombre: string | null;
@@ -227,40 +237,185 @@
 	{/each}
 </div>
 
-<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+<Tabla>
 	{#if cargando && pedidos.length === 0}
-		<div class="flex items-center justify-center gap-3 py-16 text-slate-500">
-			<span class="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></span>
-			Cargando pedidos…
-		</div>
+		<p class="sr-only" role="status">Cargando pedidos…</p>
+		<TablaCargando columnas={8} filas={5} />
 	{:else if error}
-		<div class="p-6 text-sm text-red-600">No se pudieron cargar los pedidos: {error}</div>
+		<TablaError
+			titulo="No se pudieron cargar los pedidos"
+			mensaje={error}
+			onreintentar={cargar}
+		/>
 	{:else if visibles.length === 0}
-		<p class="p-10 text-center text-sm text-slate-400">
-			No hay pedidos {filtro === 'todos' ? '' : `${etiquetaEstado(filtro).toLowerCase()}s`} por ahora.
-		</p>
+		<TablaVacia
+			icono={filtro === 'entregado' ? Truck : ClipboardList}
+			titulo={`No hay pedidos ${filtro === 'todos' ? '' : `${etiquetaEstado(filtro).toLowerCase()}s`} por ahora.`}
+			descripcion={filtro === 'pendiente'
+				? 'Los pedidos nuevos que creen los clientes aparecerán aquí para asignarlos.'
+				: 'Los pedidos con este estado aparecerán aquí cuando ocurran.'}
+		/>
 	{:else}
-		<div class="overflow-x-auto">
-			<table class="min-w-[1400px] border-separate border-spacing-0 text-left text-sm">
-				<thead>
-					<tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-						<th class="whitespace-nowrap px-4 py-3">Pedido</th>
-						<th class="whitespace-nowrap px-4 py-3">Origen → Destino</th>
-						<th class="whitespace-nowrap px-4 py-3">Tarifa</th>
-						<th class="whitespace-nowrap px-4 py-3">Base</th>
-						<th class="whitespace-nowrap px-4 py-3">Domiciliario</th>
-						<th class="whitespace-nowrap px-4 py-3">Cliente</th>
-						<th class="whitespace-nowrap px-4 py-3">Estado</th>
-						<th class="whitespace-nowrap px-4 py-3 text-right">Acción</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each visibles as p (p.id)}
-						{@const recs = p.recargos ?? []}
-						<tr class="border-b border-slate-100 align-top transition hover:bg-slate-50/60">
-							<td class="whitespace-nowrap px-4 py-3">
+		<SoloEscritorio>
+			<div class="overflow-x-auto">
+				<table class="min-w-[1280px] border-separate border-spacing-0 text-left text-sm">
+					<TablaEncabezado
+						columnas={[
+							{ etiqueta: 'Pedido', ahora: true },
+							{ etiqueta: 'Origen → Destino' },
+							{ etiqueta: 'Tarifa', ahora: true },
+							{ etiqueta: 'Base', ahora: true },
+							{ etiqueta: 'Domiciliario', ahora: true },
+							{ etiqueta: 'Cliente', ahora: true },
+							{ etiqueta: 'Estado', ahora: true },
+							{ etiqueta: 'Acción', alineacion: 'derecha', ahora: true }
+						]}
+					/>
+					<tbody>
+						{#each visibles as p (p.id)}
+							{@const recs = p.recargos ?? []}
+							<tr class="border-b border-slate-100 align-top transition hover:bg-slate-50/60">
+								<td class="whitespace-nowrap px-4 py-3">
+									<div class="flex flex-wrap items-center gap-1.5">
+										<p class="font-mono text-sm font-bold text-slate-900">{p.numero}</p>
+										<span
+											class="inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold {p.tipo_servicio === 'compra_diligencia'
+												? 'border-violet-200 bg-violet-50 text-violet-700'
+												: 'border-sky-200 bg-sky-50 text-sky-700'}"
+										>
+											{etiquetaTipoServicio(p.tipo_servicio)}
+										</span>
+									</div>
+									<p class="text-xs text-slate-400">{formatearFecha(p.created_at)}</p>
+									<details class="mt-1">
+										<summary class="cursor-pointer text-xs font-medium text-primary-dark hover:underline">
+											Historial ({p.historial.length})
+										</summary>
+										<ul class="mt-2 space-y-1.5 border-l-2 border-slate-200 pl-3">
+											{#each p.historial as hito (hito.id)}
+												<li class="text-xs text-slate-500">
+													<span class="font-semibold text-slate-700">{etiquetaEstado(hito.estado)}</span>
+													{hito.notas ? ` · ${hito.notas}` : ''}
+													<span class="text-slate-400"> · {formatearFecha(hito.created_at)}</span>
+												</li>
+											{/each}
+										</ul>
+									</details>
+								</td>
+								<td class="whitespace-nowrap px-4 py-3">
+									<p class="font-medium text-slate-900">
+										{p.barrio_origen_nombre ?? p.zona_origen_id ?? '—'}
+										<span class="text-slate-300">→</span>
+										{p.barrio_destino_nombre ?? p.zona_destino_id ?? '—'}
+									</p>
+									<p class="max-w-56 truncate text-xs text-slate-500" title={`${p.direccion_origen} → ${p.direccion_destino}`}>
+										{p.direccion_origen} → {p.direccion_destino}
+									</p>
+								</td>
+								<td class="whitespace-nowrap px-4 py-3 font-bold text-slate-900">
+									{formatearPeso(p.total ?? p.tarifa_base)}
+									{#if recs.length > 0}
+										<span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500" title={recs.map((r) => r.nombre).join(' · ')}>
+											+{recs.length} recargo{recs.length > 1 ? 's' : ''}
+										</span>
+									{/if}
+								</td>
+								<td class="whitespace-nowrap px-4 py-3">
+									{#if (p.base_necesaria ?? 0) > 0}
+										<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+											💰 {formatearPeso(p.base_necesaria)}
+										</span>
+									{:else}
+										<span class="text-xs text-slate-300">—</span>
+									{/if}
+								</td>
+								<td class="whitespace-nowrap px-4 py-3">
+									{#if p.domiciliario_nombre}
+										<span class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-800">
+											<span class="flex size-6 items-center justify-center rounded-full bg-primary-light text-[10px] font-bold text-primary">
+												{p.domiciliario_nombre.charAt(0).toUpperCase()}
+											</span>
+											{p.domiciliario_nombre}
+										</span>
+									{:else}
+										<span class="text-xs text-slate-300">Sin asignar</span>
+									{/if}
+								</td>
+								<td class="whitespace-nowrap px-4 py-3">
+									{#if p.telefono}
+										<p class="text-sm font-medium text-slate-900">{p.nombre_cliente ?? 'Cliente'}</p>
+										<p class="text-xs text-slate-500">{p.telefono}</p>
+										<BotonWhatsApp
+											telefono={p.telefono}
+											mensaje={mensajeWhatsAppAdmin(p.numero, p.nombre_cliente)}
+											label="Contactar por WhatsApp"
+											class="mt-1.5"
+										/>
+									{:else}
+										<span class="text-xs text-slate-300">—</span>
+									{/if}
+								</td>
+								<td class="whitespace-nowrap px-4 py-3">
+									<BadgeEstado estado={p.estado} />
+								</td>
+								<td class="whitespace-nowrap px-4 py-3 text-right">
+									{#if p.estado === 'pendiente'}
+										<div class="flex flex-col items-end gap-1.5">
+											<select
+												value={asignacion[p.id] ?? ''}
+												onchange={(e) => {
+													asignacion[p.id] = (e.currentTarget as HTMLSelectElement).value;
+													asignacion = { ...asignacion };
+												}}
+												disabled={guardando[p.id]}
+												class="w-44 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 transition focus:border-primary focus:outline-none disabled:opacity-60"
+											>
+												<option value="">Elegir domiciliario…</option>
+												{#each activos as d (d.id)}
+													{@const dBase = domiciliariosBase.find((db) => db.domiciliario_id === d.id)}
+													<option value={d.id}>
+														{d.nombre}{#if dBase?.turno_activo && dBase.base_disponible_actual != null} ({formatearPeso(dBase.base_disponible_actual)}){/if}
+													</option>
+												{/each}
+											</select>
+											<button
+												type="button"
+												onclick={() => asignar(p)}
+												disabled={guardando[p.id] || !asignacion[p.id]}
+												class="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
+											>
+												{guardando[p.id] ? 'Asignando…' : 'Asignar'}
+											</button>
+										</div>
+									{:else if p.estado !== 'entregado' && p.estado !== 'cancelado'}
+										<button
+											type="button"
+											onclick={() => abrirCancelacion(p)}
+											disabled={guardando[p.id]}
+											class="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
+										>
+											Cancelar
+										</button>
+									{:else}
+										<span class="text-xs text-slate-300">—</span>
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</SoloEscritorio>
+
+		<SoloMovil>
+			<ul class="space-y-3 p-3 sm:p-4">
+				{#each visibles as p (p.id)}
+					{@const recs = p.recargos ?? []}
+					<li class="rounded-xl border border-slate-200 bg-white p-4">
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0">
 								<div class="flex flex-wrap items-center gap-1.5">
-									<p class="font-mono text-sm font-bold text-slate-900">{p.numero}</p>
+									<p class="font-mono text-base font-bold text-slate-900">{p.numero}</p>
 									<span
 										class="inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold {p.tipo_servicio === 'compra_diligencia'
 											? 'border-violet-200 bg-violet-50 text-violet-700'
@@ -269,79 +424,75 @@
 										{etiquetaTipoServicio(p.tipo_servicio)}
 									</span>
 								</div>
-								<p class="text-xs text-slate-400">{formatearFecha(p.created_at)}</p>
-								<details class="mt-1">
-									<summary class="cursor-pointer text-xs font-medium text-primary-dark hover:underline">
-										Historial ({p.historial.length})
-									</summary>
-									<ul class="mt-2 space-y-1.5 border-l-2 border-slate-200 pl-3">
-										{#each p.historial as hito (hito.id)}
-											<li class="text-xs text-slate-500">
-												<span class="font-semibold text-slate-700">{etiquetaEstado(hito.estado)}</span>
-												{hito.notas ? ` · ${hito.notas}` : ''}
-												<span class="text-slate-400"> · {formatearFecha(hito.created_at)}</span>
-											</li>
-										{/each}
-									</ul>
-								</details>
-							</td>
-							<td class="whitespace-nowrap px-4 py-3">
-								<p class="font-medium text-slate-900">
-									{p.barrio_origen_nombre ?? p.zona_origen_id ?? '—'}
-									<span class="text-slate-300">→</span>
-									{p.barrio_destino_nombre ?? p.zona_destino_id ?? '—'}
-								</p>
-								<p class="text-xs text-slate-500">{p.direccion_origen} → {p.direccion_destino}</p>
-							</td>
-							<td class="whitespace-nowrap px-4 py-3 font-bold text-slate-900">
-								{formatearPeso(p.total ?? p.tarifa_base)}
-								{#if recs.length > 0}
-									<span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500" title={recs.map((r) => r.nombre).join(' · ')}>
-										+{recs.length} recargo{recs.length > 1 ? 's' : ''}
-									</span>
-								{/if}
-							</td>
-							<td class="whitespace-nowrap px-4 py-3">
-								{#if (p.base_necesaria ?? 0) > 0}
-									<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-										💰 {formatearPeso(p.base_necesaria)}
-									</span>
-								{:else}
-									<span class="text-xs text-slate-300">—</span>
-								{/if}
-							</td>
-							<td class="whitespace-nowrap px-4 py-3">
-								{#if p.domiciliario_nombre}
-									<span class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-800">
-										<span class="flex size-6 items-center justify-center rounded-full bg-primary-light text-[10px] font-bold text-primary">
-											{p.domiciliario_nombre.charAt(0).toUpperCase()}
+								<p class="mt-0.5 text-xs text-slate-400">{formatearFecha(p.created_at)}</p>
+							</div>
+							<BadgeEstado estado={p.estado} />
+						</div>
+
+						<div class="mt-3 space-y-2 rounded-xl bg-slate-50 p-3">
+							<div class="flex items-start gap-2">
+								<span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary-light text-[10px] font-bold text-primary">O</span>
+								<div class="min-w-0">
+									<p class="font-medium text-slate-900">{p.barrio_origen_nombre ?? p.zona_origen_id ?? '—'}</p>
+									<p class="text-xs text-slate-500">{p.direccion_origen}</p>
+								</div>
+							</div>
+							<div class="pl-3 text-slate-300">↓</div>
+							<div class="flex items-start gap-2">
+								<span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary-light text-[10px] font-bold text-primary">D</span>
+								<div class="min-w-0">
+									<p class="font-medium text-slate-900">{p.barrio_destino_nombre ?? p.zona_destino_id ?? '—'}</p>
+									<p class="text-xs text-slate-500">{p.direccion_destino}</p>
+								</div>
+							</div>
+						</div>
+
+						<div class="mt-3 grid grid-cols-2 gap-3">
+							<CampoMovil etiqueta="Tarifa">
+								<p class="font-bold text-slate-900">
+									{formatearPeso(p.total ?? p.tarifa_base)}
+									{#if recs.length > 0}
+										<span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500" title={recs.map((r) => r.nombre).join(' · ')}>
+											+{recs.length}
 										</span>
-										{p.domiciliario_nombre}
-									</span>
+									{/if}
+								</p>
+							</CampoMovil>
+							<CampoMovil etiqueta="Base">
+								{#if (p.base_necesaria ?? 0) > 0}
+									<p class="font-semibold text-amber-700">💰 {formatearPeso(p.base_necesaria)}</p>
 								{:else}
-									<span class="text-xs text-slate-300">Sin asignar</span>
+									<p class="text-slate-300">—</p>
 								{/if}
-							</td>
-							<td class="whitespace-nowrap px-4 py-3">
-								{#if p.telefono}
-									<p class="text-sm font-medium text-slate-900">{p.nombre_cliente ?? 'Cliente'}</p>
-									<p class="text-xs text-slate-500">{p.telefono}</p>
-									<BotonWhatsApp
-										telefono={p.telefono}
-										mensaje={mensajeWhatsAppAdmin(p.numero, p.nombre_cliente)}
-										label="Contactar por WhatsApp"
-										class="mt-1.5"
-									/>
+							</CampoMovil>
+						</div>
+
+						<div class="mt-3 space-y-2.5">
+							<CampoMovil etiqueta="Domiciliario">
+								{#if p.domiciliario_nombre}
+									<p class="font-medium text-slate-800">{p.domiciliario_nombre}</p>
 								{:else}
-									<span class="text-xs text-slate-300">—</span>
+									<p class="text-slate-400">Sin asignar</p>
 								{/if}
-							</td>
-							<td class="whitespace-nowrap px-4 py-3">
-								<BadgeEstado estado={p.estado} />
-							</td>
-							<td class="whitespace-nowrap px-4 py-3 text-right">
-								{#if p.estado === 'pendiente'}
-									<div class="flex flex-col items-end gap-1.5">
+							</CampoMovil>
+							{#if p.telefono}
+								<CampoMovil etiqueta="Cliente">
+									<p class="font-medium text-slate-800">{p.nombre_cliente ?? 'Cliente'} · {p.telefono}</p>
+									<div class="mt-1">
+										<BotonWhatsApp
+											telefono={p.telefono}
+											mensaje={mensajeWhatsAppAdmin(p.numero, p.nombre_cliente)}
+											label="Contactar por WhatsApp"
+										/>
+									</div>
+								</CampoMovil>
+							{/if}
+						</div>
+
+						<div class="mt-3 border-t border-slate-100 pt-3">
+							{#if p.estado === 'pendiente'}
+								<CampoMovil etiqueta="Asignar domiciliario">
+									<div class="mt-0.5 space-y-2">
 										<select
 											value={asignacion[p.id] ?? ''}
 											onchange={(e) => {
@@ -349,7 +500,7 @@
 												asignacion = { ...asignacion };
 											}}
 											disabled={guardando[p.id]}
-											class="w-44 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 transition focus:border-primary focus:outline-none disabled:opacity-60"
+											class="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-primary focus:outline-none disabled:opacity-60"
 										>
 											<option value="">Elegir domiciliario…</option>
 											{#each activos as d (d.id)}
@@ -363,31 +514,26 @@
 											type="button"
 											onclick={() => asignar(p)}
 											disabled={guardando[p.id] || !asignacion[p.id]}
-											class="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
+											class="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
 										>
 											{guardando[p.id] ? 'Asignando…' : 'Asignar'}
 										</button>
 									</div>
-								{:else if p.estado !== 'entregado' && p.estado !== 'cancelado'}
-									<button
-										type="button"
-										onclick={() => abrirCancelacion(p)}
-										disabled={guardando[p.id]}
-										class="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
-									>
-										Cancelar
-									</button>
-								{:else}
-									<span class="text-xs text-slate-300">—</span>
-								{/if}
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+								</CampoMovil>
+							{:else if p.estado !== 'entregado' && p.estado !== 'cancelado'}
+								<Boton variant="peligro" size="md" class="w-full" onclick={() => abrirCancelacion(p)} disabled={guardando[p.id]}>
+									Cancelar pedido
+								</Boton>
+							{:else}
+								<p class="text-xs text-slate-300">Sin acciones disponibles para este pedido.</p>
+							{/if}
+						</div>
+					</li>
+				{/each}
+			</ul>
+		</SoloMovil>
 	{/if}
-</div>
+</Tabla>
 
 {#if cancelando}
 	<div

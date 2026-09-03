@@ -4,7 +4,7 @@
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { Clock, ArrowLeftRight, RotateCw, Coins, Plus, Save, X, Lightbulb } from 'lucide';
+	import { Clock, ArrowLeftRight, RotateCw, Coins, Plus, Save, X, Lightbulb, Layers } from 'lucide';
 	import {
 		formatearPeso,
 		formatearMontoCampo,
@@ -15,6 +15,15 @@
 		type ComisionNivel,
 		type NivelConRango
 	} from '$lib/types';
+	import Tabla from '$lib/components/tabla/Tabla.svelte';
+	import TablaEncabezado from '$lib/components/tabla/TablaEncabezado.svelte';
+	import TablaVacia from '$lib/components/tabla/TablaVacia.svelte';
+	import TablaError from '$lib/components/tabla/TablaError.svelte';
+	import TablaCargando from '$lib/components/tabla/TablaCargando.svelte';
+	import Boton from '$lib/components/tabla/Boton.svelte';
+	import CampoMovil from '$lib/components/tabla/CampoMovil.svelte';
+	import SoloEscritorio from '$lib/components/tabla/SoloEscritorio.svelte';
+	import SoloMovil from '$lib/components/tabla/SoloMovil.svelte';
 
 	let niveles = $state<NivelConRango[]>([]);
 	let cargando = $state(true);
@@ -280,7 +289,7 @@
 	</div>
 {/if}
 
-<div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+<Tabla>
 	<div class="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
 		<p class="flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
 			<Icon icon={Coins} class="size-4 text-primary" />
@@ -298,34 +307,103 @@
 	</div>
 
 	{#if cargando && niveles.length === 0}
-		<div class="flex items-center justify-center gap-3 py-16 text-slate-500">
-			<span class="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></span>
-			Cargando niveles…
-		</div>
+		<TablaCargando columnas={4} filas={5} />
 	{:else if error}
-		<div class="p-6 text-sm text-red-600">No se pudieron cargar las comisiones: {error}</div>
+		<TablaError
+			titulo="No se pudieron cargar las comisiones"
+			mensaje={error}
+			onreintentar={cargar}
+		/>
 	{:else if niveles.length === 0}
-		<p class="p-10 text-center text-sm text-slate-400">Aún no hay niveles. Agrega el primero con «Agregar nivel».</p>
+		<TablaVacia
+			icono={Layers}
+			titulo="Aún no hay niveles. Agrega el primero con «Agregar nivel»."
+		/>
 	{:else}
-		<div class="overflow-x-auto">
-			<table class="w-full text-left text-sm">
-				<thead>
-					<tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-						<th class="px-4 py-3">Nivel</th>
-						<th class="px-4 py-3">Rango del pedido</th>
-						<th class="px-4 py-3">Comisión (COP)</th>
-						<th class="px-4 py-3 text-right">Acción</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each niveles as n, i (n.id)}
-						<tr class="border-b border-slate-100 align-middle transition hover:bg-slate-50/60">
-							<td class="px-4 py-3">
-								<span class="inline-flex size-8 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary">
-									{n.nivel}
-								</span>
-							</td>
-							<td class="px-4 py-3">
+		<SoloEscritorio>
+			<div class="overflow-x-auto">
+				<table class="w-full text-left text-sm">
+					<TablaEncabezado
+						columnas={[
+							{ etiqueta: 'Nivel' },
+							{ etiqueta: 'Rango del pedido' },
+							{ etiqueta: 'Comisión (COP)' },
+							{ etiqueta: 'Acción', alineacion: 'derecha' }
+						]}
+					/>
+					<tbody>
+						{#each niveles as n, i (n.id)}
+							<tr class="border-b border-slate-100 align-middle transition hover:bg-slate-50/60">
+								<td class="px-4 py-3">
+									<span class="inline-flex size-8 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary">
+										{n.nivel}
+									</span>
+								</td>
+								<td class="px-4 py-3">
+									{#if i === 0}
+										<p class="font-medium text-slate-900">Hasta {formatearPeso(n.hasta)}</p>
+										<p class="text-xs text-slate-400">los pedidos más económicos</p>
+									{:else}
+										<p class="font-medium text-slate-900">
+											De {formatearPeso(n.desde)} a {formatearPeso(n.hasta)}
+										</p>
+										<p class="text-xs text-slate-400">pedidos de {formatearPeso(n.desde)} en adelante</p>
+									{/if}
+								</td>
+								<td class="px-4 py-3">
+									<div class="flex items-center gap-1.5">
+										<span class="text-slate-400">$</span>
+										<input
+											type="text"
+											inputmode="numeric"
+											value={formatearMontoCampo(valorInput[n.id])}
+											oninput={(e) => { valorInput[n.id] = normalizarMontoCampo(e.currentTarget.value); valorInput = { ...valorInput }; }}
+											disabled={guardando[n.id]}
+											aria-label={`Comisión del nivel ${n.nivel}`}
+											class="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 transition focus:border-primary focus:outline-none disabled:opacity-60"
+										/>
+									</div>
+									<div class="mt-1 flex items-center gap-1.5">
+										<span class="text-[10px] text-slate-400">tope $</span>
+										<input
+											type="text"
+											inputmode="numeric"
+											value={formatearMontoCampo(hastaInput[n.id])}
+											oninput={(e) => { hastaInput[n.id] = normalizarMontoCampo(e.currentTarget.value); hastaInput = { ...hastaInput }; }}
+											disabled={guardando[n.id]}
+											aria-label={`Tope del nivel ${n.nivel}`}
+											class="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 transition focus:border-primary focus:outline-none disabled:opacity-60"
+										/>
+									</div>
+								</td>
+								<td class="px-4 py-3 text-right">
+									<div class="flex flex-wrap justify-end gap-1.5">
+										<Boton variant="primario" onclick={() => guardar(n)} disabled={guardando[n.id]}>
+											<Icon icon={Save} class="size-3" />
+											{guardando[n.id] ? 'Guardando…' : 'Guardar'}
+										</Boton>
+										<Boton variant="peligro" onclick={() => eliminar(n)} disabled={guardando[n.id]}>
+											<Icon icon={X} class="size-3" />
+											Eliminar
+										</Boton>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</SoloEscritorio>
+
+		<SoloMovil>
+			<ul class="space-y-3 p-3 sm:p-4">
+				{#each niveles as n, i (n.id)}
+					<li class="rounded-xl border border-slate-200 bg-white p-4">
+						<div class="flex items-center gap-3">
+							<span class="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary">
+								{n.nivel}
+							</span>
+							<div class="min-w-0">
 								{#if i === 0}
 									<p class="font-medium text-slate-900">Hasta {formatearPeso(n.hasta)}</p>
 									<p class="text-xs text-slate-400">los pedidos más económicos</p>
@@ -335,8 +413,11 @@
 									</p>
 									<p class="text-xs text-slate-400">pedidos de {formatearPeso(n.desde)} en adelante</p>
 								{/if}
-							</td>
-							<td class="px-4 py-3">
+							</div>
+						</div>
+
+						<div class="mt-3 space-y-3">
+							<CampoMovil etiqueta="Comisión">
 								<div class="flex items-center gap-1.5">
 									<span class="text-slate-400">$</span>
 									<input
@@ -346,11 +427,13 @@
 										oninput={(e) => { valorInput[n.id] = normalizarMontoCampo(e.currentTarget.value); valorInput = { ...valorInput }; }}
 										disabled={guardando[n.id]}
 										aria-label={`Comisión del nivel ${n.nivel}`}
-										class="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 transition focus:border-primary focus:outline-none disabled:opacity-60"
+										class="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition focus:border-primary focus:outline-none disabled:opacity-60"
 									/>
 								</div>
-								<div class="mt-1 flex items-center gap-1.5">
-									<span class="text-[10px] text-slate-400">tope $</span>
+							</CampoMovil>
+							<CampoMovil etiqueta="Tope del rango">
+								<div class="flex items-center gap-1.5">
+									<span class="text-slate-400">$</span>
 									<input
 										type="text"
 										inputmode="numeric"
@@ -358,39 +441,28 @@
 										oninput={(e) => { hastaInput[n.id] = normalizarMontoCampo(e.currentTarget.value); hastaInput = { ...hastaInput }; }}
 										disabled={guardando[n.id]}
 										aria-label={`Tope del nivel ${n.nivel}`}
-										class="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 transition focus:border-primary focus:outline-none disabled:opacity-60"
+										class="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition focus:border-primary focus:outline-none disabled:opacity-60"
 									/>
 								</div>
-							</td>
-							<td class="px-4 py-3 text-right">
-								<div class="flex flex-wrap justify-end gap-1.5">
-									<button
-										type="button"
-										onclick={() => guardar(n)}
-										disabled={guardando[n.id]}
-										class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
-									>
-										<Icon icon={Save} class="size-3" />
-										{guardando[n.id] ? 'Guardando…' : 'Guardar'}
-									</button>
-									<button
-										type="button"
-										onclick={() => eliminar(n)}
-										disabled={guardando[n.id]}
-										class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
-									>
-										<Icon icon={X} class="size-3" />
-										Eliminar
-									</button>
-								</div>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+							</CampoMovil>
+						</div>
+
+						<div class="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+							<Boton variant="primario" onclick={() => guardar(n)} disabled={guardando[n.id]}>
+								<Icon icon={Save} class="size-3" />
+								{guardando[n.id] ? 'Guardando…' : 'Guardar'}
+							</Boton>
+							<Boton variant="peligro" onclick={() => eliminar(n)} disabled={guardando[n.id]}>
+								<Icon icon={X} class="size-3" />
+								Eliminar
+							</Boton>
+						</div>
+					</li>
+				{/each}
+			</ul>
+		</SoloMovil>
 	{/if}
-</div>
+</Tabla>
 
 <p class="mt-5 flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">
 	<Icon icon={Lightbulb} class="mt-0.5 size-4 shrink-0 text-amber-500" />
@@ -400,4 +472,4 @@
 		mañana. Con «Reacomodar escalera» cambias el rango que abarca cada nivel; el domiciliario ve esta tabla en su
 		panel para saber cuánto pagará.
 	</span>
-</p>
+</p>

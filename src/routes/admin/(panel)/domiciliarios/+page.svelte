@@ -4,7 +4,10 @@
 	import { debounce, suscribirCambios, type RealtimeEstado } from '$lib/realtime';
 	import IndicadorRealtime from '$lib/components/IndicadorRealtime.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { Ban, Plus, RotateCw } from 'lucide';
+	import { Ban, Plus, RotateCw, Users } from 'lucide';
+	import Badge from '$lib/components/tabla/Badge.svelte';
+	import TablaVacia from '$lib/components/tabla/TablaVacia.svelte';
+	import TablaError from '$lib/components/tabla/TablaError.svelte';
 	import { formatearMontoCampo, formatearPeso, normalizarMontoCampo, type Domiciliario, type DomiciliarioConBase, type PagoDomiciliario } from '$lib/types';
 
 	interface DomiciliarioFila extends Domiciliario {
@@ -430,11 +433,19 @@
 				Cargando…
 			</div>
 		{:else if error}
-			<div class="p-6 text-sm text-red-600">No se pudieron cargar los domiciliarios: {error}</div>
+			<TablaError
+				titulo="No se pudieron cargar los domiciliarios"
+				mensaje={error}
+				onreintentar={cargar}
+			/>
 		{:else if visibles.length === 0}
-			<p class="p-10 text-center text-sm text-slate-400">
-				{lista.length === 0 ? 'Aún no hay domiciliarios registrados.' : 'Sin resultados para la búsqueda.'}
-			</p>
+			<TablaVacia
+				icono={Users}
+				titulo={lista.length === 0 ? 'Aún no hay domiciliarios registrados.' : 'Sin resultados para la búsqueda.'}
+				descripcion={lista.length === 0
+					? 'Registra el primer domiciliario con el formulario de la izquierda para que aparezca aquí.'
+					: 'Ajusta la búsqueda para ver más resultados.'}
+			/>
 		{:else}
 			<ul class="divide-y divide-slate-100">
 				{#each visibles as d (d.id)}
@@ -450,24 +461,13 @@
 								{formatearFecha(d.created_at ?? '')}
 							</p>
 						</div>
-							<span
-								class="inline-flex shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold {d.activo
-									? 'border-primary/30 bg-primary-light text-primary-dark'
-									: 'border-slate-200 bg-slate-100 text-slate-500'}"
-							>
-								{d.activo ? 'Activo' : 'Inactivo'}
-							</span>
-							<span
-								class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold {d.bloqueado
-									? 'border-red-200 bg-red-50 text-red-700'
-									: 'border-slate-200 bg-slate-100 text-slate-500'}"
-								title={d.bloqueado ? 'Bloqueado por falta de pago' : 'Sin bloqueo'}
-							>
-								{#if d.bloqueado}
-									<Icon icon={Ban} class="size-3" />
-								{/if}
-								{d.bloqueado ? 'Bloqueado' : 'Al día'}
-							</span>
+						<Badge tono={d.activo ? 'primary' : 'neutral'}>{d.activo ? 'Activo' : 'Inactivo'}</Badge>
+						<Badge tono={d.bloqueado ? 'error' : 'success'} title={d.bloqueado ? 'Bloqueado por falta de pago' : 'Sin bloqueo'}>
+							{#if d.bloqueado}
+								<Icon icon={Ban} class="size-3" />
+							{/if}
+							{d.bloqueado ? 'Bloqueado' : 'Al día'}
+						</Badge>
 						</div>
 
 						<div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

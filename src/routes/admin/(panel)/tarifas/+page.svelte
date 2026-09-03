@@ -170,20 +170,20 @@
 			<table class="border-separate border-spacing-0 text-sm">
 				<thead>
 					<tr>
-						<th class="sticky top-0 left-0 z-20 border-b border-r border-slate-200 bg-slate-100 px-4 py-3 text-left text-xs font-bold tracking-wide text-slate-500 uppercase">
-							Origen ↓ / Destino →
+					<th class="sticky top-0 left-0 z-20 border-b border-r border-slate-200 bg-slate-50 px-4 py-3 text-left text-xs font-bold tracking-wide whitespace-nowrap text-slate-500 uppercase">
+						Origen ↓ / Destino →
+					</th>
+					{#each destinos as destino (destino.id)}
+						<th class="sticky top-0 z-10 min-w-36 border-b border-slate-200 bg-slate-50 px-2 py-3 text-center text-xs font-semibold whitespace-nowrap text-slate-600">
+							{destino.nombre}
 						</th>
-						{#each destinos as destino (destino.id)}
-							<th class="sticky top-0 z-10 min-w-36 border-b border-slate-200 bg-slate-100 px-2 py-3 text-center text-xs font-semibold text-slate-600">
-								{destino.nombre}
-							</th>
-						{/each}
+					{/each}
 					</tr>
 				</thead>
 				<tbody>
 					{#each origenes as origen (origen.id)}
 						<tr>
-							<th class="sticky left-0 z-10 max-w-52 border-r border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-left align-middle text-xs font-bold text-slate-700">
+							<th class="sticky left-0 z-10 max-w-52 border-r border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-left align-middle text-xs font-bold whitespace-nowrap text-slate-700">
 								{origen.nombre}
 							</th>
 							{#each destinos as destino (destino.id)}

@@ -1,8 +1,19 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Icon from '$lib/components/Icon.svelte';
-	import { Search, Plus } from 'lucide';
+	import { Search, Plus, MapPin } from 'lucide';
 	import { ordenarZonas, type Barrio, type Zona } from '$lib/types';
+	import Tabla from '$lib/components/tabla/Tabla.svelte';
+	import TablaEncabezado from '$lib/components/tabla/TablaEncabezado.svelte';
+	import TablaVacia from '$lib/components/tabla/TablaVacia.svelte';
+	import TablaError from '$lib/components/tabla/TablaError.svelte';
+	import TablaCargando from '$lib/components/tabla/TablaCargando.svelte';
+	import Paginacion from '$lib/components/tabla/Paginacion.svelte';
+	import Badge from '$lib/components/tabla/Badge.svelte';
+	import Boton from '$lib/components/tabla/Boton.svelte';
+	import CampoMovil from '$lib/components/tabla/CampoMovil.svelte';
+	import SoloEscritorio from '$lib/components/tabla/SoloEscritorio.svelte';
+	import SoloMovil from '$lib/components/tabla/SoloMovil.svelte';
 
 	let barrios = $state<Barrio[]>([]);
 	let zonas = $state<Zona[]>([]);
@@ -199,8 +210,8 @@
 </form>
 
 <!-- Filtros -->
-<div class="mb-4 flex flex-wrap items-center gap-3">
-	<div class="relative min-w-52 flex-1 sm:max-w-xs">
+<div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+	<div class="relative w-full sm:max-w-xs">
 		<Icon icon={Search} class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
 		<input
 			bind:value={busqueda}
@@ -208,64 +219,134 @@
 			class="input pl-9"
 		/>
 	</div>
-	<select bind:value={zonaFiltro} class="input w-auto" aria-label="Filtrar por zona">
+	<select bind:value={zonaFiltro} class="input w-full sm:w-auto" aria-label="Filtrar por zona">
 		<option value="todas">Todas las zonas</option>
 		{#each zonas as zona (zona.id)}
 			<option value={zona.id}>{zona.nombre}</option>
 		{/each}
 	</select>
-	<span class="text-xs text-slate-400">
+	<span class="text-xs text-slate-400 sm:ml-auto">
 		Mostrando {visibles.length} de {filtrados.length}
 	</span>
 </div>
 
-<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+<Tabla>
 	{#if cargando}
-		<div class="flex items-center justify-center gap-3 py-16 text-slate-500">
-			<span class="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" ></span>
-			Cargando barrios…
-		</div>
+		<TablaCargando columnas={4} filas={5} />
 	{:else if error}
-		<div class="p-6 text-sm text-red-600">No se pudieron cargar los barrios: {error}</div>
+		<TablaError
+			titulo="No se pudieron cargar los barrios"
+			mensaje={error}
+			onreintentar={cargar}
+		/>
+	{:else if visibles.length === 0}
+		<TablaVacia
+			icono={MapPin}
+			titulo={barrios.length === 0 ? 'No hay barrios todavía' : 'No hay barrios que coincidan con la búsqueda'}
+			descripcion={barrios.length === 0
+				? 'Los barrios aparecerán aquí cuando sean registrados.'
+				: 'Ajusta la búsqueda o el filtro de zona para ver más resultados.'}
+		/>
 	{:else}
-		<div class="overflow-x-auto">
-			<table class="w-full text-left text-sm">
-				<thead>
-					<tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-						<th class="px-4 py-3">Barrio</th>
-						<th class="px-4 py-3">Zona</th>
-						<th class="px-4 py-3">Revisado</th>
-						<th class="px-4 py-3 text-right">Acciones</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each visibles as barrio (barrio.id)}
-						<tr class="border-b border-slate-100 transition hover:bg-slate-50/60">
-							<td class="px-4 py-2.5 font-medium text-slate-900">
-								{barrio.nombre}
-								{#if !barrio.zona_id}
-									<span class="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">SIN ZONA</span>
-								{/if}
-							</td>
-							<td class="px-4 py-2.5">
-								<div class="flex items-center gap-2">
-									<select
-										value={barrio.zona_id ?? ''}
-										onchange={(e) => reasignarZona(barrio, (e.currentTarget as HTMLSelectElement).value)}
-										disabled={guardando[barrio.id]}
-										class="max-w-56 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 transition focus:border-primary focus:outline-none disabled:opacity-60"
-									>
-										<option value="">— Sin zona —</option>
-										{#each zonas as zona (zona.id)}
-											<option value={zona.id}>{zona.nombre}</option>
-										{/each}
-									</select>
-									{#if guardando[barrio.id]}
-										<span class="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" ></span>
+		<SoloEscritorio>
+			<div class="overflow-x-auto">
+				<table class="w-full text-left text-sm">
+					<TablaEncabezado
+						columnas={[
+							{ etiqueta: 'Barrio' },
+							{ etiqueta: 'Zona' },
+							{ etiqueta: 'Revisado' },
+							{ etiqueta: 'Acciones', alineacion: 'derecha' }
+						]}
+					/>
+					<tbody>
+						{#each visibles as barrio (barrio.id)}
+							<tr class="border-b border-slate-100 transition hover:bg-slate-50/60">
+								<td class="px-4 py-2.5 font-medium text-slate-900">
+									{barrio.nombre}
+									{#if !barrio.zona_id}
+										<Badge tono="warning" size="xs" class="ml-2">SIN ZONA</Badge>
 									{/if}
-								</div>
-							</td>
-							<td class="px-4 py-2.5">
+								</td>
+								<td class="px-4 py-2.5">
+									<div class="flex items-center gap-2">
+										<select
+											value={barrio.zona_id ?? ''}
+											onchange={(e) => reasignarZona(barrio, (e.currentTarget as HTMLSelectElement).value)}
+											disabled={guardando[barrio.id]}
+											class="max-w-56 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 transition focus:border-primary focus:outline-none disabled:opacity-60"
+										>
+											<option value="">— Sin zona —</option>
+											{#each zonas as zona (zona.id)}
+												<option value={zona.id}>{zona.nombre}</option>
+											{/each}
+										</select>
+										{#if guardando[barrio.id]}
+											<span class="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" ></span>
+										{/if}
+									</div>
+								</td>
+								<td class="px-4 py-2.5">
+									<button
+										type="button"
+										role="switch"
+										aria-checked={barrio.revisado}
+										onclick={() => toggleRevisado(barrio)}
+										class="relative inline-flex h-6 w-11 items-center rounded-full transition {barrio.revisado ? 'bg-primary' : 'bg-slate-300'}"
+										title={barrio.revisado ? 'Revisado' : 'Pendiente de revisión'}
+									>
+										<span
+											class="inline-block size-4.5 translate-x-0.5 rounded-full bg-white shadow transition-transform {barrio.revisado ? 'translate-x-[1.4rem]' : ''}"
+										></span>
+									</button>
+								</td>
+								<td class="px-4 py-2.5 text-right">
+									<Boton variant="peligro" onclick={() => eliminar(barrio)}>
+										Eliminar
+									</Boton>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</SoloEscritorio>
+
+		<SoloMovil>
+			<ul class="space-y-3 p-3 sm:p-4">
+				{#each visibles as barrio (barrio.id)}
+					<li class="rounded-xl border border-slate-200 bg-white p-4">
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0">
+								<p class="font-semibold text-slate-900">{barrio.nombre}</p>
+								{#if !barrio.zona_id}
+									<Badge tono="warning" size="xs" class="mt-1.5">SIN ZONA</Badge>
+								{/if}
+							</div>
+						</div>
+
+						<div class="mt-3">
+							<CampoMovil etiqueta="Zona">
+								<select
+									value={barrio.zona_id ?? ''}
+									onchange={(e) => reasignarZona(barrio, (e.currentTarget as HTMLSelectElement).value)}
+									disabled={guardando[barrio.id]}
+									class="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-primary focus:outline-none disabled:opacity-60"
+								>
+									<option value="">— Sin zona —</option>
+									{#each zonas as zona (zona.id)}
+										<option value={zona.id}>{zona.nombre}</option>
+									{/each}
+								</select>
+							</CampoMovil>
+						</div>
+
+						<div class="mt-3 flex items-center justify-between">
+							<span class="text-[11px] font-semibold tracking-wide text-slate-400 uppercase">Revisado</span>
+							<div class="flex items-center gap-2">
+								{#if guardando[barrio.id]}
+									<span class="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" ></span>
+								{/if}
 								<button
 									type="button"
 									role="switch"
@@ -278,53 +359,29 @@
 										class="inline-block size-4.5 translate-x-0.5 rounded-full bg-white shadow transition-transform {barrio.revisado ? 'translate-x-[1.4rem]' : ''}"
 									></span>
 								</button>
-							</td>
-							<td class="px-4 py-2.5 text-right">
-								<button
-									type="button"
-									onclick={() => eliminar(barrio)}
-									class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50"
-								>
-									Eliminar
-								</button>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+							</div>
+						</div>
 
-		{#if visibles.length === 0}
-			<p class="p-8 text-center text-sm text-slate-400">No hay barrios que coincidan con la búsqueda.</p>
-		{/if}
+						<div class="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-3">
+							<Boton variant="peligro" onclick={() => eliminar(barrio)}>
+								Eliminar
+							</Boton>
+						</div>
+					</li>
+				{/each}
+			</ul>
+		</SoloMovil>
 
 		{#if totalPaginas > 1}
-			<div class="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
-				<span>
-					Página {paginaActual + 1} de {totalPaginas}
-				</span>
-				<div class="flex gap-1.5">
-					<button
-						type="button"
-						onclick={() => (pagina = Math.max(0, paginaActual - 1))}
-						disabled={paginaActual === 0}
-						class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-medium transition hover:bg-slate-100 disabled:opacity-40"
-					>
-						← Anterior
-					</button>
-					<button
-						type="button"
-						onclick={() => (pagina = Math.min(totalPaginas - 1, paginaActual + 1))}
-						disabled={paginaActual >= totalPaginas - 1}
-						class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-medium transition hover:bg-slate-100 disabled:opacity-40"
-					>
-						Siguiente →
-					</button>
-				</div>
-			</div>
+			<Paginacion
+				pagina={paginaActual}
+				totalPaginas={totalPaginas}
+				onCambio={(p) => (pagina = p)}
+				resumen={`Mostrando ${visibles.length} de ${filtrados.length} barrios`}
+			/>
 		{/if}
 	{/if}
-</div>
+</Tabla>
 
 <style>
 	.input {

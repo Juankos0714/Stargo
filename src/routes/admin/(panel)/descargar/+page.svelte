@@ -223,13 +223,13 @@
 	<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 		<h2 class="text-lg font-bold text-slate-900">Comparación</h2>
 		<div class="mt-4 overflow-x-auto">
-			<table class="w-full text-sm">
+			<table class="w-full min-w-[560px] text-sm">
 				<thead>
-					<tr class="border-b border-slate-200 text-left text-xs font-semibold text-slate-500 uppercase">
-						<th class="pb-3 pr-4">Característica</th>
-						<th class="pb-3 pr-4">PWA</th>
-						<th class="pb-3 pr-4">Android</th>
-						<th class="pb-3">iOS</th>
+					<tr class="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase">
+						<th class="py-3 pr-4 whitespace-nowrap">Característica</th>
+						<th class="py-3 pr-4 whitespace-nowrap">PWA</th>
+						<th class="py-3 pr-4 whitespace-nowrap">Android</th>
+						<th class="py-3 whitespace-nowrap">iOS</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-100 text-slate-600">
